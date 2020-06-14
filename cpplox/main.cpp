@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "scanner.h"
+#include "lexer.h"
 #include "token.h"
 #include "token_type.h"
 
@@ -37,7 +37,7 @@ void report(int line, const std::string& where, const std::string message) {
 }
 
 void run(const std::string& str) {
-    Scanner s{str};
+    Lexer s{str};
     auto tokens = s.scanTokens();
 
     for (const auto& token : tokens) {

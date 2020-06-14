@@ -25,7 +25,7 @@ const std::unordered_map<std::string, TokenType> keywords{
     {"while", TokenType::While}
 };
 
-class Scanner {
+class Lexer {
 
     std::string source;
     std::vector<Token> tokens;
@@ -46,6 +46,6 @@ class Scanner {
     void identifier();
 
  public:
-    Scanner(const std::string& source);
+    Lexer(const std::string& source);
     std::vector<Token> scanTokens();
 };

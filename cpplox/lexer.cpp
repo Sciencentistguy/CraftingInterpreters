@@ -1,13 +1,13 @@
-#include "scanner.h"
+#include "lexer.h"
 
 #include <cctype>
 
 #include "main.h"
 
-Scanner::Scanner(const std::string& source) : source{source} {
+Lexer::Lexer(const std::string& source) : source{source} {
 }
 
-std::vector<Token> Scanner::scanTokens() {
+std::vector<Token> Lexer::scanTokens() {
     while (!isAtEnd()) {
         start = current;
         scanToken();
@@ -16,11 +16,11 @@ std::vector<Token> Scanner::scanTokens() {
     return tokens;
 }
 
-bool Scanner::isAtEnd() {
+bool Lexer::isAtEnd() {
     return current >= source.length();
 }
 
-void Scanner::scanToken() {
+void Lexer::scanToken() {
     char c = advance();
     switch (c) {
         case '(':
@@ -161,21 +161,21 @@ void Scanner::scanToken() {
     }
 }
 
-char Scanner::advance() {
+char Lexer::advance() {
     current++;
     return source[current - 1];
 }
 
-void Scanner::addToken(TokenType type) {
+void Lexer::addToken(TokenType type) {
     addToken(type, std::any());
 }
 
-void Scanner::addToken(TokenType type, std::any literal) {
+void Lexer::addToken(TokenType type, std::any literal) {
     auto text = source.substr(start, (current - start));
     tokens.push_back(Token(type, text, literal, current));
 }
 
-bool Scanner::match(char expected) {
+bool Lexer::match(char expected) {
     if (isAtEnd()) {
         return false;
     }
@@ -186,7 +186,7 @@ bool Scanner::match(char expected) {
     return true;
 }
 
-char Scanner::peek() {
+char Lexer::peek() {
     if (isAtEnd()) {
         return '\0';
     }
@@ -194,14 +194,14 @@ char Scanner::peek() {
     return 0;
 }
 
-char Scanner::peekNext() {
+char Lexer::peekNext() {
     if (current + 1 >= source.length()) {
         return '\0';
     }
     return source[current + 1];
 }
 
-void Scanner::string() {
+void Lexer::string() {
     while (peek() != '"' && !isAtEnd()) {
         if (peek() == '\n') {
             line++;
@@ -217,7 +217,7 @@ void Scanner::string() {
     addToken(TokenType::String, value);
 }
 
-void Scanner::number() {
+void Lexer::number() {
     while (std::isdigit(peek())) {
         advance();
     }
@@ -230,7 +230,7 @@ void Scanner::number() {
     addToken(TokenType::Number, std::stod(source.substr(start, (current - start)).c_str()));
 }
 
-void Scanner::identifier() {
+void Lexer::identifier() {
     while (std::isalnum(peek()) || peek() == '_') {
         advance();
     }
