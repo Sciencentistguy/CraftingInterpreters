@@ -5,6 +5,10 @@ Literal<T>::Literal(const T& value) : value{value} {
 }
 
 template<class T>
+Literal<T>::Literal() {
+}
+
+template<class T>
 T Literal<T>::accept(std::shared_ptr<Visitor<T>> visitor) {
     return visitor->visitLiteralExpr(this.shared_from_this());
 }

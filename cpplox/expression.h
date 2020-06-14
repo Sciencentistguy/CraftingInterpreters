@@ -71,7 +71,8 @@ class Literal : public Expression<T>, public std::enable_shared_from_this<Litera
     T value;
 
     explicit Literal(const T& value);
-    T accept(std::shared_ptr<Visitor<T>> visitor) override;
+    explicit Literal();
+    T accept(std::shared_ptr<Visitor<T>> visitor);
 };
 
 template<class T>
@@ -111,7 +112,7 @@ class Unary : public Expression<T>, public std::enable_shared_from_this<Unary<T>
     std::shared_ptr<Expression<T>> right;
 
     Unary(const Token& operation, const std::shared_ptr<Expression<T>> right);
-    T accept(std::shared_ptr<Visitor<T>> visitor) override;
+    T accept(std::shared_ptr<Visitor<T>> visitor);
 };
 
 template<class T>

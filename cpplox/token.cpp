@@ -16,3 +16,10 @@ std::ostream& operator<<(std::ostream& lhs, const Token& rhs) {
     lhs << "<Token: type: '" << static_cast<int>(rhs.type) << "'; lexeme: '" << rhs.lexeme << "'; literal: '" << lit << "'>";
     return lhs;
 }
+
+const TokenType Token::getType() const {
+    return type;
+}
+const std::any& Token::getLiteral() const {
+    return literal;
+}
