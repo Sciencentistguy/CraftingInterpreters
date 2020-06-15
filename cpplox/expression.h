@@ -5,182 +5,155 @@
 
 #include "token.h"
 
-template<class T>
 class Literal;
 
-template<class T>
 class Assign;
 
-template<class T>
 class Binary;
 
-template<class T>
 class Grouping;
 
-template<class T>
 class Unary;
 
-template<class T>
 class Variable;
 
-template<class T>
 class Logical;
 
-template<class T>
 class Call;
 
-template<class T>
 class Get;
 
-template<class T>
 class Set;
 
-template<class T>
 class This;
 
-template<class T>
 class Super;
 
-template<class T>
 class Visitor {
  public:
-    virtual T visitLiteralExpr(std::shared_ptr<Literal<T>> expr) = 0;
-    virtual T visitAssignExpr(std::shared_ptr<Assign<T>> expr) = 0;
-    virtual T visitBinaryExpr(std::shared_ptr<Binary<T>> expr) = 0;
-    virtual T visitGroupingExpr(std::shared_ptr<Grouping<T>> expr) = 0;
-    virtual T visitUnaryExpr(std::shared_ptr<Unary<T>> expr) = 0;
-    virtual T visitVariableExpr(std::shared_ptr<Variable<T>> expr) = 0;
-    virtual T visitLogicalExpr(std::shared_ptr<Logical<T>> expr) = 0;
-    virtual T visitCallExpr(std::shared_ptr<Call<T>> expr) = 0;
-    virtual T visitGetExpr(std::shared_ptr<Get<T>> expr) = 0;
-    virtual T visitSetExpr(std::shared_ptr<Set<T>> expr) = 0;
-    virtual T visitThisExpr(std::shared_ptr<This<T>> expr) = 0;
-    virtual T visitSuperExpr(std::shared_ptr<Super<T>> expr) = 0;
+    virtual std::any visitLiteralExpr(std::shared_ptr<Literal> expr) = 0;
+    virtual std::any visitAssignExpr(std::shared_ptr<Assign> expr) = 0;
+    virtual std::any visitBinaryExpr(std::shared_ptr<Binary> expr) = 0;
+    virtual std::any visitGroupingExpr(std::shared_ptr<Grouping> expr) = 0;
+    virtual std::any visitUnaryExpr(std::shared_ptr<Unary> expr) = 0;
+    virtual std::any visitVariableExpr(std::shared_ptr<Variable> expr) = 0;
+    virtual std::any visitLogicalExpr(std::shared_ptr<Logical> expr) = 0;
+    virtual std::any visitCallExpr(std::shared_ptr<Call> expr) = 0;
+    virtual std::any visitGetExpr(std::shared_ptr<Get> expr) = 0;
+    virtual std::any visitSetExpr(std::shared_ptr<Set> expr) = 0;
+    virtual std::any visitThisExpr(std::shared_ptr<This> expr) = 0;
+    virtual std::any visitSuperExpr(std::shared_ptr<Super> expr) = 0;
 };
 
-template<class T>
 class Expression {
  public:
-    virtual T accept(const std::shared_ptr<T> visitor) = 0;
+    virtual std::any accept(const std::shared_ptr<Visitor> visitor) = 0;
     //    virtual ~Expression() = default;
 };
 
-template<class T>
-class Literal : public Expression<T>, public std::enable_shared_from_this<Literal<T>> {
+class Literal : public Expression, public std::enable_shared_from_this<Literal> {
  public:
-    T value;
+    std::any value;
 
-    explicit Literal(const T& value);
-    explicit Literal();
-    T accept(std::shared_ptr<Visitor<T>> visitor);
+    explicit Literal(const std::any& value);
+    std::any accept(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Assign : public Expression<T>, public std::enable_shared_from_this<Assign<T>> {
+class Assign : public Expression, public std::enable_shared_from_this<Assign> {
  public:
     Token name;
-    std::shared_ptr<Expression<T>> value;
+    std::shared_ptr<Expression> value;
 
-    Assign(const Token& name, std::shared_ptr<Expression<T>> value);
-    T accept(std::shared_ptr<Visitor<T>> visitor) override;
+    Assign(const Token& name, std::shared_ptr<Expression> value);
+    std::any accept(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Binary : public Expression<T>, public std::enable_shared_from_this<Binary<T>> {
+class Binary : public Expression, public std::enable_shared_from_this<Binary> {
  public:
     Token operation;
-    std::shared_ptr<Expression<T>> left;
-    std::shared_ptr<Expression<T>> right;
+    std::shared_ptr<Expression> left;
+    std::shared_ptr<Expression> right;
 
-    Binary(const Token& operation, std::shared_ptr<Expression<T>> left, std::shared_ptr<Expression<T>> right);
-    T accept(const std::shared_ptr<T> visitor) override;
+    Binary(const Token& operation, std::shared_ptr<Expression> left, std::shared_ptr<Expression> right);
+    std::any accept(const std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Grouping : public Expression<T>, public std::enable_shared_from_this<Grouping<T>> {
+class Grouping : public Expression, public std::enable_shared_from_this<Grouping> {
  public:
-    std::shared_ptr<Expression<T>> expression;
+    std::shared_ptr<Expression> expression;
 
-    Grouping(const std::shared_ptr<Expression<T>> expression);
-    T accept(std::shared_ptr<T> visitor) override;
+    Grouping(const std::shared_ptr<Expression> expression);
+    std::any accept(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Unary : public Expression<T>, public std::enable_shared_from_this<Unary<T>> {
+class Unary : public Expression, public std::enable_shared_from_this<Unary> {
  public:
     Token operation;
-    std::shared_ptr<Expression<T>> right;
+    std::shared_ptr<Expression> right;
 
-    Unary(const Token& operation, const std::shared_ptr<Expression<T>> right);
-    T accept(std::shared_ptr<Visitor<T>> visitor);
+    Unary(const Token& operation, const std::shared_ptr<Expression> right);
+    std::any accept(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Variable : public Expression<T>, public std::enable_shared_from_this<Variable<T>> {
+class Variable : public Expression, public std::enable_shared_from_this<Variable> {
  public:
     Token name;
 
     Variable(const Token& name);
-    T accept(std::shared_ptr<Visitor<T>> visitor) override;
+    std::any accept(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Logical : public Expression<T>, public std::enable_shared_from_this<Logical<T>> {
+class Logical : public Expression, public std::enable_shared_from_this<Logical> {
  public:
     Token operation;
-    std::shared_ptr<Expression<T>> left;
-    std::shared_ptr<Expression<T>> right;
+    std::shared_ptr<Expression> left;
+    std::shared_ptr<Expression> right;
 
-    Logical(const Token& operation, const std::shared_ptr<T> left, const std::shared_ptr<T> right);
-    T accept(std::shared_ptr<Visitor<T>> visitor) override;
+    Logical(const Token& operation, const std::shared_ptr<Expression> left, const std::shared_ptr<Expression> right);
+    std::any accept(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Call : public Expression<T>, public std::enable_shared_from_this<Call<T>> {
+class Call : public Expression, public std::enable_shared_from_this<Call> {
  public:
     Token paren;
-    std::shared_ptr<Expression<T>> callee;
-    std::vector<std::shared_ptr<Expression<T>>> arguments;
+    std::shared_ptr<Expression> callee;
+    std::vector<std::shared_ptr<Expression>> arguments;
 
-    Call(const Token& paren, const std::shared_ptr<T> callee, std::vector<std::shared_ptr<Expression<T>>> arguments);
-    T enable(std::shared_ptr<Visitor<T>> visitor) override;
+    Call(const Token& paren, const std::shared_ptr<Expression> callee, std::vector<std::shared_ptr<Expression>> arguments);
+    std::any enable(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Get : public Expression<T>, public std::enable_shared_from_this<Get<T>> {
+class Get : public Expression, public std::enable_shared_from_this<Get> {
  public:
-    std::shared_ptr<Expression<T>> object;
+    std::shared_ptr<Expression> object;
     Token name;
 
-    Get(const std::shared_ptr<T> object, const Token& name);
-    T enable(std::shared_ptr<Visitor<T>> visitor) override;
+    Get(const std::shared_ptr<Expression> object, const Token& name);
+    std::any enable(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Set : public Expression<T>, public std::enable_shared_from_this<Set<T>> {
+class Set : public Expression, public std::enable_shared_from_this<Set> {
  public:
     Token keyword;
     Token method;
 
     Set(const Token& keyword, const Token& method);
-    T enable(std::shared_ptr<Visitor<T>> visitor) override;
+    std::any enable(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class This : public Expression<T>, public std::enable_shared_from_this<This<T>> {
+class This : public Expression, public std::enable_shared_from_this<This> {
  public:
     Token keyword;
 
     This(const Token& keyword);
-    T enable(std::shared_ptr<Visitor<T>> visitor) override;
+    std::any enable(std::shared_ptr<Visitor> visitor);
 };
 
-template<class T>
-class Super : public Expression<T>, public std::enable_shared_from_this<Super<T>> {
+class Super : public Expression, public std::enable_shared_from_this<Super> {
  public:
     Token keyword;
     Token method;
 
     Super(const Token& keyword, const Token& method);
-    T accept(std::shared_ptr<Visitor<T>> visitor) override;
+    std::any accept(std::shared_ptr<Visitor> visitor);
 };

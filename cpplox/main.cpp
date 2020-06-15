@@ -11,6 +11,8 @@
 #include "lexer.h"
 #include "token.h"
 #include "token_type.h"
+#include "parser.h"
+#include "expression_printer.h"
 
 bool hadError = false;
 
@@ -31,18 +33,34 @@ void error(int line, const std::string& message) {
     report(line, "", message);
 }
 
+void error(const Token& token, const std::string& message) {
+    if (token.getType() == TokenType::Eof) {
+        report(token.getLine(), " at end", message);
+    } else {
+        report(token.getLine(), " at '" + token.getLexeme() + "'", message);
+    }
+}
+
 void report(int line, const std::string& where, const std::string message) {
     std::cerr << "[Error line " << line << "] " << where << ": " << message << '\n';
     hadError = true;
 }
 
 void run(const std::string& str) {
-    Lexer s{str};
-    auto tokens = s.scanTokens();
+    Lexer l{str};
+    auto tokens = l.scanTokens();
+    Parser p{tokens};
+    auto expression = p.parse();
 
-    for (const auto& token : tokens) {
-        std::cout << token << '\n';
+    if (hadError) {
+        return;
     }
+    auto printer{std::make_shared<ExpressionPrinter>()};
+    std::cout << printer->print(expression) << '\n';
+
+//    for (const auto& token : tokens) {
+//        std::cout << token << '\n';
+//    }
 }
 
 std::string readFile(const std::string& filename) {
@@ -62,6 +80,7 @@ void runFile(const std::string& path) {
 void runPrompt() {
     while (true) {
         std::string str{};
+        std::cout << std::flush;
         std::cout << ">>> ";
         std::getline(std::cin, str);
         if (str == "") {

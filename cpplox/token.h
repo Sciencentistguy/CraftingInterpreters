@@ -16,4 +16,6 @@ class Token {
     friend std::ostream& operator<<(std::ostream& lhs, const Token& rhs);
     const TokenType getType() const;
     const std::any& getLiteral() const;
+    const int getLine() const;
+    const std::string& getLexeme() const;
 };

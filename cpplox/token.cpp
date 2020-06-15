@@ -23,3 +23,9 @@ const TokenType Token::getType() const {
 const std::any& Token::getLiteral() const {
     return literal;
 }
+const int Token::getLine() const {
+    return line;
+}
+const std::string& Token::getLexeme() const {
+    return lexeme;
+}
