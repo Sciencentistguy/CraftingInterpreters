@@ -1,5 +1,6 @@
 #include "main.h"
 
+#include <any>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -8,13 +9,17 @@
 #include <string>
 #include <vector>
 
+#include "expression_printer.h"
 #include "lexer.h"
+#include "parser.h"
 #include "token.h"
 #include "token_type.h"
-#include "parser.h"
-#include "expression_printer.h"
+#include "interpreter.h"
 
 bool hadError = false;
+bool hadRuntimeError = false;
+
+std::shared_ptr<Interpreter> interpreter{std::make_shared<Interpreter>()};
 
 int main(int argc, char* argv[]) {
     if (argc > 2) {
@@ -41,7 +46,7 @@ void error(const Token& token, const std::string& message) {
     }
 }
 
-void report(int line, const std::string& where, const std::string message) {
+void report(int line, const std::string& where, const std::string& message) {
     std::cerr << "[Error line " << line << "] " << where << ": " << message << '\n';
     hadError = true;
 }
@@ -55,12 +60,15 @@ void run(const std::string& str) {
     if (hadError) {
         return;
     }
-    auto printer{std::make_shared<ExpressionPrinter>()};
-    std::cout << printer->print(expression) << '\n';
 
-//    for (const auto& token : tokens) {
-//        std::cout << token << '\n';
-//    }
+    interpreter->interpret(expression);
+
+    //    auto printer{std::make_shared<expressionprinter>()};
+    //    std::cout << printer->print(expression) << '\n';
+
+    //    for (const auto& token : tokens) {
+    //        std::cout << token << '\n';
+    //    }
 }
 
 std::string readFile(const std::string& filename) {
@@ -75,6 +83,9 @@ void runFile(const std::string& path) {
     if (hadError) {
         std::exit(65);
     }
+    if (hadRuntimeError) {
+        std::exit(70);
+    }
 }
 
 void runPrompt() {
@@ -87,7 +98,34 @@ void runPrompt() {
             std::cout << '\n';
             return;
         }
-        run(str);
+        try {
+            run(str);
+        } catch (const std::exception& e) {
+            std::cerr << e.what() << std::endl;
+        }
+
         hadError = false;
     }
+}
+
+void runtimeError(const RuntimeError& error) {
+    std::cerr << error.what();
+    hadRuntimeError = true;
+}
+
+std::string stringify(const std::any& a) {
+    if (!a.has_value()) {
+        return "nil";
+    }
+    if (a.type() == typeid(double)) {
+        const double& val = std::any_cast<double>(a);
+        if (val == static_cast<int>(val)) {
+            return std::to_string(static_cast<int>(val));
+        }
+        return std::to_string(val);
+    }
+    if (a.type() == typeid(std::string)) {
+        return std::any_cast<std::string>(a);
+    }
+    throw std::runtime_error(std::string("Unexpected std::any type '") + a.type().name() + "'");
 }

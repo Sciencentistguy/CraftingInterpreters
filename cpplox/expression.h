@@ -82,7 +82,7 @@ class Grouping : public Expression, public std::enable_shared_from_this<Grouping
  public:
     std::shared_ptr<Expression> expression;
 
-    Grouping(const std::shared_ptr<Expression> expression);
+    explicit Grouping(const std::shared_ptr<Expression> expression);
     std::any accept(std::shared_ptr<Visitor> visitor);
 };
 
@@ -99,7 +99,7 @@ class Variable : public Expression, public std::enable_shared_from_this<Variable
  public:
     Token name;
 
-    Variable(const Token& name);
+    explicit Variable(const Token& name);
     std::any accept(std::shared_ptr<Visitor> visitor);
 };
 
@@ -119,7 +119,7 @@ class Call : public Expression, public std::enable_shared_from_this<Call> {
     std::shared_ptr<Expression> callee;
     std::vector<std::shared_ptr<Expression>> arguments;
 
-    Call(const Token& paren, const std::shared_ptr<Expression> callee, std::vector<std::shared_ptr<Expression>> arguments);
+    Call(const Token& paren, const std::shared_ptr<Expression> callee, const std::vector<Expression>& arguments_);
     std::any enable(std::shared_ptr<Visitor> visitor);
 };
 
@@ -145,7 +145,7 @@ class This : public Expression, public std::enable_shared_from_this<This> {
  public:
     Token keyword;
 
-    This(const Token& keyword);
+    explicit This(const Token& keyword);
     std::any enable(std::shared_ptr<Visitor> visitor);
 };
 

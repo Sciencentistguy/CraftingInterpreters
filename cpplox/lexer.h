@@ -46,6 +46,6 @@ class Lexer {
     void identifier();
 
  public:
-    Lexer(const std::string& source);
+    explicit Lexer(const std::string& source);
     std::vector<Token> scanTokens();
 };

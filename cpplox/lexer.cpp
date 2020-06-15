@@ -191,7 +191,6 @@ char Lexer::peek() {
         return '\0';
     }
     return source[current];
-    return 0;
 }
 
 char Lexer::peekNext() {
