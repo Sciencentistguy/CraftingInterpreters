@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include "token.h"
+
 const std::unordered_map<std::string, TokenType> keywords{
     {"and", TokenType::And},   {"class", TokenType::Class}, {"else", TokenType::Else},     {"false", TokenType::False},
     {"for", TokenType::For},   {"fun", TokenType::Fun},     {"if", TokenType::If},         {"nil", TokenType::Nil},

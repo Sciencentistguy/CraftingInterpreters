@@ -14,7 +14,6 @@
 #include "lexer.h"
 #include "parser.h"
 #include "token.h"
-#include "token_type.h"
 
 bool hadError = false;
 bool hadRuntimeError = false;
