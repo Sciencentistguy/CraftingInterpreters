@@ -10,7 +10,7 @@ const char* RuntimeError::what() const noexcept {
 }
 
 std::any Interpreter::visitLiteralExpr(std::shared_ptr<Literal> expr) {
-    return expr->value;
+    return expr->getValue();
 }
 
 std::any Interpreter::visitAssignExpr(std::shared_ptr<Assign> expr) {
@@ -18,19 +18,19 @@ std::any Interpreter::visitAssignExpr(std::shared_ptr<Assign> expr) {
 }
 
 std::any Interpreter::visitBinaryExpr(std::shared_ptr<Binary> expr) {
-    std::any left{evaluate(expr->left)};
-    std::any right{evaluate(expr->right)};
+    std::any left{evaluate(expr->getLeft())};
+    std::any right{evaluate(expr->getRight())};
 
-    switch (expr->operation.getType()) {
+    switch (expr->getOperator().getType()) {
         // Arithmetic
         case TokenType::Minus:
-            checkNumberOperand(expr->operation, left, right);
+            checkNumberOperand(expr->getOperator(), left, right);
             return std::any_cast<double>(left) - std::any_cast<double>(right);
         case TokenType::Slash:
-            checkNumberOperand(expr->operation, left, right);
+            checkNumberOperand(expr->getOperator(), left, right);
             return std::any_cast<double>(left) / std::any_cast<double>(right);
         case TokenType::Star:
-            checkNumberOperand(expr->operation, left, right);
+            checkNumberOperand(expr->getOperator(), left, right);
             return std::any_cast<double>(left) * std::any_cast<double>(right);
         case TokenType::Plus:
             if (left.type() == typeid(double) && right.type() == typeid(double)) {
@@ -39,27 +39,27 @@ std::any Interpreter::visitBinaryExpr(std::shared_ptr<Binary> expr) {
             if (left.type() == typeid(std::string) && right.type() == typeid(std::string)) {
                 return std::any_cast<std::string>(left) + std::any_cast<std::string>(right);
             }
-            throw RuntimeError("You plussed wrong (cannot add a number to a string, this isn't javascript)", expr->operation);
+            throw RuntimeError("You plussed wrong (cannot add a number to a string, this isn't javascript)", expr->getOperator());
 
         // Comparison
         case TokenType::Greater:
-            checkNumberOperand(expr->operation, left, right);
+            checkNumberOperand(expr->getOperator(), left, right);
             return std::any_cast<double>(left) > std::any_cast<double>(right);
         case TokenType::Greater_equal:
-            checkNumberOperand(expr->operation, left, right);
+            checkNumberOperand(expr->getOperator(), left, right);
             return std::any_cast<double>(left) >= std::any_cast<double>(right);
         case TokenType::Less:
-            checkNumberOperand(expr->operation, left, right);
+            checkNumberOperand(expr->getOperator(), left, right);
             return std::any_cast<double>(left) < std::any_cast<double>(right);
         case TokenType::Less_equal:
-            checkNumberOperand(expr->operation, left, right);
+            checkNumberOperand(expr->getOperator(), left, right);
             return std::any_cast<double>(left) <= std::any_cast<double>(right);
 
         // Equality
         case TokenType::Equal_equal:
-            return isEqual(expr->operation, left, right);
+            return isEqual(expr->getOperator(), left, right);
         case TokenType::Bang_equal:
-            return !isEqual(expr->operation, left, right);
+            return !isEqual(expr->getOperator(), left, right);
 
         default:
             break;
@@ -69,12 +69,12 @@ std::any Interpreter::visitBinaryExpr(std::shared_ptr<Binary> expr) {
 }
 
 std::any Interpreter::visitGroupingExpr(std::shared_ptr<Grouping> expr) {
-    return evaluate(expr->expression);
+    return evaluate(expr->getExpression());
 }
 
 std::any Interpreter::visitUnaryExpr(std::shared_ptr<Unary> expr) {
-    std::any right = evaluate(expr->right);
-    switch (expr->operation.getType()) {
+    std::any right = evaluate(expr->getRight());
+    switch (expr->getOperation().getType()) {
         case TokenType::Minus:
             return -std::any_cast<double>(right);
 
@@ -85,7 +85,7 @@ std::any Interpreter::visitUnaryExpr(std::shared_ptr<Unary> expr) {
             break;
     }
     // this should^TM be unreachable
-    throw RuntimeError("You truthyed wrong (this really shouldn't happen)", expr->operation);
+    throw RuntimeError("You truthyed wrong (this really shouldn't happen)", expr->getOperation());
     return std::any();
 }
 

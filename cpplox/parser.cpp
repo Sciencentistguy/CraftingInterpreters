@@ -130,10 +130,11 @@ std::shared_ptr<Expression> Parser::primary() {
 
     if (match(TokenType::Left_paren)) {
         auto expr{expression()};
-        consume(TokenType::Right_paren, "Expect ')'after expression()");
+        consume(TokenType::Right_paren, "Expect ')' after expression()");
         return std::make_shared<Grouping>(expr);
     }
-    throw std::runtime_error("something's wrong");
+
+    throw ParserException(peek(), "Not yet implemented");
 }
 
 Token Parser::consume(TokenType type, std::string message) {

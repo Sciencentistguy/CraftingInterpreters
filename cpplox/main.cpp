@@ -10,11 +10,11 @@
 #include <vector>
 
 #include "expression_printer.h"
+#include "interpreter.h"
 #include "lexer.h"
 #include "parser.h"
 #include "token.h"
 #include "token_type.h"
-#include "interpreter.h"
 
 bool hadError = false;
 bool hadRuntimeError = false;

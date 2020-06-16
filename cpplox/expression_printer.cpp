@@ -14,7 +14,7 @@ std::string ExpressionPrinter::print(std::shared_ptr<Expression> expression) {
 }
 
 std::any ExpressionPrinter::visitLiteralExpr(std::shared_ptr<Literal> expr) {
-    auto& value = expr->value;
+    auto& value = expr->getValue();
     if (!value.has_value()) {
         return "nil";
     }
@@ -34,15 +34,15 @@ std::any ExpressionPrinter::visitAssignExpr(std::shared_ptr<Assign> expr) {
 }
 
 std::any ExpressionPrinter::visitBinaryExpr(std::shared_ptr<Binary> expr) {
-    return bracket(expr->operation.getLexeme(), {expr->left, expr->right});
+    return bracket(expr->getOperator().getLexeme(), {expr->getLeft(), expr->getRight()});
 }
 
 std::any ExpressionPrinter::visitGroupingExpr(std::shared_ptr<Grouping> expr) {
-    return bracket("group", expr->expression);
+    return bracket("group", expr->getExpression());
 }
 
 std::any ExpressionPrinter::visitUnaryExpr(std::shared_ptr<Unary> expr) {
-    return bracket(expr->operation.getLexeme(), expr->right);
+    return bracket(expr->getOperation().getLexeme(), expr->getRight());
 }
 
 std::any ExpressionPrinter::visitVariableExpr(std::shared_ptr<Variable> expr) {
