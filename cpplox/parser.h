@@ -30,24 +30,29 @@ class Parser {
     const Token& previous();
 
     std::shared_ptr<Expression> expression();
-    std::shared_ptr<Expression> assignment();
-    std::shared_ptr<Expression> equality();
-    std::shared_ptr<Expression> comparison();
-    std::shared_ptr<Expression> addition();
-    std::shared_ptr<Expression> multiplication();
-    std::shared_ptr<Expression> unary();
-    std::shared_ptr<Expression> primary();
+    std::shared_ptr<Expression> assignmentExpression();
+    std::shared_ptr<Expression> orExpression();
+    std::shared_ptr<Expression> andExpression();
+    std::shared_ptr<Expression> equalityExpression();
+    std::shared_ptr<Expression> comparisonExpression();
+    std::shared_ptr<Expression> additionExpression();
+    std::shared_ptr<Expression> multiplicationExpression();
+    std::shared_ptr<Expression> unaryExpression();
+    std::shared_ptr<Expression> primaryExpression();
 
-    std::shared_ptr<Statement> declaration();
-    std::shared_ptr<Statement> varDeclaration();
+    std::shared_ptr<Statement> declarationStatement();
+    std::shared_ptr<Statement> variableDeclarationStatement();
 
     std::shared_ptr<Statement> statement();
+    std::shared_ptr<Statement> forStatement();
+    std::shared_ptr<Statement> ifStatement();
     std::shared_ptr<Statement> printStatement();
+    std::shared_ptr<Statement> whileStatement();
+    std::vector<std::shared_ptr<Statement>> blockStatement();
     std::shared_ptr<Statement> expressionStatement();
 
     Token consume(TokenType type, std::string message);
     void synchronise();
-    std::vector<std::shared_ptr<Statement>> block();
 
  public:
     explicit Parser(const std::vector<Token>& tokens);

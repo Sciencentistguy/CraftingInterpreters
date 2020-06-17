@@ -96,7 +96,18 @@ std::any Interpreter::visitVariableExpr(VariableExpression& expr) {
 }
 
 std::any Interpreter::visitLogicalExpr(LogicalExpression& expr) {
-    return std::any();
+    const auto& left{evaluate(expr.getLeft())};
+    if (expr.getOperator().getType() == TokenType::Or) {
+        if (isTruthy(left)) {
+            return left;
+        }
+    } else {
+        if (!isTruthy(left)) {
+            return left;
+        }
+    }
+
+    return evaluate(expr.getRight());
 }
 
 std::any Interpreter::visitCallExpr(CallExpression& expr) {
@@ -207,9 +218,17 @@ void Interpreter::visitBlockStmt(const BlockStatement& stmt) {
 }
 
 void Interpreter::visitIfStmt(const IfStatement& stmt) {
+    if (isTruthy(evaluate(stmt.getCondition()))) {
+        execute(stmt.getThenBranch());
+    } else if (stmt.getElseBranch()) {
+        execute(stmt.getElseBranch());
+    }
 }
 
 void Interpreter::visitWhileStmt(const WhileStatement& stmt) {
+    while (isTruthy(evaluate(stmt.getCondition()))) {
+        execute(stmt.getBody());
+    }
 }
 
 void Interpreter::visitFunctionStmt(const FunctionStatement& stmt) {

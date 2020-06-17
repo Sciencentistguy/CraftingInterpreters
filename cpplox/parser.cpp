@@ -57,14 +57,14 @@ const Token& Parser::previous() {
 }
 
 std::shared_ptr<Expression> Parser::expression() {
-    return assignment();
+    return assignmentExpression();
 }
 
-std::shared_ptr<Expression> Parser::assignment() {
-    auto expr{equality()};
+std::shared_ptr<Expression> Parser::assignmentExpression() {
+    auto expr{orExpression()};
     if (match(TokenType::Equal)) {
         auto equals{previous()};
-        auto value{assignment()};
+        auto value{assignmentExpression()};
 
         if (std::dynamic_pointer_cast<VariableExpression>(expr) != nullptr) {
             auto name{dynamic_cast<VariableExpression&>(*expr).getName()};
@@ -75,60 +75,80 @@ std::shared_ptr<Expression> Parser::assignment() {
     return expr;
 }
 
-std::shared_ptr<Expression> Parser::equality() {
-    auto expr{comparison()};
+std::shared_ptr<Expression> Parser::orExpression() {
+    auto expr{andExpression()};
+    while (match(TokenType::Or)) {
+        auto op{previous()};
+        auto right{andExpression()};
+        expr = std::make_shared<LogicalExpression>(op, expr, right);
+    }
+    return expr;
+}
+
+std::shared_ptr<Expression> Parser::andExpression() {
+    auto expr{equalityExpression()};
+    while (match(TokenType::And)) {
+        auto op{previous()};
+        auto right{equalityExpression()};
+        expr = std::make_shared<LogicalExpression>(op, expr, right);
+    }
+    return expr;
+}
+
+std::shared_ptr<Expression> Parser::equalityExpression() {
+    auto expr{comparisonExpression()};
 
     while (match({TokenType::Bang_equal, TokenType::Equal_equal})) {
         auto op{previous()};
-        auto right{comparison()};
+        auto right{comparisonExpression()};
         expr = std::make_shared<BinaryExpression>(op, expr, right);
         //        expr = std::make_shared<BinaryExpression>(op, expr, right);
     }
     return expr;
 }
 
-std::shared_ptr<Expression> Parser::comparison() {
-    auto expr{addition()};
+std::shared_ptr<Expression> Parser::comparisonExpression() {
+    auto expr{additionExpression()};
 
     while (match({TokenType::Greater, TokenType::Greater_equal, TokenType::Less, TokenType::Less_equal})) {
         auto op{previous()};
-        auto right{addition()};
+        auto right{additionExpression()};
         expr = std::make_shared<BinaryExpression>(op, expr, right);
     }
     return expr;
 }
 
-std::shared_ptr<Expression> Parser::addition() {
-    auto expr = multiplication();
+std::shared_ptr<Expression> Parser::additionExpression() {
+    auto expr = multiplicationExpression();
 
     while (match({TokenType::Minus, TokenType::Plus})) {
         auto op{previous()};
-        auto right{multiplication()};
+        auto right{multiplicationExpression()};
         expr = std::make_shared<BinaryExpression>(op, expr, right);
     }
     return expr;
 }
 
-std::shared_ptr<Expression> Parser::multiplication() {
-    auto expr{unary()};
+std::shared_ptr<Expression> Parser::multiplicationExpression() {
+    auto expr{unaryExpression()};
     while (match({TokenType::Slash, TokenType::Star})) {
         auto op{previous()};
-        auto right{unary()};
+        auto right{unaryExpression()};
         expr = std::make_shared<BinaryExpression>(op, expr, right);
     }
     return expr;
 }
 
-std::shared_ptr<Expression> Parser::unary() {
+std::shared_ptr<Expression> Parser::unaryExpression() {
     if (match({TokenType::Bang, TokenType::Minus})) {
         auto op{previous()};
-        auto right{unary()};
+        auto right{unaryExpression()};
         return std::make_shared<UnaryExpression>(op, right);
     }
-    return primary();
+    return primaryExpression();
 }
 
-std::shared_ptr<Expression> Parser::primary() {
+std::shared_ptr<Expression> Parser::primaryExpression() {
     if (match(TokenType::False)) {
         return std::make_shared<LiteralExpression>(false);
     }
@@ -190,15 +210,15 @@ void Parser::synchronise() {
 std::vector<std::shared_ptr<Statement>> Parser::parse() {
     std::vector<std::shared_ptr<Statement>> statements;
     while (!isAtEnd()) {
-        statements.push_back(declaration());
+        statements.push_back(declarationStatement());
     }
     return statements;
 }
 
-std::shared_ptr<Statement> Parser::declaration() {
+std::shared_ptr<Statement> Parser::declarationStatement() {
     try {
         if (match(TokenType::Var)) {
-            return varDeclaration();
+            return variableDeclarationStatement();
         }
         return statement();
     } catch (const ParserException&) {
@@ -207,7 +227,7 @@ std::shared_ptr<Statement> Parser::declaration() {
     }
 }
 
-std::shared_ptr<Statement> Parser::varDeclaration() {
+std::shared_ptr<Statement> Parser::variableDeclarationStatement() {
     Token name{consume(TokenType::Identifier, "Expected variable name.")};
     std::shared_ptr<Expression> initialiser{nullptr};
     if (match(TokenType::Equal)) {
@@ -218,13 +238,77 @@ std::shared_ptr<Statement> Parser::varDeclaration() {
 }
 
 std::shared_ptr<Statement> Parser::statement() {
+    if (match(TokenType::For)) {
+        return forStatement();
+    }
+    if (match(TokenType::If)) {
+        return ifStatement();
+    }
     if (match(TokenType::Print)) {
         return printStatement();
     }
+    if (match(TokenType::While)) {
+        return whileStatement();
+    }
     if (match(TokenType::Left_brace)) {
-        return std::make_shared<BlockStatement>(block());
+        return std::make_shared<BlockStatement>(blockStatement());
     }
     return expressionStatement();
+}
+
+std::shared_ptr<Statement> Parser::forStatement() {
+    consume(TokenType::Left_paren, "Expected '(' after 'for'.");
+
+    std::shared_ptr<Statement> initializer;
+    if (match(TokenType::Semicolon)) {
+        initializer = nullptr;
+    } else if (match(TokenType::Var)) {
+        initializer = variableDeclarationStatement();
+    } else {
+        initializer = expressionStatement();
+    }
+
+    std::shared_ptr<Expression> condition{nullptr};
+    if (!check(TokenType::Semicolon)) {
+        condition = expression();
+    }
+    consume(TokenType::Semicolon, "Expected ';' after loop condition.");
+
+    std::shared_ptr<Expression> increment{nullptr};
+    if (!check(TokenType::Right_paren)) {
+        increment = expression();
+    }
+    consume(TokenType::Right_paren, "Expected ')' after for clauses.");
+    auto body{statement()};
+
+    if (increment) {
+        std::vector<std::shared_ptr<Statement>> vec{{body, std::make_shared<ExpressionStatement>(increment)}};
+        body = std::make_shared<BlockStatement>(std::move(vec));
+    }
+
+    if (!condition) {
+        condition = std::make_shared<LiteralExpression>(true);
+    }
+    body = std::make_shared<WhileStatement>(condition, body);
+
+    if (initializer) {
+        std::vector<std::shared_ptr<Statement>> vec{{initializer, body}};
+        body = std::make_shared<BlockStatement>(vec);
+    }
+
+    return body;
+}
+
+std::shared_ptr<Statement> Parser::ifStatement() {
+    consume(TokenType::Left_paren, "Expected '(' after 'if'.");
+    auto condition{expression()};
+    consume(TokenType::Right_paren, "Expected ')' after if condition.");
+    std::shared_ptr<Statement> thenBranch{statement()};
+    std::shared_ptr<Statement> elseBranch{nullptr};
+    if (match(TokenType::Else)) {
+        elseBranch = statement();
+    }
+    return std::make_shared<IfStatement>(condition, thenBranch, elseBranch);
 }
 
 std::shared_ptr<Statement> Parser::printStatement() {
@@ -233,16 +317,26 @@ std::shared_ptr<Statement> Parser::printStatement() {
     return std::make_shared<PrintStatement>(value);
 }
 
+std::shared_ptr<Statement> Parser::whileStatement() {
+    consume(TokenType::Left_paren, "Expected '(' after 'while'.");
+    auto condition{expression()};
+    consume(TokenType::Right_paren, "Expected ')' after while condition.");
+    auto body{statement()};
+    return std::make_shared<WhileStatement>(condition, body);
+}
+
 std::shared_ptr<Statement> Parser::expressionStatement() {
     auto expr = expression();
     consume(TokenType::Semicolon, "Expected ';' after expression");
     return std::make_shared<ExpressionStatement>(expr);
 }
-std::vector<std::shared_ptr<Statement>> Parser::block() {
+
+std::vector<std::shared_ptr<Statement>> Parser::blockStatement() {
     std::vector<std::shared_ptr<Statement>> statements{};
     while (!check(TokenType::Right_brace) && !isAtEnd()) {
-        statements.push_back(declaration());
+        statements.push_back(declarationStatement());
     }
     consume(TokenType::Right_brace, "Expected '}' after block.");
     return statements;
 }
+
