@@ -90,7 +90,7 @@ std::any Interpreter::visitUnaryExpr(std::shared_ptr<Unary> expr) {
 }
 
 std::any Interpreter::visitVariableExpr(std::shared_ptr<Variable> expr) {
-    return std::any();
+    return environment->get(expr->getName());
 }
 
 std::any Interpreter::visitLogicalExpr(std::shared_ptr<Logical> expr) {
@@ -117,8 +117,8 @@ std::any Interpreter::visitSuperExpr(std::shared_ptr<Super> expr) {
     return std::any();
 }
 
-std::any Interpreter::evaluate(std::shared_ptr<Expression> expr) {
-    return expr->accept(this->shared_from_this());
+void Interpreter::execute(std::shared_ptr<Statement> statement) {
+    statement->accept(this->shared_from_this());
 }
 
 bool Interpreter::isTruthy(const std::any& object) {
@@ -169,11 +169,51 @@ void Interpreter::checkNumberOperand(const Token& token, const std::any& operand
     throw RuntimeError("Operand must be a number", token);
 }
 
-void Interpreter::interpret(std::shared_ptr<Expression> expr) {
+std::any Interpreter::evaluate(std::shared_ptr<Expression> expr) {
+    return expr->accept(this->shared_from_this());
+}
+
+void Interpreter::interpret(std::vector<std::shared_ptr<Statement>> statements) {
     try {
-        const std::any& value{evaluate(expr)};
-        std::cout << stringify(value) << '\n';
+        for (const auto& statement : statements) {
+            execute(statement);
+        }
     } catch (const RuntimeError& rError) {
         runtimeError(rError);
     }
+}
+
+void Interpreter::visitExpressionStmt(const ExpressionStatement& stmt) {
+    evaluate(stmt.getExpr());
+}
+
+void Interpreter::visitPrintStmt(const PrintStatement& stmt) {
+    std::any value{evaluate(stmt.getExpr())};
+    std::cout << stringify(value) << '\n';
+}
+
+void Interpreter::visitVarStmt(const VarStatement& stmt) {
+    std::any value{};
+    if (auto init = stmt.getInitialiser()) {
+        value = evaluate(init);
+    }
+    environment->define(stmt.getName().getLexeme(), value);
+}
+
+void Interpreter::visitBlockStmt(const BlockStatement& stmt) {
+}
+
+void Interpreter::visitIfStmt(const IfStatement& stmt) {
+}
+
+void Interpreter::visitWhileStmt(const WhileStatement& stmt) {
+}
+
+void Interpreter::visitFunctionStmt(const FunctionStatement& stmt) {
+}
+
+void Interpreter::visitReturnStmt(const ReturnStatement& stmt) {
+}
+
+void Interpreter::visitClassStmt(const ClassStatement& stmt) {
 }

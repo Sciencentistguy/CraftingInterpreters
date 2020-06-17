@@ -5,6 +5,7 @@
 
 #include "expression.h"
 #include "main.h"
+#include "statement.h"
 #include "token.h"
 
 class Parser {
@@ -36,10 +37,18 @@ class Parser {
     std::shared_ptr<Expression> unary();
     std::shared_ptr<Expression> primary();
 
+    std::shared_ptr<Statement> declaration();
+    std::shared_ptr<Statement> varDeclaration();
+
+
+    std::shared_ptr<Statement> statement();
+    std::shared_ptr<Statement> printStatement();
+    std::shared_ptr<Statement> expressionStatement();
+
     Token consume(TokenType type, std::string message);
     void synchronise();
 
  public:
-    Parser(const std::vector<Token>& tokens);
-    std::shared_ptr<Expression> parse();
+    explicit Parser(const std::vector<Token>& tokens);
+    std::vector<std::shared_ptr<Statement>> parse();
 };

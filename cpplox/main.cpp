@@ -54,13 +54,12 @@ void run(const std::string& str) {
     Lexer l{str};
     auto tokens = l.scanTokens();
     Parser p{tokens};
-    auto expression = p.parse();
+    auto statements = p.parse();
 
     if (hadError) {
         return;
     }
-
-    interpreter->interpret(expression);
+    interpreter->interpret(statements);
 
     //    auto printer{std::make_shared<expressionprinter>()};
     //    std::cout << printer->print(expression) << '\n';
@@ -125,6 +124,9 @@ std::string stringify(const std::any& a) {
     }
     if (a.type() == typeid(std::string)) {
         return std::any_cast<std::string>(a);
+    }
+    if (a.type() == typeid(bool)) {
+        return std::any_cast<bool>(a) ? "true" : "false";
     }
     throw std::runtime_error(std::string("Unexpected std::any type '") + a.type().name() + "'");
 }
