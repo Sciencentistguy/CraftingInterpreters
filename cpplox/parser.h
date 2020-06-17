@@ -30,6 +30,7 @@ class Parser {
     const Token& previous();
 
     std::shared_ptr<Expression> expression();
+    std::shared_ptr<Expression> assignment();
     std::shared_ptr<Expression> equality();
     std::shared_ptr<Expression> comparison();
     std::shared_ptr<Expression> addition();
@@ -40,13 +41,13 @@ class Parser {
     std::shared_ptr<Statement> declaration();
     std::shared_ptr<Statement> varDeclaration();
 
-
     std::shared_ptr<Statement> statement();
     std::shared_ptr<Statement> printStatement();
     std::shared_ptr<Statement> expressionStatement();
 
     Token consume(TokenType type, std::string message);
     void synchronise();
+    std::vector<std::shared_ptr<Statement>> block();
 
  public:
     explicit Parser(const std::vector<Token>& tokens);

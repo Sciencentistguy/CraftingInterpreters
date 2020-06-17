@@ -25,7 +25,7 @@ class RuntimeError : public std::runtime_error {
 };
 
 class Interpreter : public Visitor, public StatementVisitor, public std::enable_shared_from_this<Interpreter> {
-    std::unique_ptr<Environment> environment{std::make_unique<Environment>()};
+    std::shared_ptr<Environment> environment{std::make_unique<Environment>()};
 
     std::any evaluate(std::shared_ptr<Expression> expr);
     bool isTruthy(const std::any& object);
@@ -34,6 +34,7 @@ class Interpreter : public Visitor, public StatementVisitor, public std::enable_
     void checkNumberOperand(const Token& token, const std::any& operand1, const std::any& operand2);
 
     void execute(std::shared_ptr<Statement> statement);
+    void executeBlock(std::vector<std::shared_ptr<Statement>> statements, std::shared_ptr<Environment> environment);
 
  public:
     std::any visitLiteralExpr(std::shared_ptr<Literal> expr) override;

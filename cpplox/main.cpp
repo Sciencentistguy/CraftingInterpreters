@@ -59,6 +59,7 @@ void run(const std::string& str) {
     if (hadError) {
         return;
     }
+
     interpreter->interpret(statements);
 
     //    auto printer{std::make_shared<expressionprinter>()};

@@ -57,7 +57,22 @@ const Token& Parser::previous() {
 }
 
 std::shared_ptr<Expression> Parser::expression() {
-    return equality();
+    return assignment();
+}
+
+std::shared_ptr<Expression> Parser::assignment() {
+    auto expr{equality()};
+    if (match(TokenType::Equal)) {
+        auto equals{previous()};
+        auto value{assignment()};
+
+        if (std::dynamic_pointer_cast<Variable>(expr) != nullptr) {
+            auto name{dynamic_cast<Variable&>(*expr).getName()};
+            return std::make_shared<Assign>(name, value);
+        }
+        error(equals, "Invalid assignment target");
+    }
+    return expr;
 }
 
 std::shared_ptr<Expression> Parser::equality() {
@@ -206,17 +221,28 @@ std::shared_ptr<Statement> Parser::statement() {
     if (match(TokenType::Print)) {
         return printStatement();
     }
+    if (match(TokenType::Left_brace)) {
+        return std::make_shared<BlockStatement>(block());
+    }
     return expressionStatement();
 }
 
 std::shared_ptr<Statement> Parser::printStatement() {
     auto value = expression();
-    consume(TokenType::Semicolon, "Except ';' after expression");
+    consume(TokenType::Semicolon, "Excepted ';' after expression");
     return std::make_shared<PrintStatement>(value);
 }
 
 std::shared_ptr<Statement> Parser::expressionStatement() {
     auto expr = expression();
-    consume(TokenType::Semicolon, "Expect ';' after expression");
+    consume(TokenType::Semicolon, "Expected ';' after expression");
     return std::make_shared<ExpressionStatement>(expr);
+}
+std::vector<std::shared_ptr<Statement>> Parser::block() {
+    std::vector<std::shared_ptr<Statement>> statements{};
+    while (!check(TokenType::Right_brace) && !isAtEnd()) {
+        statements.push_back(declaration());
+    }
+    consume(TokenType::Right_brace, "Expected '}' after block.");
+    return statements;
 }

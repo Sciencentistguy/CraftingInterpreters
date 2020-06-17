@@ -14,7 +14,9 @@ std::any Interpreter::visitLiteralExpr(std::shared_ptr<Literal> expr) {
 }
 
 std::any Interpreter::visitAssignExpr(std::shared_ptr<Assign> expr) {
-    return std::any();
+    std::any value{evaluate(expr->getValue())};
+    environment->assign(expr->getName(), value);
+    return value;
 }
 
 std::any Interpreter::visitBinaryExpr(std::shared_ptr<Binary> expr) {
@@ -201,6 +203,7 @@ void Interpreter::visitVarStmt(const VarStatement& stmt) {
 }
 
 void Interpreter::visitBlockStmt(const BlockStatement& stmt) {
+    executeBlock(stmt.getStatements(), std::make_shared<Environment>(environment));
 }
 
 void Interpreter::visitIfStmt(const IfStatement& stmt) {
@@ -216,4 +219,17 @@ void Interpreter::visitReturnStmt(const ReturnStatement& stmt) {
 }
 
 void Interpreter::visitClassStmt(const ClassStatement& stmt) {
+}
+
+void Interpreter::executeBlock(std::vector<std::shared_ptr<Statement>> statements, std::shared_ptr<Environment> environment) {
+    auto previousEnv = this->environment;
+    try {
+        this->environment = environment;
+        for (const auto& statement : statements) {
+            execute(statement);
+        }
+    } catch (std::runtime_error) {
+    }
+    this->environment = previousEnv;
+    std::cout << "";
 }
