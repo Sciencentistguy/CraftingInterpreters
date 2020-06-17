@@ -119,7 +119,7 @@ const std::shared_ptr<Expression>& ReturnStatement::getValue() const {
     return value;
 }
 
-ClassStatement::ClassStatement(const Token& name, const std::shared_ptr<Variable> superclass,
+ClassStatement::ClassStatement(const Token& name, const std::shared_ptr<VariableExpression> superclass,
                                const std::vector<std::shared_ptr<FunctionStatement>>& methods) :
     name{name},
     superclass{superclass}, methods{methods} {
@@ -129,7 +129,7 @@ void ClassStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
     visitor->visitClassStmt(*this);
 }
 
-const std::shared_ptr<Variable>& ClassStatement::getSuperclass() const {
+const std::shared_ptr<VariableExpression>& ClassStatement::getSuperclass() const {
     return superclass;
 }
 

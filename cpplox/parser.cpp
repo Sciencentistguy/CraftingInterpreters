@@ -66,9 +66,9 @@ std::shared_ptr<Expression> Parser::assignment() {
         auto equals{previous()};
         auto value{assignment()};
 
-        if (std::dynamic_pointer_cast<Variable>(expr) != nullptr) {
-            auto name{dynamic_cast<Variable&>(*expr).getName()};
-            return std::make_shared<Assign>(name, value);
+        if (std::dynamic_pointer_cast<VariableExpression>(expr) != nullptr) {
+            auto name{dynamic_cast<VariableExpression&>(*expr).getName()};
+            return std::make_shared<AssignExpression>(name, value);
         }
         error(equals, "Invalid assignment target");
     }
@@ -81,8 +81,8 @@ std::shared_ptr<Expression> Parser::equality() {
     while (match({TokenType::Bang_equal, TokenType::Equal_equal})) {
         auto op{previous()};
         auto right{comparison()};
-        expr = std::make_shared<Binary>(op, expr, right);
-        //        expr = std::make_shared<Binary>(op, expr, right);
+        expr = std::make_shared<BinaryExpression>(op, expr, right);
+        //        expr = std::make_shared<BinaryExpression>(op, expr, right);
     }
     return expr;
 }
@@ -93,7 +93,7 @@ std::shared_ptr<Expression> Parser::comparison() {
     while (match({TokenType::Greater, TokenType::Greater_equal, TokenType::Less, TokenType::Less_equal})) {
         auto op{previous()};
         auto right{addition()};
-        expr = std::make_shared<Binary>(op, expr, right);
+        expr = std::make_shared<BinaryExpression>(op, expr, right);
     }
     return expr;
 }
@@ -104,7 +104,7 @@ std::shared_ptr<Expression> Parser::addition() {
     while (match({TokenType::Minus, TokenType::Plus})) {
         auto op{previous()};
         auto right{multiplication()};
-        expr = std::make_shared<Binary>(op, expr, right);
+        expr = std::make_shared<BinaryExpression>(op, expr, right);
     }
     return expr;
 }
@@ -114,7 +114,7 @@ std::shared_ptr<Expression> Parser::multiplication() {
     while (match({TokenType::Slash, TokenType::Star})) {
         auto op{previous()};
         auto right{unary()};
-        expr = std::make_shared<Binary>(op, expr, right);
+        expr = std::make_shared<BinaryExpression>(op, expr, right);
     }
     return expr;
 }
@@ -123,34 +123,34 @@ std::shared_ptr<Expression> Parser::unary() {
     if (match({TokenType::Bang, TokenType::Minus})) {
         auto op{previous()};
         auto right{unary()};
-        return std::make_shared<Unary>(op, right);
+        return std::make_shared<UnaryExpression>(op, right);
     }
     return primary();
 }
 
 std::shared_ptr<Expression> Parser::primary() {
     if (match(TokenType::False)) {
-        return std::make_shared<Literal>(false);
+        return std::make_shared<LiteralExpression>(false);
     }
     if (match(TokenType::True)) {
-        return std::make_shared<Literal>(true);
+        return std::make_shared<LiteralExpression>(true);
     }
     if (match(TokenType::Nil)) {
-        return std::make_shared<Literal>(std::any());
+        return std::make_shared<LiteralExpression>(std::any());
     }
 
     if (match({TokenType::Number, TokenType::String})) {
-        return std::make_shared<Literal>(previous().getLiteral());
+        return std::make_shared<LiteralExpression>(previous().getLiteral());
     }
 
     if (match(TokenType::Identifier)) {
-        return std::make_shared<Variable>(previous());
+        return std::make_shared<VariableExpression>(previous());
     }
 
     if (match(TokenType::Left_paren)) {
         auto expr{expression()};
         consume(TokenType::Right_paren, "Expect ')' after expression()");
-        return std::make_shared<Grouping>(expr);
+        return std::make_shared<GroupingExpression>(expr);
     }
 
     throw ParserException(peek(), "Not yet implemented");

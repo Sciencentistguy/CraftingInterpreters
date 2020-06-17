@@ -120,13 +120,13 @@ class ReturnStatement : public Statement {
 
 class ClassStatement : public Statement {
     Token name;
-    std::shared_ptr<Variable> superclass;
+    std::shared_ptr<VariableExpression> superclass;
     std::vector<std::shared_ptr<FunctionStatement>> methods;
 
  public:
-    ClassStatement(const Token& name, const std::shared_ptr<Variable> superclass, const std::vector<std::shared_ptr<FunctionStatement>>& methods);
+    ClassStatement(const Token& name, const std::shared_ptr<VariableExpression> superclass, const std::vector<std::shared_ptr<FunctionStatement>>& methods);
     void accept(std::shared_ptr<StatementVisitor> visitor) override;
-    const std::shared_ptr<Variable>& getSuperclass() const;
+    const std::shared_ptr<VariableExpression>& getSuperclass() const;
     const std::vector<std::shared_ptr<FunctionStatement>>& getMethods() const;
     const Token& getName() const;
 };

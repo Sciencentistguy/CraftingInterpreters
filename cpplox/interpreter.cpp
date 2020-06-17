@@ -9,17 +9,17 @@ const char* RuntimeError::what() const noexcept {
     return ss.str().c_str();
 }
 
-std::any Interpreter::visitLiteralExpr(std::shared_ptr<Literal> expr) {
+std::any Interpreter::visitLiteralExpr(std::shared_ptr<LiteralExpression> expr) {
     return expr->getValue();
 }
 
-std::any Interpreter::visitAssignExpr(std::shared_ptr<Assign> expr) {
+std::any Interpreter::visitAssignExpr(std::shared_ptr<AssignExpression> expr) {
     std::any value{evaluate(expr->getValue())};
     environment->assign(expr->getName(), value);
     return value;
 }
 
-std::any Interpreter::visitBinaryExpr(std::shared_ptr<Binary> expr) {
+std::any Interpreter::visitBinaryExpr(std::shared_ptr<BinaryExpression> expr) {
     std::any left{evaluate(expr->getLeft())};
     std::any right{evaluate(expr->getRight())};
 
@@ -70,11 +70,11 @@ std::any Interpreter::visitBinaryExpr(std::shared_ptr<Binary> expr) {
     return std::any();
 }
 
-std::any Interpreter::visitGroupingExpr(std::shared_ptr<Grouping> expr) {
+std::any Interpreter::visitGroupingExpr(std::shared_ptr<GroupingExpression> expr) {
     return evaluate(expr->getExpression());
 }
 
-std::any Interpreter::visitUnaryExpr(std::shared_ptr<Unary> expr) {
+std::any Interpreter::visitUnaryExpr(std::shared_ptr<UnaryExpression> expr) {
     std::any right = evaluate(expr->getRight());
     switch (expr->getOperation().getType()) {
         case TokenType::Minus:
@@ -91,31 +91,31 @@ std::any Interpreter::visitUnaryExpr(std::shared_ptr<Unary> expr) {
     return std::any();
 }
 
-std::any Interpreter::visitVariableExpr(std::shared_ptr<Variable> expr) {
+std::any Interpreter::visitVariableExpr(std::shared_ptr<VariableExpression> expr) {
     return environment->get(expr->getName());
 }
 
-std::any Interpreter::visitLogicalExpr(std::shared_ptr<Logical> expr) {
+std::any Interpreter::visitLogicalExpr(std::shared_ptr<LogicalExpression> expr) {
     return std::any();
 }
 
-std::any Interpreter::visitCallExpr(std::shared_ptr<Call> expr) {
+std::any Interpreter::visitCallExpr(std::shared_ptr<CallExpression> expr) {
     return std::any();
 }
 
-std::any Interpreter::visitGetExpr(std::shared_ptr<Get> expr) {
+std::any Interpreter::visitGetExpr(std::shared_ptr<GetExpression> expr) {
     return std::any();
 }
 
-std::any Interpreter::visitSetExpr(std::shared_ptr<Set> expr) {
+std::any Interpreter::visitSetExpr(std::shared_ptr<SetExpression> expr) {
     return std::any();
 }
 
-std::any Interpreter::visitThisExpr(std::shared_ptr<This> expr) {
+std::any Interpreter::visitThisExpr(std::shared_ptr<ThisExpression> expr) {
     return std::any();
 }
 
-std::any Interpreter::visitSuperExpr(std::shared_ptr<Super> expr) {
+std::any Interpreter::visitSuperExpr(std::shared_ptr<SuperExpression> expr) {
     return std::any();
 }
 
