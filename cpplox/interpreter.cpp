@@ -9,30 +9,30 @@ const char* RuntimeError::what() const noexcept {
     return ss.str().c_str();
 }
 
-std::any Interpreter::visitLiteralExpr(std::shared_ptr<LiteralExpression> expr) {
-    return expr->getValue();
+std::any Interpreter::visitLiteralExpr(LiteralExpression& expr) {
+    return expr.getValue();
 }
 
-std::any Interpreter::visitAssignExpr(std::shared_ptr<AssignExpression> expr) {
-    std::any value{evaluate(expr->getValue())};
-    environment->assign(expr->getName(), value);
+std::any Interpreter::visitAssignExpr(AssignExpression& expr) {
+    std::any value{evaluate(expr.getValue())};
+    environment->assign(expr.getName(), value);
     return value;
 }
 
-std::any Interpreter::visitBinaryExpr(std::shared_ptr<BinaryExpression> expr) {
-    std::any left{evaluate(expr->getLeft())};
-    std::any right{evaluate(expr->getRight())};
+std::any Interpreter::visitBinaryExpr(BinaryExpression& expr) {
+    std::any left{evaluate(expr.getLeft())};
+    std::any right{evaluate(expr.getRight())};
 
-    switch (expr->getOperator().getType()) {
+    switch (expr.getOperator().getType()) {
         // Arithmetic
         case TokenType::Minus:
-            checkNumberOperand(expr->getOperator(), left, right);
+            checkNumberOperand(expr.getOperator(), left, right);
             return std::any_cast<double>(left) - std::any_cast<double>(right);
         case TokenType::Slash:
-            checkNumberOperand(expr->getOperator(), left, right);
+            checkNumberOperand(expr.getOperator(), left, right);
             return std::any_cast<double>(left) / std::any_cast<double>(right);
         case TokenType::Star:
-            checkNumberOperand(expr->getOperator(), left, right);
+            checkNumberOperand(expr.getOperator(), left, right);
             return std::any_cast<double>(left) * std::any_cast<double>(right);
         case TokenType::Plus:
             if (left.type() == typeid(double) && right.type() == typeid(double)) {
@@ -41,27 +41,27 @@ std::any Interpreter::visitBinaryExpr(std::shared_ptr<BinaryExpression> expr) {
             if (left.type() == typeid(std::string) && right.type() == typeid(std::string)) {
                 return std::any_cast<std::string>(left) + std::any_cast<std::string>(right);
             }
-            throw RuntimeError("You plussed wrong (cannot add a number to a string, this isn't javascript)", expr->getOperator());
+            throw RuntimeError("You plussed wrong (cannot add a number to a string, this isn't javascript)", expr.getOperator());
 
         // Comparison
         case TokenType::Greater:
-            checkNumberOperand(expr->getOperator(), left, right);
+            checkNumberOperand(expr.getOperator(), left, right);
             return std::any_cast<double>(left) > std::any_cast<double>(right);
         case TokenType::Greater_equal:
-            checkNumberOperand(expr->getOperator(), left, right);
+            checkNumberOperand(expr.getOperator(), left, right);
             return std::any_cast<double>(left) >= std::any_cast<double>(right);
         case TokenType::Less:
-            checkNumberOperand(expr->getOperator(), left, right);
+            checkNumberOperand(expr.getOperator(), left, right);
             return std::any_cast<double>(left) < std::any_cast<double>(right);
         case TokenType::Less_equal:
-            checkNumberOperand(expr->getOperator(), left, right);
+            checkNumberOperand(expr.getOperator(), left, right);
             return std::any_cast<double>(left) <= std::any_cast<double>(right);
 
         // Equality
         case TokenType::Equal_equal:
-            return isEqual(expr->getOperator(), left, right);
+            return isEqual(expr.getOperator(), left, right);
         case TokenType::Bang_equal:
-            return !isEqual(expr->getOperator(), left, right);
+            return !isEqual(expr.getOperator(), left, right);
 
         default:
             break;
@@ -70,13 +70,13 @@ std::any Interpreter::visitBinaryExpr(std::shared_ptr<BinaryExpression> expr) {
     return std::any();
 }
 
-std::any Interpreter::visitGroupingExpr(std::shared_ptr<GroupingExpression> expr) {
-    return evaluate(expr->getExpression());
+std::any Interpreter::visitGroupingExpr(GroupingExpression& expr) {
+    return evaluate(expr.getExpression());
 }
 
-std::any Interpreter::visitUnaryExpr(std::shared_ptr<UnaryExpression> expr) {
-    std::any right = evaluate(expr->getRight());
-    switch (expr->getOperation().getType()) {
+std::any Interpreter::visitUnaryExpr(UnaryExpression& expr) {
+    std::any right = evaluate(expr.getRight());
+    switch (expr.getOperation().getType()) {
         case TokenType::Minus:
             return -std::any_cast<double>(right);
 
@@ -87,35 +87,35 @@ std::any Interpreter::visitUnaryExpr(std::shared_ptr<UnaryExpression> expr) {
             break;
     }
     // this should^TM be unreachable
-    throw RuntimeError("You truthyed wrong (this really shouldn't happen)", expr->getOperation());
+    throw RuntimeError("You truthyed wrong (this really shouldn't happen)", expr.getOperation());
     return std::any();
 }
 
-std::any Interpreter::visitVariableExpr(std::shared_ptr<VariableExpression> expr) {
-    return environment->get(expr->getName());
+std::any Interpreter::visitVariableExpr(VariableExpression& expr) {
+    return environment->get(expr.getName());
 }
 
-std::any Interpreter::visitLogicalExpr(std::shared_ptr<LogicalExpression> expr) {
+std::any Interpreter::visitLogicalExpr(LogicalExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitCallExpr(std::shared_ptr<CallExpression> expr) {
+std::any Interpreter::visitCallExpr(CallExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitGetExpr(std::shared_ptr<GetExpression> expr) {
+std::any Interpreter::visitGetExpr(GetExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitSetExpr(std::shared_ptr<SetExpression> expr) {
+std::any Interpreter::visitSetExpr(SetExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitThisExpr(std::shared_ptr<ThisExpression> expr) {
+std::any Interpreter::visitThisExpr(ThisExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitSuperExpr(std::shared_ptr<SuperExpression> expr) {
+std::any Interpreter::visitSuperExpr(SuperExpression& expr) {
     return std::any();
 }
 

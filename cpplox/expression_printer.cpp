@@ -13,8 +13,8 @@ std::string ExpressionPrinter::print(std::shared_ptr<Expression> expression) {
     }
 }
 
-std::any ExpressionPrinter::visitLiteralExpr(std::shared_ptr<LiteralExpression> expr) {
-    auto& value = expr->getValue();
+std::any ExpressionPrinter::visitLiteralExpr(LiteralExpression& expr) {
+    auto& value = expr.getValue();
     if (!value.has_value()) {
         return "nil";
     }
@@ -29,47 +29,47 @@ std::any ExpressionPrinter::visitLiteralExpr(std::shared_ptr<LiteralExpression> 
     }
 }
 
-std::any ExpressionPrinter::visitAssignExpr(std::shared_ptr<AssignExpression> expr) {
+std::any ExpressionPrinter::visitAssignExpr(AssignExpression& expr) {
     return std::any();
 }
 
-std::any ExpressionPrinter::visitBinaryExpr(std::shared_ptr<BinaryExpression> expr) {
-    return bracket(expr->getOperator().getLexeme(), {expr->getLeft(), expr->getRight()});
+std::any ExpressionPrinter::visitBinaryExpr(BinaryExpression& expr) {
+    return bracket(expr.getOperator().getLexeme(), {expr.getLeft(), expr.getRight()});
 }
 
-std::any ExpressionPrinter::visitGroupingExpr(std::shared_ptr<GroupingExpression> expr) {
-    return bracket("group", expr->getExpression());
+std::any ExpressionPrinter::visitGroupingExpr(GroupingExpression& expr) {
+    return bracket("group", expr.getExpression());
 }
 
-std::any ExpressionPrinter::visitUnaryExpr(std::shared_ptr<UnaryExpression> expr) {
-    return bracket(expr->getOperation().getLexeme(), expr->getRight());
+std::any ExpressionPrinter::visitUnaryExpr(UnaryExpression& expr) {
+    return bracket(expr.getOperation().getLexeme(), expr.getRight());
 }
 
-std::any ExpressionPrinter::visitVariableExpr(std::shared_ptr<VariableExpression> expr) {
+std::any ExpressionPrinter::visitVariableExpr(VariableExpression& expr) {
     return std::any();
 }
 
-std::any ExpressionPrinter::visitLogicalExpr(std::shared_ptr<LogicalExpression> expr) {
+std::any ExpressionPrinter::visitLogicalExpr(LogicalExpression& expr) {
     return std::any();
 }
 
-std::any ExpressionPrinter::visitCallExpr(std::shared_ptr<CallExpression> expr) {
+std::any ExpressionPrinter::visitCallExpr(CallExpression& expr) {
     return std::any();
 }
 
-std::any ExpressionPrinter::visitGetExpr(std::shared_ptr<GetExpression> expr) {
+std::any ExpressionPrinter::visitGetExpr(GetExpression& expr) {
     return std::any();
 }
 
-std::any ExpressionPrinter::visitSetExpr(std::shared_ptr<SetExpression> expr) {
+std::any ExpressionPrinter::visitSetExpr(SetExpression& expr) {
     return std::any();
 }
 
-std::any ExpressionPrinter::visitThisExpr(std::shared_ptr<ThisExpression> expr) {
+std::any ExpressionPrinter::visitThisExpr(ThisExpression& expr) {
     return std::any();
 }
 
-std::any ExpressionPrinter::visitSuperExpr(std::shared_ptr<SuperExpression> expr) {
+std::any ExpressionPrinter::visitSuperExpr(SuperExpression& expr) {
     return std::any();
 }
 

@@ -3,8 +3,8 @@
 LiteralExpression::LiteralExpression(const std::any& value) : value{value} {
 }
 
-std::any LiteralExpression::accept(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitLiteralExpr(this->shared_from_this());
+std::any LiteralExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitLiteralExpr(*this);
 }
 
 const std::any& LiteralExpression::getValue() const {
@@ -14,8 +14,8 @@ const std::any& LiteralExpression::getValue() const {
 AssignExpression::AssignExpression(const Token& name, std::shared_ptr<Expression> value) : name{name}, value{value} {
 }
 
-std::any AssignExpression::accept(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitAssignExpr(this->shared_from_this());
+std::any AssignExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitAssignExpr(*this);
 }
 
 const Token& AssignExpression::getName() const {
@@ -29,8 +29,8 @@ const std::shared_ptr<Expression>& AssignExpression::getValue() const {
 BinaryExpression::BinaryExpression(const Token& operation, std::shared_ptr<Expression> left, std::shared_ptr<Expression> right) : op{operation}, left{left}, right{right} {
 }
 
-std::any BinaryExpression::accept(const std::shared_ptr<Visitor> visitor) {
-    return visitor->visitBinaryExpr(this->shared_from_this());
+std::any BinaryExpression::accept(const std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitBinaryExpr(*this);
 }
 
 const Token& BinaryExpression::getOperator() const {
@@ -48,8 +48,8 @@ const std::shared_ptr<Expression>& BinaryExpression::getRight() const {
 GroupingExpression::GroupingExpression(const std::shared_ptr<Expression> expression) : expression{expression} {
 }
 
-std::any GroupingExpression::accept(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitGroupingExpr(this->shared_from_this());
+std::any GroupingExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitGroupingExpr(*this);
 }
 
 const std::shared_ptr<Expression>& GroupingExpression::getExpression() const {
@@ -59,8 +59,8 @@ const std::shared_ptr<Expression>& GroupingExpression::getExpression() const {
 UnaryExpression::UnaryExpression(const Token& operation, const std::shared_ptr<Expression> right) : operation{operation}, right{right} {
 }
 
-std::any UnaryExpression::accept(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitUnaryExpr(this->shared_from_this());
+std::any UnaryExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitUnaryExpr(*this);
 }
 
 const Token& UnaryExpression::getOperation() const {
@@ -74,8 +74,8 @@ const std::shared_ptr<Expression>& UnaryExpression::getRight() const {
 VariableExpression::VariableExpression(const Token& name) : name{name} {
 }
 
-std::any VariableExpression::accept(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitVariableExpr(this->shared_from_this());
+std::any VariableExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitVariableExpr(*this);
 }
 
 const Token& VariableExpression::getName() const {
@@ -86,8 +86,8 @@ LogicalExpression::LogicalExpression(const Token& operation, const std::shared_p
     op{operation}, left{left}, right{right} {
 }
 
-std::any LogicalExpression::accept(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitLogicalExpr(this->shared_from_this());
+std::any LogicalExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitLogicalExpr(*this);
 }
 
 const Token& LogicalExpression::getOperator() const {
@@ -107,8 +107,8 @@ CallExpression::CallExpression(const Token& paren, const std::shared_ptr<Express
     // todo this is somewhat broken
 }
 
-std::any CallExpression::enable(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitCallExpr(this->shared_from_this());
+std::any CallExpression::enable(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitCallExpr(*this);
 }
 
 const Token& CallExpression::getParen() const {
@@ -126,8 +126,8 @@ const std::vector<std::shared_ptr<Expression>>& CallExpression::getArguments() c
 GetExpression::GetExpression(const std::shared_ptr<Expression> object, const Token& name) : object{object}, name{name} {
 }
 
-std::any GetExpression::enable(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitGetExpr(this->shared_from_this());
+std::any GetExpression::enable(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitGetExpr(*this);
 }
 
 const std::shared_ptr<Expression>& GetExpression::getObject() const {
@@ -141,8 +141,8 @@ const Token& GetExpression::getName() const {
 SetExpression::SetExpression(const Token& keyword, const Token& method) : keyword{keyword}, method{method} {
 }
 
-std::any SetExpression::enable(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitSetExpr(this->shared_from_this());
+std::any SetExpression::enable(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitSetExpr(*this);
 }
 
 const Token& SetExpression::getKeyword() const {
@@ -156,8 +156,8 @@ const Token& SetExpression::getMethod() const {
 ThisExpression::ThisExpression(const Token& keyword) : keyword{keyword} {
 }
 
-std::any ThisExpression::enable(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitThisExpr(this->shared_from_this());
+std::any ThisExpression::enable(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitThisExpr(*this);
 }
 
 const Token& ThisExpression::getKeyword() const {
@@ -167,8 +167,8 @@ const Token& ThisExpression::getKeyword() const {
 SuperExpression::SuperExpression(const Token& keyword, const Token& method) : keyword{keyword}, method{method} {
 }
 
-std::any SuperExpression::accept(std::shared_ptr<Visitor> visitor) {
-    return visitor->visitSuperExpr(this->shared_from_this());
+std::any SuperExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitSuperExpr(*this);
 }
 
 const Token& SuperExpression::getKeyword() const {
