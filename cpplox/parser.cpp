@@ -269,6 +269,9 @@ std::shared_ptr<Statement> Parser::statement() {
     if (match(TokenType::Print)) {
         return printStatement();
     }
+    if (match(TokenType::Return)) {
+        return returnStatement();
+    }
     if (match(TokenType::While)) {
         return whileStatement();
     }
@@ -337,6 +340,16 @@ std::shared_ptr<Statement> Parser::printStatement() {
     auto value = expression();
     consume(TokenType::Semicolon, "Excepted ';' after expression");
     return std::make_shared<PrintStatement>(value);
+}
+
+std::shared_ptr<Statement> Parser::returnStatement() {
+    Token keyword{previous()};
+    std::shared_ptr<Expression> value{nullptr};
+    if (!check(TokenType::Semicolon)) {
+        value = expression();
+    }
+    consume(TokenType::Semicolon, "Expected ';' after return statement.");
+    return std::make_shared<ReturnStatement>(keyword, value);
 }
 
 std::shared_ptr<Statement> Parser::whileStatement() {

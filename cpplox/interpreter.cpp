@@ -1,6 +1,7 @@
 #include "interpreter.h"
 
 #include "loxfunction.h"
+#include "return.h"
 
 RuntimeError::RuntimeError(const std::string& message, const Token& token) : runtime_error{message}, message{message}, token{token} {
 }
@@ -260,11 +261,16 @@ void Interpreter::visitWhileStmt(const WhileStatement& stmt) {
 }
 
 void Interpreter::visitFunctionStmt(const FunctionStatement& stmt) {
-    auto function = std::make_shared<LoxFunction>(stmt);
+    auto function = std::make_shared<LoxFunction>(stmt, environment);
     environment->define(stmt.getName().getLexeme(), LoxFunction(*function));
 }
 
 void Interpreter::visitReturnStmt(const ReturnStatement& stmt) {
+    std::any value{};
+    if (stmt.getValue()) {
+        value = evaluate(stmt.getValue());
+    }
+    throw Return(value);
 }
 
 void Interpreter::visitClassStmt(const ClassStatement& stmt) {
@@ -277,7 +283,10 @@ void Interpreter::executeBlock(const std::vector<std::shared_ptr<Statement>>& st
         for (const auto& statement : statements) {
             execute(statement);
         }
-    } catch (std::runtime_error) {
+    } catch (const std::runtime_error& e) {
+    } catch (const Return& e) {
+        this->environment = previousEnv;
+        throw;
     }
     this->environment = previousEnv;
 }

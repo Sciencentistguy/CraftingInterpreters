@@ -1,16 +1,22 @@
 #include "loxfunction.h"
+
 #include <chrono>
 
-LoxFunction::LoxFunction(FunctionStatement declaration) : declaration{declaration} {
+#include "return.h"
 
+LoxFunction::LoxFunction(const FunctionStatement& declaration, const std::shared_ptr<Environment> closure) : declaration{declaration}, closure{closure} {
 }
 
 std::any LoxFunction::operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) {
-    auto environment{std::make_shared<Environment>(interpreter.globals)};
+    auto environment{std::make_shared<Environment>(closure)};
     for (int i = 0; i < declaration.getParams().size(); ++i) {
         environment->define(declaration.getParams()[i].getLexeme(), arguments[i]);
     }
-    interpreter.executeBlock(declaration.getBody(), environment);
+    try {
+        interpreter.executeBlock(declaration.getBody(), environment);
+    } catch (const Return& r) {
+        return r.getValue();
+    }
     return std::any();
 }
 
@@ -33,6 +39,7 @@ std::any LoxBuiltinClock::operator()(Interpreter& interpreter, const std::vector
     auto millis = std::chrono::duration_cast<std::chrono::seconds>(since_epoch);
     return millis.count() / 1000;
 }
+
 int LoxBuiltinClock::arity() {
     return 0;
 }

@@ -44,6 +44,9 @@ void Lexer::scanToken() {
         case '+':
             addToken(TokenType::Plus);
             break;
+        case '-':
+            addToken(TokenType::Minus);
+            break;
         case ';':
             addToken(TokenType::Semicolon);
             break;
@@ -156,7 +159,7 @@ void Lexer::scanToken() {
             break;
 
         default:
-            error(line, "Unexpected character.");
+            error(line, "Unexpected character." + std::to_string(c));
             break;
     }
 }

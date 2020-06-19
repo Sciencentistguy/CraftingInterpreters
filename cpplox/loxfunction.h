@@ -8,9 +8,10 @@ class LoxCallable;
 
 class LoxFunction : public LoxCallable {
     FunctionStatement declaration;
+    std::shared_ptr<Environment> closure;
 
  public:
-    explicit LoxFunction(FunctionStatement declaration);
+    LoxFunction(const FunctionStatement& declaration, const std::shared_ptr<Environment> closure);
 
     std::any operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) override;
     int arity() override;

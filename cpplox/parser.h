@@ -49,6 +49,7 @@ class Parser {
     std::shared_ptr<Statement> forStatement();
     std::shared_ptr<Statement> ifStatement();
     std::shared_ptr<Statement> printStatement();
+    std::shared_ptr<Statement> returnStatement();
     std::shared_ptr<Statement> whileStatement();
     std::vector<std::shared_ptr<Statement>> blockStatement();
     std::shared_ptr<Statement> expressionStatement();
