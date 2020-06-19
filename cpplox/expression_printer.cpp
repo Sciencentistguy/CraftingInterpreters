@@ -1,16 +1,10 @@
 #include "expression_printer.h"
 
+
+
 std::string ExpressionPrinter::print(std::shared_ptr<Expression> expression) {
-    auto i{expression->accept(this->shared_from_this())};
-    if (i.type() == typeid(int)) {
-        return std::to_string(std::any_cast<int>(i));
-    }
-    if (i.type() == typeid(double)) {
-        return std::to_string(std::any_cast<double>(i));
-    }
-    if (i.type() == typeid(std::string)) {
-        return std::any_cast<std::string>(i);
-    }
+    const auto& i{expression->accept(this->shared_from_this())};
+    return stringify(i);
 }
 
 std::any ExpressionPrinter::visitLiteralExpr(LiteralExpression& expr) {
@@ -34,7 +28,7 @@ std::any ExpressionPrinter::visitAssignExpr(AssignExpression& expr) {
 }
 
 std::any ExpressionPrinter::visitBinaryExpr(BinaryExpression& expr) {
-    return bracket(expr.getOperator().getLexeme(), {expr.getLeft(), expr.getRight()});
+    return bracket(expr.getOperator().getLexeme(), expr.getLeft(), expr.getRight());
 }
 
 std::any ExpressionPrinter::visitGroupingExpr(GroupingExpression& expr) {
@@ -73,10 +67,11 @@ std::any ExpressionPrinter::visitSuperExpr(SuperExpression& expr) {
     return std::any();
 }
 
-std::any ExpressionPrinter::bracket(const std::string& name, std::initializer_list<std::shared_ptr<Expression>> exprs) {
+template<typename... Expr>
+std::any ExpressionPrinter::bracket(const std::string& name, const Expr... exprs) {
     std::stringstream ss;
     ss << '(' << name;
-    for (const auto& expr : exprs) {
+    for (const auto& expr : {exprs...}) {
         ss << ' ';
         auto a{expr->accept(this->shared_from_this())};
         std::string s;
@@ -94,12 +89,4 @@ std::any ExpressionPrinter::bracket(const std::string& name, std::initializer_li
 
     ss << ')';
     return ss.str();
-}
-
-std::any ExpressionPrinter::bracket(const std::string& name, std::shared_ptr<Expression> expr) {
-    return bracket(name, {expr});
-}
-
-std::any ExpressionPrinter::bracket(const std::string& name) {
-    return bracket(name, {});
 }

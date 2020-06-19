@@ -21,8 +21,9 @@ class Parser {
     const std::vector<Token> tokens;
     int current{0};
 
-    bool match(const std::initializer_list<TokenType>& tokentypes);
-    bool match(const TokenType type);
+    template<typename... TT>
+    bool match(const TT&... tokentypes);
+
     bool check(const TokenType type);
     const Token& advance();
     bool isAtEnd();

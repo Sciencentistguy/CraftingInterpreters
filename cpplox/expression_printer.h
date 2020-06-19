@@ -4,6 +4,7 @@
 #include <string>
 
 #include "expression.h"
+#include "main.h"
 
 class ExpressionPrinter : public ExpressionVisitor, public std::enable_shared_from_this<ExpressionPrinter> {
  public:
@@ -22,7 +23,6 @@ class ExpressionPrinter : public ExpressionVisitor, public std::enable_shared_fr
     std::any visitThisExpr(ThisExpression& expr) override;
     std::any visitSuperExpr(SuperExpression& expr) override;
 
-    std::any bracket(const std::string& name);
-    std::any bracket(const std::string& name, std::shared_ptr<Expression> expr);
-    std::any bracket(const std::string& name, std::initializer_list<std::shared_ptr<Expression>> exprs);
+    template<typename... Expr>
+    std::any bracket(const std::string& name, const Expr... exprs);
 };

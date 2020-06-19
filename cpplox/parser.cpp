@@ -12,20 +12,13 @@ Parser::ParserException::ParserException(const Token& token, const std::string& 
     error(token, message);
 }
 
-bool Parser::match(const std::initializer_list<TokenType>& tokentypes) {
-    for (const auto type : tokentypes) {
+template<typename... TT>
+bool Parser::match(const TT&... tokentypes) {
+    for (const auto type : {tokentypes...}) {
         if (check(type)) {
             advance();
             return true;
         }
-    }
-    return false;
-}
-
-bool Parser::match(TokenType type) {
-    if (check(type)) {
-        advance();
-        return true;
     }
     return false;
 }
@@ -98,7 +91,7 @@ std::shared_ptr<Expression> Parser::andExpression() {
 std::shared_ptr<Expression> Parser::equalityExpression() {
     auto expr{comparisonExpression()};
 
-    while (match({TokenType::Bang_equal, TokenType::Equal_equal})) {
+    while (match(TokenType::Bang_equal, TokenType::Equal_equal)) {
         auto op{previous()};
         auto right{comparisonExpression()};
         expr = std::make_shared<BinaryExpression>(op, expr, right);
@@ -110,7 +103,7 @@ std::shared_ptr<Expression> Parser::equalityExpression() {
 std::shared_ptr<Expression> Parser::comparisonExpression() {
     auto expr{additionExpression()};
 
-    while (match({TokenType::Greater, TokenType::Greater_equal, TokenType::Less, TokenType::Less_equal})) {
+    while (match(TokenType::Greater, TokenType::Greater_equal, TokenType::Less, TokenType::Less_equal)) {
         auto op{previous()};
         auto right{additionExpression()};
         expr = std::make_shared<BinaryExpression>(op, expr, right);
@@ -121,7 +114,7 @@ std::shared_ptr<Expression> Parser::comparisonExpression() {
 std::shared_ptr<Expression> Parser::additionExpression() {
     auto expr = multiplicationExpression();
 
-    while (match({TokenType::Minus, TokenType::Plus})) {
+    while (match(TokenType::Minus, TokenType::Plus)) {
         auto op{previous()};
         auto right{multiplicationExpression()};
         expr = std::make_shared<BinaryExpression>(op, expr, right);
@@ -131,7 +124,7 @@ std::shared_ptr<Expression> Parser::additionExpression() {
 
 std::shared_ptr<Expression> Parser::multiplicationExpression() {
     auto expr{unaryExpression()};
-    while (match({TokenType::Slash, TokenType::Star})) {
+    while (match(TokenType::Slash, TokenType::Star)) {
         auto op{previous()};
         auto right{unaryExpression()};
         expr = std::make_shared<BinaryExpression>(op, expr, right);
@@ -140,7 +133,7 @@ std::shared_ptr<Expression> Parser::multiplicationExpression() {
 }
 
 std::shared_ptr<Expression> Parser::unaryExpression() {
-    if (match({TokenType::Bang, TokenType::Minus})) {
+    if (match(TokenType::Bang, TokenType::Minus)) {
         auto op{previous()};
         auto right{unaryExpression()};
         return std::make_shared<UnaryExpression>(op, right);
@@ -159,7 +152,7 @@ std::shared_ptr<Expression> Parser::primaryExpression() {
         return std::make_shared<LiteralExpression>(std::any());
     }
 
-    if (match({TokenType::Number, TokenType::String})) {
+    if (match(TokenType::Number, TokenType::String)) {
         return std::make_shared<LiteralExpression>(previous().getLiteral());
     }
 
@@ -339,4 +332,3 @@ std::vector<std::shared_ptr<Statement>> Parser::blockStatement() {
     consume(TokenType::Right_brace, "Expected '}' after block.");
     return statements;
 }
-
