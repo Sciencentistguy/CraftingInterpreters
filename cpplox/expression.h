@@ -132,8 +132,8 @@ class CallExpression : public Expression, public std::enable_shared_from_this<Ca
     std::vector<std::shared_ptr<Expression>> arguments;
 
  public:
-    CallExpression(const Token& paren, const std::shared_ptr<Expression> callee, const std::vector<Expression>& arguments_);
-    std::any enable(std::shared_ptr<ExpressionVisitor> visitor);
+    CallExpression(const Token& paren, const std::shared_ptr<Expression> callee, const std::vector<std::shared_ptr<Expression>>& arguments);
+    std::any accept(std::shared_ptr<ExpressionVisitor> visitor) override;
     const Token& getParen() const;
     const std::shared_ptr<Expression>& getCallee() const;
     const std::vector<std::shared_ptr<Expression>>& getArguments() const;

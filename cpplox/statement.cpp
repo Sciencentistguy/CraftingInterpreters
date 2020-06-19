@@ -4,7 +4,7 @@ ExpressionStatement::ExpressionStatement(const std::shared_ptr<Expression> expr)
 }
 
 void ExpressionStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitExpressionStmt(*this);
+    visitor->visitExpressionStmt(this->shared_from_this());
 }
 
 const std::shared_ptr<Expression>& ExpressionStatement::getExpr() const {

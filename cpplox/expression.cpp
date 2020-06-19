@@ -26,7 +26,8 @@ const std::shared_ptr<Expression>& AssignExpression::getValue() const {
     return value;
 }
 
-BinaryExpression::BinaryExpression(const Token& operation, std::shared_ptr<Expression> left, std::shared_ptr<Expression> right) : op{operation}, left{left}, right{right} {
+BinaryExpression::BinaryExpression(const Token& operation, std::shared_ptr<Expression> left, std::shared_ptr<Expression> right) :
+    op{operation}, left{left}, right{right} {
 }
 
 std::any BinaryExpression::accept(const std::shared_ptr<ExpressionVisitor> visitor) {
@@ -102,13 +103,8 @@ const std::shared_ptr<Expression>& LogicalExpression::getRight() const {
     return right;
 }
 
-CallExpression::CallExpression(const Token& paren, const std::shared_ptr<Expression> callee, const std::vector<Expression>& arguments_) : paren{paren}, callee{callee} {
-    //    std::copy(arguments_.begin(), arguments_.end(), std::back_inserter(arguments));
-    // todo this is somewhat broken
-}
-
-std::any CallExpression::enable(std::shared_ptr<ExpressionVisitor> visitor) {
-    return visitor->visitCallExpr(*this);
+CallExpression::CallExpression(const Token& paren, const std::shared_ptr<Expression> callee, const std::vector<std::shared_ptr<Expression>>& arguments) :
+    paren{paren}, callee{callee}, arguments{arguments} {
 }
 
 const Token& CallExpression::getParen() const {
@@ -121,6 +117,9 @@ const std::shared_ptr<Expression>& CallExpression::getCallee() const {
 
 const std::vector<std::shared_ptr<Expression>>& CallExpression::getArguments() const {
     return arguments;
+}
+std::any CallExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
+    return visitor->visitCallExpr(*this);
 }
 
 GetExpression::GetExpression(const std::shared_ptr<Expression> object, const Token& name) : object{object}, name{name} {

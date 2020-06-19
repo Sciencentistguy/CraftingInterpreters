@@ -14,6 +14,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "token.h"
+#include "loxfunction.h"
 
 bool hadError = false;
 bool hadRuntimeError = false;
@@ -129,5 +130,8 @@ std::string stringify(const std::any& a) {
     if (a.type() == typeid(bool)) {
         return std::any_cast<bool>(a) ? "true" : "false";
     }
-    throw std::runtime_error(std::string("Unexpected std::any type '") + a.type().name() + "'");
+    if (a.type() == typeid(std::shared_ptr<LoxFunction>)) {
+        return std::any_cast<std::shared_ptr<LoxFunction>>(a)->to_string();
+    }
+    throw std::runtime_error(std::string("[stringify()] Unexpected std::any type '") + a.type().name() + "'");
 }

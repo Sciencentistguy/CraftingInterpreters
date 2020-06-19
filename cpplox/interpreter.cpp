@@ -1,5 +1,7 @@
 #include "interpreter.h"
 
+#include "loxfunction.h"
+
 RuntimeError::RuntimeError(const std::string& message, const Token& token) : runtime_error{message}, message{message}, token{token} {
 }
 
@@ -111,6 +113,32 @@ std::any Interpreter::visitLogicalExpr(LogicalExpression& expr) {
 }
 
 std::any Interpreter::visitCallExpr(CallExpression& expr) {
+    std::any callee{evaluate(expr.getCallee())};
+    std::vector<std::any> arguments{};
+    for (const auto& arg : expr.getArguments()) {
+        arguments.push_back(evaluate(arg));
+    }
+    if (callee.type() == typeid(LoxBuiltinClock)) {
+        auto function{std::any_cast<LoxBuiltinClock>(callee)};
+        if (arguments.size() != function.arity()) {
+            throw RuntimeError("Expected " + std::to_string(function.arity()) + " arguments but got " + std::to_string(arguments.size()) + ".",
+                               expr.getParen());
+        }
+        return function(*this, arguments);
+    }
+
+    if (callee.type() == typeid(LoxFunction)) {
+        auto function{std::any_cast<LoxFunction>(callee)};
+
+        if (arguments.size() != function.arity()) {
+            throw RuntimeError("Expected " + std::to_string(function.arity()) + " arguments but got " + std::to_string(arguments.size()) + ".",
+                               expr.getParen());
+        }
+
+        return function(*this, arguments);
+    }
+
+    throw std::runtime_error(std::string("[visitCallExpr()] Unexpected std::any type '") + callee.type().name() + std::string("'."));
     return std::any();
 }
 
@@ -196,8 +224,8 @@ void Interpreter::interpret(std::vector<std::shared_ptr<Statement>> statements) 
     }
 }
 
-void Interpreter::visitExpressionStmt(const ExpressionStatement& stmt) {
-    evaluate(stmt.getExpr());
+void Interpreter::visitExpressionStmt(std::shared_ptr<ExpressionStatement> stmt) {
+    evaluate(stmt->getExpr());
 }
 
 void Interpreter::visitPrintStmt(const PrintStatement& stmt) {
@@ -232,6 +260,8 @@ void Interpreter::visitWhileStmt(const WhileStatement& stmt) {
 }
 
 void Interpreter::visitFunctionStmt(const FunctionStatement& stmt) {
+    auto function = std::make_shared<LoxFunction>(stmt);
+    environment->define(stmt.getName().getLexeme(), LoxFunction(*function));
 }
 
 void Interpreter::visitReturnStmt(const ReturnStatement& stmt) {
@@ -240,7 +270,7 @@ void Interpreter::visitReturnStmt(const ReturnStatement& stmt) {
 void Interpreter::visitClassStmt(const ClassStatement& stmt) {
 }
 
-void Interpreter::executeBlock(std::vector<std::shared_ptr<Statement>> statements, std::shared_ptr<Environment> environment) {
+void Interpreter::executeBlock(const std::vector<std::shared_ptr<Statement>>& statements, std::shared_ptr<Environment> environment) {
     auto previousEnv = this->environment;
     try {
         this->environment = environment;
@@ -250,5 +280,9 @@ void Interpreter::executeBlock(std::vector<std::shared_ptr<Statement>> statement
     } catch (std::runtime_error) {
     }
     this->environment = previousEnv;
-    std::cout << "";
 }
+
+Interpreter::Interpreter() {
+    LoxBuiltinClock clock{};
+    globals->define("clock", clock);
+};

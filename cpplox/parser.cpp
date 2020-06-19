@@ -138,7 +138,33 @@ std::shared_ptr<Expression> Parser::unaryExpression() {
         auto right{unaryExpression()};
         return std::make_shared<UnaryExpression>(op, right);
     }
-    return primaryExpression();
+    return callExpression();
+}
+
+std::shared_ptr<Expression> Parser::callExpression() {
+    auto expr{primaryExpression()};
+    while (true) {
+        if (match(TokenType::Left_paren)) {
+            expr = finishCall(expr);
+        } else {
+            break;
+        }
+    }
+    return expr;
+}
+
+std::shared_ptr<Expression> Parser::finishCall(std::shared_ptr<Expression> callee) {
+    std::vector<std::shared_ptr<Expression>> arguments{};
+    if (!check(TokenType::Right_paren)) {
+        do {
+            if (arguments.size() >= 255) {
+                error(peek(), "Cannot have more than 255 arguments");
+            }
+            arguments.push_back(expression());
+        } while (match(TokenType::Comma));
+    }
+    Token paren{consume(TokenType::Right_paren, "Expected ')' after function arguments")};
+    return std::make_shared<CallExpression>(paren, callee, arguments);
 }
 
 std::shared_ptr<Expression> Parser::primaryExpression() {
@@ -210,6 +236,9 @@ std::vector<std::shared_ptr<Statement>> Parser::parse() {
 
 std::shared_ptr<Statement> Parser::declarationStatement() {
     try {
+        if (match(TokenType::Fun)) {
+            return functionDeclarationStatement("function?");
+        }
         if (match(TokenType::Var)) {
             return variableDeclarationStatement();
         }
@@ -331,4 +360,22 @@ std::vector<std::shared_ptr<Statement>> Parser::blockStatement() {
     }
     consume(TokenType::Right_brace, "Expected '}' after block.");
     return statements;
+}
+
+std::shared_ptr<Statement> Parser::functionDeclarationStatement(const std::string& kind) {
+    Token name{consume(TokenType::Identifier, "Expected " + kind + " name.")};
+    std::vector<Token> params{};
+    advance();
+    if (!check(TokenType::Right_paren)) {
+        do {
+            if (params.size() >= 255) {
+                error(peek(), "Cannot have more than 255 parameters.");
+            }
+            params.push_back(consume(TokenType::Identifier, "Expected parameter name."));
+        } while (match(TokenType::Comma));
+    }
+    consume(TokenType::Right_paren, "Exptected ')' after parameters.");
+    consume(TokenType::Left_brace, "Expected '}' before " + kind + " body.");
+    auto body{blockStatement()};
+    return std::make_shared<FunctionStatement>(name, params, body);
 }

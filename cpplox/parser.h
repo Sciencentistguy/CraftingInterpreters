@@ -39,11 +39,12 @@ class Parser {
     std::shared_ptr<Expression> additionExpression();
     std::shared_ptr<Expression> multiplicationExpression();
     std::shared_ptr<Expression> unaryExpression();
+    std::shared_ptr<Expression> callExpression();
     std::shared_ptr<Expression> primaryExpression();
 
     std::shared_ptr<Statement> declarationStatement();
+    std::shared_ptr<Statement> functionDeclarationStatement(const std::string& kind);
     std::shared_ptr<Statement> variableDeclarationStatement();
-
     std::shared_ptr<Statement> statement();
     std::shared_ptr<Statement> forStatement();
     std::shared_ptr<Statement> ifStatement();
@@ -54,6 +55,7 @@ class Parser {
 
     Token consume(TokenType type, std::string message);
     void synchronise();
+    std::shared_ptr<Expression> finishCall(std::shared_ptr<Expression> callee);
 
  public:
     explicit Parser(const std::vector<Token>& tokens);

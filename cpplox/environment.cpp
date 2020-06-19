@@ -6,7 +6,7 @@ Environment::Environment() : enclosing{nullptr} {
 Environment::Environment(const std::shared_ptr<Environment> enclosing) : enclosing{enclosing} {
 }
 
-void Environment::define(const std::string& name, const std::any& value) {
+void Environment::define(const std::string& name, const std::any value) {
     values.insert(std::make_pair(name, value));
 }
 
