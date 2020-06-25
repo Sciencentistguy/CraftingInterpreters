@@ -15,6 +15,7 @@
 #include "parser.h"
 #include "token.h"
 #include "loxfunction.h"
+#include "resolver.h"
 
 bool hadError = false;
 bool hadRuntimeError = false;
@@ -60,6 +61,9 @@ void run(const std::string& str) {
     if (hadError) {
         return;
     }
+
+    auto r{std::make_shared<Resolver>(*interpreter)};
+    r->resolve(statements);
 
     interpreter->interpret(statements);
 

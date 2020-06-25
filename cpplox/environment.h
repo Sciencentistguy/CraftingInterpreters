@@ -18,4 +18,7 @@ class Environment {
     void define(const std::string& name, const std::any value);
     void assign(const Token& name, const std::any& value);
     std::any get(const Token& name);
+    std::any getAt(int distance, std::string name);
+    void assignAt(int distance, const Token& name, std::any value);
+    Environment& ancestor(int distance);
 };

@@ -18,7 +18,12 @@ std::any Interpreter::visitLiteralExpr(LiteralExpression& expr) {
 
 std::any Interpreter::visitAssignExpr(AssignExpression& expr) {
     std::any value{evaluate(expr.getValue())};
-    environment->assign(expr.getName(), value);
+    auto distanceIt = locals->find(expr.shared_from_this());
+    if (distanceIt != locals->end()) {
+        environment->assignAt(distanceIt->second, expr.getName(), value);
+    } else {
+        globals->assign(expr.getName(), value);
+    }
     return value;
 }
 
@@ -95,7 +100,7 @@ std::any Interpreter::visitUnaryExpr(UnaryExpression& expr) {
 }
 
 std::any Interpreter::visitVariableExpr(VariableExpression& expr) {
-    return environment->get(expr.getName());
+    return lookUpVariable(expr.getName(), expr.shared_from_this());
 }
 
 std::any Interpreter::visitLogicalExpr(LogicalExpression& expr) {
@@ -225,8 +230,8 @@ void Interpreter::interpret(std::vector<std::shared_ptr<Statement>> statements) 
     }
 }
 
-void Interpreter::visitExpressionStmt(std::shared_ptr<ExpressionStatement> stmt) {
-    evaluate(stmt->getExpr());
+void Interpreter::visitExpressionStmt(const ExpressionStatement& stmt) {
+    evaluate(stmt.getExpr());
 }
 
 void Interpreter::visitPrintStmt(const PrintStatement& stmt) {
@@ -294,4 +299,17 @@ void Interpreter::executeBlock(const std::vector<std::shared_ptr<Statement>>& st
 Interpreter::Interpreter() {
     LoxBuiltinClock clock{};
     globals->define("clock", clock);
+}
+
+void Interpreter::resolve(std::shared_ptr<Expression> expr, int depth) {
+    locals->insert(std::make_pair(expr, depth));
+}
+
+std::any Interpreter::lookUpVariable(const Token& name, std::shared_ptr<Expression> expr) {
+    auto distanceIt = locals->find(expr);
+    if (distanceIt != locals->end()) {  // exists
+        return environment->getAt(distanceIt->second, name.getLexeme());
+    } else {  // does not exist
+        return globals->get(name);
+    }
 };

@@ -30,6 +30,7 @@ class RuntimeError : public std::runtime_error {
 
 class Interpreter : public ExpressionVisitor, public StatementVisitor, public std::enable_shared_from_this<Interpreter> {
     std::shared_ptr<Environment> globals{std::make_shared<Environment>()};
+    std::shared_ptr<std::unordered_map<std::shared_ptr<Expression>, int>> locals{std::make_shared<std::unordered_map<std::shared_ptr<Expression>, int>>()};
     std::shared_ptr<Environment> environment = globals;
 
     friend class LoxFunction;
@@ -38,6 +39,7 @@ class Interpreter : public ExpressionVisitor, public StatementVisitor, public st
     bool isEqual(const Token& token, const std::any& left, const std::any& right);
     void checkNumberOperand(const Token& token, const std::any& operand);
     void checkNumberOperand(const Token& token, const std::any& operand1, const std::any& operand2);
+    std::any lookUpVariable(const Token& name, std::shared_ptr<Expression> expr);
 
     void execute(std::shared_ptr<Statement> statement);
     void executeBlock(const std::vector<std::shared_ptr<Statement>>& statements, std::shared_ptr<Environment> environment);
@@ -58,7 +60,7 @@ class Interpreter : public ExpressionVisitor, public StatementVisitor, public st
     std::any visitThisExpr(ThisExpression& expr) override;
     std::any visitSuperExpr(SuperExpression& expr) override;
 
-    void visitExpressionStmt(std::shared_ptr<ExpressionStatement> stmt) override;
+    void visitExpressionStmt(const ExpressionStatement& stmt) override;
     void visitPrintStmt(const PrintStatement& stmt) override;
     void visitVarStmt(const VarStatement& stmt) override;
     void visitBlockStmt(const BlockStatement& stmt) override;
@@ -69,4 +71,5 @@ class Interpreter : public ExpressionVisitor, public StatementVisitor, public st
     void visitClassStmt(const ClassStatement& stmt) override;
 
     void interpret(std::vector<std::shared_ptr<Statement>> statements);
+    void resolve(std::shared_ptr<Expression> expr, int depth);
 };

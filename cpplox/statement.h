@@ -16,7 +16,7 @@ class ClassStatement;
 
 class StatementVisitor {
  public:
-    virtual void visitExpressionStmt(std::shared_ptr<ExpressionStatement> stmt) = 0;
+    virtual void visitExpressionStmt(const ExpressionStatement& stmt) = 0;
     virtual void visitPrintStmt(const PrintStatement& stmt) = 0;
     virtual void visitVarStmt(const VarStatement& stmt) = 0;
     virtual void visitBlockStmt(const BlockStatement& stmt) = 0;
@@ -33,9 +33,9 @@ class Statement {
 };
 
 class ExpressionStatement : public Statement, public std::enable_shared_from_this<ExpressionStatement> {
+    std::shared_ptr<Expression> expr;
 
  public:
-    std::shared_ptr<Expression> expr;
     explicit ExpressionStatement(const std::shared_ptr<Expression> expr);
     void accept(std::shared_ptr<StatementVisitor> visitor) override;
     const std::shared_ptr<Expression>& getExpr() const;
@@ -47,7 +47,7 @@ class PrintStatement : public Statement {
  public:
     explicit PrintStatement(const std::shared_ptr<Expression>& expr);
     void accept(std::shared_ptr<StatementVisitor> visitor) override;
-    const std::shared_ptr<Expression>& getExpr() const;
+    std::shared_ptr<Expression> getExpr() const;
 };
 
 class VarStatement : public Statement {
