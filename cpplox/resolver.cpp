@@ -33,7 +33,7 @@ std::any Resolver::visitUnaryExpr(UnaryExpression& expr) {
 }
 
 std::any Resolver::visitVariableExpr(VariableExpression& expr) {
-    if (!scopes.empty() && !scopes.back()[expr.getName().getLexeme()]) {
+    if (!scopes.empty() && !scopes.back().at(expr.getName().getLexeme())) {
         error(expr.getName(), "Cannot read local variable in its own initialiser");
     }
     resolveLocal(expr.shared_from_this(), expr.getName());
@@ -108,10 +108,13 @@ void Resolver::visitWhileStmt(const WhileStatement& stmt) {
 void Resolver::visitFunctionStmt(const FunctionStatement& stmt) {
     declare(stmt.getName());
     define(stmt.getName());
-    resolveFunction(stmt);
+    resolveFunction(stmt, FunctionType::FUNCTION);
 }
 
 void Resolver::visitReturnStmt(const ReturnStatement& stmt) {
+    if (currentFunction == FunctionType::NONE) {
+        error(stmt.getName(), "Return statement not allowed outside function.")
+    }
     if (stmt.getValue()) {
         resolve(stmt.getValue());
     }
@@ -146,6 +149,9 @@ void Resolver::declare(const Token& name) {
     if (scopes.empty()) {
         return;
     }
+    if (scopes.back().contains(name.getLexeme())) {
+        error(name, "Variable with this name already declared in this scope." );
+    }
     scopes.back().insert(std::make_pair(name.getLexeme(), false));
 }
 
@@ -153,7 +159,11 @@ void Resolver::define(const Token& name) {
     if (scopes.empty()) {
         return;
     }
-    scopes.back().insert(std::make_pair(name.getLexeme(), true));
+    try {
+        scopes.back().at(name.getLexeme()) = true;
+    } catch (const std::out_of_range& e) {
+        scopes.back().insert(std::make_pair(name.getLexeme(), true));
+    }
 }
 
 void Resolver::resolveLocal(std::shared_ptr<Expression> expr, const Token& name) {
@@ -165,7 +175,10 @@ void Resolver::resolveLocal(std::shared_ptr<Expression> expr, const Token& name)
     }
 }
 
-void Resolver::resolveFunction(const FunctionStatement& function) {
+void Resolver::resolveFunction(const FunctionStatement& function, FunctionType type) {
+    auto enclosingFunction{currentFunction};
+    currentFunction = type;
+
     beginScope();
     for (const auto& param : function.getParams()) {
         declare(param);
@@ -173,4 +186,6 @@ void Resolver::resolveFunction(const FunctionStatement& function) {
     }
     resolve(function.getBody());
     endScope();
+
+    currentFunction = enclosingFunction;
 }

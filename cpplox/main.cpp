@@ -12,10 +12,10 @@
 #include "expression_printer.h"
 #include "interpreter.h"
 #include "lexer.h"
-#include "parser.h"
-#include "token.h"
 #include "loxfunction.h"
+#include "parser.h"
 #include "resolver.h"
+#include "token.h"
 
 bool hadError = false;
 bool hadRuntimeError = false;
@@ -64,6 +64,10 @@ void run(const std::string& str) {
 
     auto r{std::make_shared<Resolver>(*interpreter)};
     r->resolve(statements);
+
+    if (hadError) {
+        return;
+    }
 
     interpreter->interpret(statements);
 

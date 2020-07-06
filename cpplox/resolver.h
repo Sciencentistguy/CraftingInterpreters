@@ -6,15 +6,20 @@
 #include "interpreter.h"
 
 class Resolver : public ExpressionVisitor, public StatementVisitor, public std::enable_shared_from_this<Resolver> {
+    enum class FunctionType {
+        NONE, FUNCTION
+    };
+
     Interpreter& interpreter;
     std::vector<std::unordered_map<std::string, bool>> scopes{};
+    FunctionType currentFunction{FunctionType::NONE};
 
     void beginScope();
     void endScope();
     void declare(const Token& name);
     void define(const Token& name);
     void resolveLocal(std::shared_ptr<Expression> expr, const Token& name);
-    void resolveFunction(const FunctionStatement& function);
+    void resolveFunction(const FunctionStatement& function, FunctionType type);
 
  public:
     explicit Resolver(Interpreter& interpreter);
