@@ -51,13 +51,13 @@ class PrintStatement : public Statement {
 };
 
 class VarStatement : public Statement {
-    std::shared_ptr<Expression> initialiser;
+    std::shared_ptr<Expression> initializer;
     Token name;
 
  public:
-    VarStatement(const std::shared_ptr<Expression> initialiser, const Token& name);
+    VarStatement(const std::shared_ptr<Expression> initializer, const Token& name);
     void accept(std::shared_ptr<StatementVisitor> visitor) override;
-    const std::shared_ptr<Expression>& getInitialiser() const;
+    const std::shared_ptr<Expression>& getInitializer() const;
     const Token& getName() const;
 };
 

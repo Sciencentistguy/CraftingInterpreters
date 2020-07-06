@@ -145,20 +145,24 @@ class GetExpression : public Expression, public std::enable_shared_from_this<Get
 
  public:
     GetExpression(const std::shared_ptr<Expression> object, const Token& name);
-    std::any enable(std::shared_ptr<ExpressionVisitor> visitor);
+    std::any accept(std::shared_ptr<ExpressionVisitor> visitor);
     const std::shared_ptr<Expression>& getObject() const;
     const Token& getName() const;
 };
 
 class SetExpression : public Expression, public std::enable_shared_from_this<SetExpression> {
-    Token keyword;
-    Token method;
+    Token name;
+    std::shared_ptr<Expression> object;
+    std::shared_ptr<Expression> value;
 
  public:
-    SetExpression(const Token& keyword, const Token& method);
-    std::any enable(std::shared_ptr<ExpressionVisitor> visitor);
-    const Token& getKeyword() const;
-    const Token& getMethod() const;
+    SetExpression(const Token& name, const std::shared_ptr<Expression>& object, const std::shared_ptr<Expression>& value);
+
+ public:
+    const Token& getName() const;
+    const std::shared_ptr<Expression>& getObject() const;
+    const std::shared_ptr<Expression>& getValue() const;
+    std::any accept(std::shared_ptr<ExpressionVisitor> visitor);
 };
 
 class ThisExpression : public Expression, public std::enable_shared_from_this<ThisExpression> {
@@ -166,7 +170,7 @@ class ThisExpression : public Expression, public std::enable_shared_from_this<Th
 
  public:
     explicit ThisExpression(const Token& keyword);
-    std::any enable(std::shared_ptr<ExpressionVisitor> visitor);
+    std::any accept(std::shared_ptr<ExpressionVisitor> visitor);
     const Token& getKeyword() const;
 };
 

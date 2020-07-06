@@ -1,6 +1,10 @@
 #include "interpreter.h"
 
+#include <cstring>
+
+#include "loxclass.h"
 #include "loxfunction.h"
+#include "loxinstance.h"
 #include "return.h"
 
 RuntimeError::RuntimeError(const std::string& message, const Token& token) : runtime_error{message}, message{message}, token{token} {
@@ -8,8 +12,10 @@ RuntimeError::RuntimeError(const std::string& message, const Token& token) : run
 
 const char* RuntimeError::what() const noexcept {
     std::stringstream ss;
+    char* buf = new char[128];
     ss << "[Runtime error Line " << token.getLine() << "] " << message << '\n';
-    return ss.str().c_str();
+    std::strcpy(buf, ss.str().c_str());
+    return buf;
 }
 
 std::any Interpreter::visitLiteralExpr(LiteralExpression& expr) {
@@ -133,8 +139,19 @@ std::any Interpreter::visitCallExpr(CallExpression& expr) {
         return function(*this, arguments);
     }
 
-    if (callee.type() == typeid(LoxFunction)) {
-        auto function{std::any_cast<LoxFunction>(callee)};
+    if (callee.type() == typeid(std::shared_ptr<LoxFunction>)) {
+        auto& function{*std::any_cast<std::shared_ptr<LoxFunction>>(callee)};
+
+        if (arguments.size() != function.arity()) {
+            throw RuntimeError("Expected " + std::to_string(function.arity()) + " arguments but got " + std::to_string(arguments.size()) + ".",
+                               expr.getParen());
+        }
+
+        return function(*this, arguments);
+    }
+
+    if (callee.type() == typeid(LoxClass)) {
+        auto function{std::any_cast<LoxClass>(callee)};
 
         if (arguments.size() != function.arity()) {
             throw RuntimeError("Expected " + std::to_string(function.arity()) + " arguments but got " + std::to_string(arguments.size()) + ".",
@@ -149,11 +166,22 @@ std::any Interpreter::visitCallExpr(CallExpression& expr) {
 }
 
 std::any Interpreter::visitGetExpr(GetExpression& expr) {
+    std::any obj{evaluate(expr.getObject())};
+    if (obj.type() == typeid(std::shared_ptr<LoxInstance>)) {
+        return std::any_cast<std::shared_ptr<LoxInstance>>(obj)->get(expr.getName());
+    }
+    throw RuntimeError("Cannot access property of non-instance type '" + std::string(obj.type().name()) + "'.", expr.getName());
     return std::any();
 }
 
 std::any Interpreter::visitSetExpr(SetExpression& expr) {
-    return std::any();
+    std::any obj{evaluate(expr.getObject())};
+    if (obj.type() != typeid(std::shared_ptr<LoxInstance>)) {
+        throw RuntimeError("Cannot set property of non-instance type '" + std::string(obj.type().name()) + "'.", expr.getName());
+    }
+    std::any value{evaluate(expr.getValue())};
+    std::any_cast<std::shared_ptr<LoxInstance>>(obj)->set(expr.getName(), value);
+    return value;
 }
 
 std::any Interpreter::visitThisExpr(ThisExpression& expr) {
@@ -225,8 +253,8 @@ void Interpreter::interpret(std::vector<std::shared_ptr<Statement>> statements) 
         for (const auto& statement : statements) {
             execute(statement);
         }
-    } catch (const RuntimeError& rError) {
-        runtimeError(rError);
+    } catch (const RuntimeError& e) {
+        runtimeError(e);
     }
 }
 
@@ -241,7 +269,7 @@ void Interpreter::visitPrintStmt(const PrintStatement& stmt) {
 
 void Interpreter::visitVarStmt(const VarStatement& stmt) {
     std::any value{};
-    if (auto init = stmt.getInitialiser()) {
+    if (auto init = stmt.getInitializer()) {
         value = evaluate(init);
     }
     environment->define(stmt.getName().getLexeme(), value);
@@ -266,8 +294,8 @@ void Interpreter::visitWhileStmt(const WhileStatement& stmt) {
 }
 
 void Interpreter::visitFunctionStmt(const FunctionStatement& stmt) {
-    auto function = std::make_shared<LoxFunction>(stmt, environment);
-    environment->define(stmt.getName().getLexeme(), LoxFunction(*function));
+    auto function = std::make_shared<LoxFunction>(stmt, environment, false);
+    environment->define(stmt.getName().getLexeme(), function);
 }
 
 void Interpreter::visitReturnStmt(const ReturnStatement& stmt) {
@@ -279,6 +307,17 @@ void Interpreter::visitReturnStmt(const ReturnStatement& stmt) {
 }
 
 void Interpreter::visitClassStmt(const ClassStatement& stmt) {
+    environment->define(stmt.getName().getLexeme(), std::any());
+
+    std::unordered_map<std::string, std::shared_ptr<LoxFunction>> methods{};
+    for (const auto& method : stmt.getMethods()) {
+
+        auto function{std::make_shared<LoxFunction>(*method, environment, method->getName().getLexeme() == "init")};
+        methods.insert(std::make_pair(method->getName().getLexeme(), function));
+    }
+
+    LoxClass cls{stmt.getName().getLexeme(), methods};
+    environment->assign(stmt.getName(), cls);
 }
 
 void Interpreter::executeBlock(const std::vector<std::shared_ptr<Statement>>& statements, std::shared_ptr<Environment> environment) {

@@ -12,7 +12,9 @@
 #include "expression_printer.h"
 #include "interpreter.h"
 #include "lexer.h"
+#include "loxclass.h"
 #include "loxfunction.h"
+#include "loxinstance.h"
 #include "parser.h"
 #include "resolver.h"
 #include "token.h"
@@ -118,6 +120,7 @@ void runPrompt() {
 
 void runtimeError(const RuntimeError& error) {
     std::cerr << error.what();
+    delete[] error.what();
     hadRuntimeError = true;
 }
 
@@ -125,6 +128,7 @@ std::string stringify(const std::any& a) {
     if (!a.has_value()) {
         return "nil";
     }
+
     if (a.type() == typeid(double)) {
         const double& val = std::any_cast<double>(a);
         if (val == static_cast<int>(val)) {
@@ -141,5 +145,12 @@ std::string stringify(const std::any& a) {
     if (a.type() == typeid(std::shared_ptr<LoxFunction>)) {
         return std::any_cast<std::shared_ptr<LoxFunction>>(a)->to_string();
     }
+    if (a.type() == typeid(LoxClass)) {
+        return std::any_cast<LoxClass>(a).to_string();
+    }
+    if (a.type() == typeid(std::shared_ptr<LoxInstance>)) {
+        return std::any_cast<std::shared_ptr<LoxInstance>>(a)->to_string();
+    }
+
     throw std::runtime_error(std::string("[stringify()] Unexpected std::any type '") + a.type().name() + "'");
 }

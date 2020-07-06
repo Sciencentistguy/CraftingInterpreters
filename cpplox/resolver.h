@@ -6,13 +6,13 @@
 #include "interpreter.h"
 
 class Resolver : public ExpressionVisitor, public StatementVisitor, public std::enable_shared_from_this<Resolver> {
-    enum class FunctionType {
-        NONE, FUNCTION
-    };
+    enum class FunctionType { None, Function, Constructor, Method };
+    enum class ClassType { None, Class };
 
     Interpreter& interpreter;
     std::vector<std::unordered_map<std::string, bool>> scopes{};
-    FunctionType currentFunction{FunctionType::NONE};
+    FunctionType currentFunction{FunctionType::None};
+    ClassType currentClass{ClassType::None};
 
     void beginScope();
     void endScope();

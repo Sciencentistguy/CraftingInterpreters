@@ -4,7 +4,8 @@
 
 #include "return.h"
 
-LoxFunction::LoxFunction(const FunctionStatement& declaration, const std::shared_ptr<Environment> closure) : declaration{declaration}, closure{closure} {
+LoxFunction::LoxFunction(const FunctionStatement& declaration, std::shared_ptr<Environment> closure, bool isInitializer) :
+    declaration{declaration}, closure{closure}, isConstructor{isInitializer} {
 }
 
 std::any LoxFunction::operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) {
@@ -15,7 +16,13 @@ std::any LoxFunction::operator()(Interpreter& interpreter, const std::vector<std
     try {
         interpreter.executeBlock(declaration.getBody(), environment);
     } catch (const Return& r) {
+        if (isConstructor) {
+            return closure->getAt(0, "this");
+        }
         return r.getValue();
+    }
+    if (isConstructor) {
+        return closure->getAt(0, "this");
     }
     return std::any();
 }
@@ -24,13 +31,19 @@ int LoxFunction::arity() {
     return declaration.getParams().size();
 }
 
-std::ostream& operator<<(std::ostream& os, const LoxFunction& function) {
-    os << "<fn " + function.declaration.getName().getLexeme() << '>';
-    return os;
-}
+// std::ostream& operator<<(std::ostream& os, const LoxFunction& function) {
+//    os << "<fn " + function.declaration.getName().getLexeme() << '>';
+//    return os;
+//}
 
 std::string LoxFunction::to_string() {
     return "<fn " + declaration.getName().getLexeme() + '>';
+}
+
+std::shared_ptr<LoxFunction> LoxFunction::bind(std::shared_ptr<LoxInstance> instance) {
+    auto env{std::make_shared<Environment>(closure)};
+    env->define("this", instance);  // todo is this right?
+    return std::make_shared<LoxFunction>(declaration, env, isConstructor);
 }
 
 std::any LoxBuiltinClock::operator()(Interpreter& interpreter, const std::vector<std::any>& args) {

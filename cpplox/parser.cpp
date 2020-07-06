@@ -62,6 +62,9 @@ std::shared_ptr<Expression> Parser::assignmentExpression() {
         if (std::dynamic_pointer_cast<VariableExpression>(expr) != nullptr) {
             auto name{dynamic_cast<VariableExpression&>(*expr).getName()};
             return std::make_shared<AssignExpression>(name, value);
+        } else if (std::dynamic_pointer_cast<GetExpression>(expr) != nullptr) {
+            const auto get = dynamic_cast<GetExpression&>(*expr);
+            return std::make_shared<SetExpression>(get.getName(), get.getObject(), value);
         }
         error(equals, "Invalid assignment target");
     }
@@ -146,6 +149,9 @@ std::shared_ptr<Expression> Parser::callExpression() {
     while (true) {
         if (match(TokenType::Left_paren)) {
             expr = finishCall(expr);
+        } else if (match(TokenType::Dot)) {
+            Token name{consume(TokenType::Identifier, "Expected property name after '.'.")};
+            expr = std::make_shared<GetExpression>(expr, name);
         } else {
             break;
         }
@@ -180,6 +186,10 @@ std::shared_ptr<Expression> Parser::primaryExpression() {
 
     if (match(TokenType::Number, TokenType::String)) {
         return std::make_shared<LiteralExpression>(previous().getLiteral());
+    }
+
+    if (match(TokenType::This)) {
+        return std::make_shared<ThisExpression>(previous());
     }
 
     if (match(TokenType::Identifier)) {
@@ -236,6 +246,9 @@ std::vector<std::shared_ptr<Statement>> Parser::parse() {
 
 std::shared_ptr<Statement> Parser::declarationStatement() {
     try {
+        if (match(TokenType::Class)) {
+            return classDeclarationStatement();
+        }
         if (match(TokenType::Fun)) {
             return functionDeclarationStatement("function?");
         }
@@ -391,4 +404,14 @@ std::shared_ptr<Statement> Parser::functionDeclarationStatement(const std::strin
     consume(TokenType::Left_brace, "Expected '}' before " + kind + " body.");
     auto body{blockStatement()};
     return std::make_shared<FunctionStatement>(name, params, body);
+}
+std::shared_ptr<Statement> Parser::classDeclarationStatement() {
+    auto name{consume(TokenType::Identifier, "Expected class name.")};
+    consume(TokenType::Left_brace, "Expected '{' before class body.");
+    std::vector<std::shared_ptr<FunctionStatement>> methods{};
+    while (!check(TokenType::Right_brace) && !isAtEnd()) {
+        methods.push_back(std::dynamic_pointer_cast<FunctionStatement>(functionDeclarationStatement("method")));
+    }
+    consume(TokenType::Right_brace, "Expected '}' after class body.");
+    return std::make_shared<ClassStatement>(name, nullptr, methods);
 }

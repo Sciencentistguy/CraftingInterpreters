@@ -43,6 +43,7 @@ class Parser {
     std::shared_ptr<Expression> primaryExpression();
 
     std::shared_ptr<Statement> declarationStatement();
+    std::shared_ptr<Statement> classDeclarationStatement();
     std::shared_ptr<Statement> functionDeclarationStatement(const std::string& kind);
     std::shared_ptr<Statement> variableDeclarationStatement();
     std::shared_ptr<Statement> statement();

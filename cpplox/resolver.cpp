@@ -1,7 +1,3 @@
-//
-// Created by jamie on 6/20/20.
-//
-
 #include "resolver.h"
 Resolver::Resolver(Interpreter& interpreter) : interpreter{interpreter} {
 }
@@ -34,7 +30,7 @@ std::any Resolver::visitUnaryExpr(UnaryExpression& expr) {
 
 std::any Resolver::visitVariableExpr(VariableExpression& expr) {
     if (!scopes.empty() && !scopes.back().at(expr.getName().getLexeme())) {
-        error(expr.getName(), "Cannot read local variable in its own initialiser");
+        error(expr.getName(), "Cannot read local variable in its own initializer");
     }
     resolveLocal(expr.shared_from_this(), expr.getName());
     return std::any();
@@ -55,14 +51,22 @@ std::any Resolver::visitCallExpr(CallExpression& expr) {
 }
 
 std::any Resolver::visitGetExpr(GetExpression& expr) {
+    resolve(expr.getObject());
     return std::any();
 }
 
 std::any Resolver::visitSetExpr(SetExpression& expr) {
+    resolve(expr.getValue());
+    resolve(expr.getObject());
     return std::any();
 }
 
 std::any Resolver::visitThisExpr(ThisExpression& expr) {
+    if (currentClass == ClassType::None) {
+        error(expr.getKeyword(), "Cannot use 'this' outside of a class.");
+        return std::any();
+    }
+    resolveLocal(expr.shared_from_this(), expr.getKeyword());
     return std::any();
 }
 
@@ -80,8 +84,8 @@ void Resolver::visitPrintStmt(const PrintStatement& stmt) {
 
 void Resolver::visitVarStmt(const VarStatement& stmt) {
     declare(stmt.getName());
-    if (stmt.getInitialiser()) {
-        resolve(stmt.getInitialiser());
+    if (stmt.getInitializer()) {
+        resolve(stmt.getInitializer());
     }
     define(stmt.getName());
 }
@@ -108,19 +112,35 @@ void Resolver::visitWhileStmt(const WhileStatement& stmt) {
 void Resolver::visitFunctionStmt(const FunctionStatement& stmt) {
     declare(stmt.getName());
     define(stmt.getName());
-    resolveFunction(stmt, FunctionType::FUNCTION);
+    resolveFunction(stmt, FunctionType::Function);
 }
 
 void Resolver::visitReturnStmt(const ReturnStatement& stmt) {
-    if (currentFunction == FunctionType::NONE) {
-        error(stmt.getName(), "Return statement not allowed outside function.")
+    if (currentFunction == FunctionType::None) {
+        error(stmt.getName(), "Return statement not allowed outside function.");
     }
     if (stmt.getValue()) {
+        if (currentFunction == FunctionType::Constructor) {
+            error(stmt.getName(), "Cannot return a value from a constructor.");
+        }
         resolve(stmt.getValue());
     }
 }
 
 void Resolver::visitClassStmt(const ClassStatement& stmt) {
+    auto enclosingClass{currentClass};
+    currentClass = ClassType::Class;
+
+    declare(stmt.getName());
+    define(stmt.getName());
+    beginScope();
+    scopes.back().insert(std::make_pair("this", true));
+    for (const auto& method : stmt.getMethods()) {
+        resolveFunction(*method, method->getName().getLexeme() == "init" ? FunctionType::Constructor : FunctionType::Method);
+    }
+    endScope();
+
+    currentClass = enclosingClass;
 }
 
 void Resolver::resolve(std::vector<std::shared_ptr<Statement>> statements) {
@@ -150,7 +170,7 @@ void Resolver::declare(const Token& name) {
         return;
     }
     if (scopes.back().contains(name.getLexeme())) {
-        error(name, "Variable with this name already declared in this scope." );
+        error(name, "Variable with this name already declared in this scope.");
     }
     scopes.back().insert(std::make_pair(name.getLexeme(), false));
 }

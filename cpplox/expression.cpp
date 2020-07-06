@@ -125,7 +125,7 @@ std::any CallExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
 GetExpression::GetExpression(const std::shared_ptr<Expression> object, const Token& name) : object{object}, name{name} {
 }
 
-std::any GetExpression::enable(std::shared_ptr<ExpressionVisitor> visitor) {
+std::any GetExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
     return visitor->visitGetExpr(*this);
 }
 
@@ -137,25 +137,30 @@ const Token& GetExpression::getName() const {
     return name;
 }
 
-SetExpression::SetExpression(const Token& keyword, const Token& method) : keyword{keyword}, method{method} {
-}
-
-std::any SetExpression::enable(std::shared_ptr<ExpressionVisitor> visitor) {
+std::any SetExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
     return visitor->visitSetExpr(*this);
 }
 
-const Token& SetExpression::getKeyword() const {
-    return keyword;
+SetExpression::SetExpression(const Token& name, const std::shared_ptr<Expression>& object, const std::shared_ptr<Expression>& value) :
+    name{name}, object{object}, value{value} {
 }
 
-const Token& SetExpression::getMethod() const {
-    return method;
+const Token& SetExpression::getName() const {
+    return name;
+}
+
+const std::shared_ptr<Expression>& SetExpression::getObject() const {
+    return object;
+}
+
+const std::shared_ptr<Expression>& SetExpression::getValue() const {
+    return value;
 }
 
 ThisExpression::ThisExpression(const Token& keyword) : keyword{keyword} {
 }
 
-std::any ThisExpression::enable(std::shared_ptr<ExpressionVisitor> visitor) {
+std::any ThisExpression::accept(std::shared_ptr<ExpressionVisitor> visitor) {
     return visitor->visitThisExpr(*this);
 }
 

@@ -22,15 +22,15 @@ std::shared_ptr<Expression> PrintStatement::getExpr() const {
     return expr;
 }
 
-VarStatement::VarStatement(const std::shared_ptr<Expression> initialiser, const Token& name) : initialiser{initialiser}, name{name} {
+VarStatement::VarStatement(const std::shared_ptr<Expression> initializer, const Token& name) : initializer{initializer}, name{name} {
 }
 
 void VarStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
     visitor->visitVarStmt(*this);
 }
 
-const std::shared_ptr<Expression>& VarStatement::getInitialiser() const {
-    return initialiser;
+const std::shared_ptr<Expression>& VarStatement::getInitializer() const {
+    return initializer;
 }
 
 const Token& VarStatement::getName() const {
