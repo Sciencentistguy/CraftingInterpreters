@@ -175,7 +175,7 @@ void Lexer::addToken(TokenType type) {
 
 void Lexer::addToken(TokenType type, std::any literal) {
     auto text = source.substr(start, (current - start));
-    tokens.push_back(Token(type, text, literal, current));
+    tokens.push_back(Token(type, text, literal, line));
 }
 
 bool Lexer::match(char expected) {
