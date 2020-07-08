@@ -2,10 +2,13 @@
 
 #include <sstream>
 
-#include "loxinstance.h"
 #include "loxfunction.h"
+#include "loxinstance.h"
 
-LoxClass::LoxClass(const std::string& name, const std::unordered_map<std::string, std::shared_ptr<LoxFunction>> methods) : name{name}, methods{methods} {
+LoxClass::LoxClass(const std::string& name, std::shared_ptr<LoxClass> superclass,
+                   const std::unordered_map<std::string, std::shared_ptr<LoxFunction>> methods) :
+    name{name},
+    superclass{superclass}, methods{methods} {
 }
 
 std::string LoxClass::to_string() {
@@ -36,6 +39,9 @@ const std::string& LoxClass::getName() const {
 std::shared_ptr<LoxFunction> LoxClass::findMethod(std::string name) const {
     if (methods.contains(name)) {
         return methods.at(name);
+    }
+    if (superclass) {
+        return superclass->findMethod(name);
     }
     return nullptr;
 }

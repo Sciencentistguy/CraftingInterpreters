@@ -188,6 +188,13 @@ std::shared_ptr<Expression> Parser::primaryExpression() {
         return std::make_shared<LiteralExpression>(previous().getLiteral());
     }
 
+    if (match(TokenType::Super)) {
+        auto keyword{previous()};
+        consume(TokenType::Dot, "Expected '.' after 'super'.");
+        auto method{consume(TokenType::Identifier, "Expected superclass method name.")};
+        return std::make_shared<SuperExpression>(keyword, method);
+    }
+
     if (match(TokenType::This)) {
         return std::make_shared<ThisExpression>(previous());
     }
@@ -407,11 +414,18 @@ std::shared_ptr<Statement> Parser::functionDeclarationStatement(const std::strin
 }
 std::shared_ptr<Statement> Parser::classDeclarationStatement() {
     auto name{consume(TokenType::Identifier, "Expected class name.")};
+
+    std::shared_ptr<VariableExpression> superclass{nullptr};
+    if (match(TokenType::Less)) {
+        consume(TokenType::Identifier, "Expected superclass name.");
+        superclass = std::make_shared<VariableExpression>(previous());
+    }
+
     consume(TokenType::Left_brace, "Expected '{' before class body.");
     std::vector<std::shared_ptr<FunctionStatement>> methods{};
     while (!check(TokenType::Right_brace) && !isAtEnd()) {
         methods.push_back(std::dynamic_pointer_cast<FunctionStatement>(functionDeclarationStatement("method")));
     }
     consume(TokenType::Right_brace, "Expected '}' after class body.");
-    return std::make_shared<ClassStatement>(name, nullptr, methods);
+    return std::make_shared<ClassStatement>(name, superclass, methods);
 }

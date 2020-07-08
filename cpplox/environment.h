@@ -21,4 +21,5 @@ class Environment {
     std::any getAt(int distance, std::string name);
     void assignAt(int distance, const Token& name, std::any value);
     Environment& ancestor(int distance);
+    const std::shared_ptr<Environment>& getEnclosing() const;
 };

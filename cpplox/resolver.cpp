@@ -71,6 +71,13 @@ std::any Resolver::visitThisExpr(ThisExpression& expr) {
 }
 
 std::any Resolver::visitSuperExpr(SuperExpression& expr) {
+    if (currentClass == ClassType::None) {
+        error(expr.getKeyword(), "Cannot use 'super' outside of a class.");
+    }
+    if (currentClass == ClassType::Class) {
+        error(expr.getKeyword(), "Cannot use 'super' in a class with no superclass.");
+    }
+    resolveLocal(expr.shared_from_this(), expr.getKeyword());
     return std::any();
 }
 
@@ -133,12 +140,26 @@ void Resolver::visitClassStmt(const ClassStatement& stmt) {
 
     declare(stmt.getName());
     define(stmt.getName());
+    if (stmt.getSuperclass()) {
+        if (stmt.getName().getLexeme() == stmt.getSuperclass()->getName().getLexeme()) {
+            error(stmt.getSuperclass()->getName(), "A class cannot inherit from itself.");
+        }
+        currentClass = ClassType::SubClass;
+        resolve(stmt.getSuperclass());
+
+        beginScope();
+        scopes.back().insert(std::make_pair("super", true));
+    }
+
     beginScope();
     scopes.back().insert(std::make_pair("this", true));
     for (const auto& method : stmt.getMethods()) {
         resolveFunction(*method, method->getName().getLexeme() == "init" ? FunctionType::Constructor : FunctionType::Method);
     }
     endScope();
+    if (stmt.getSuperclass()) {
+        endScope();
+    }
 
     currentClass = enclosingClass;
 }
@@ -187,7 +208,7 @@ void Resolver::define(const Token& name) {
 }
 
 void Resolver::resolveLocal(std::shared_ptr<Expression> expr, const Token& name) {
-    for (std::size_t i = scopes.size() - 1; i == 0; --i) {
+    for (int i = scopes.size() - 1; i >= 0; --i) {
         if (scopes[i].contains(name.getLexeme())) {
             interpreter.resolve(expr, scopes.size() - 1 - i);
             return;

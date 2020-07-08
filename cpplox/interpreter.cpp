@@ -150,8 +150,8 @@ std::any Interpreter::visitCallExpr(CallExpression& expr) {
         return function(*this, arguments);
     }
 
-    if (callee.type() == typeid(LoxClass)) {
-        auto function{std::any_cast<LoxClass>(callee)};
+    if (callee.type() == typeid(std::shared_ptr<LoxClass>)) {
+        auto& function{*std::any_cast<std::shared_ptr<LoxClass>>(callee)};
 
         if (arguments.size() != function.arity()) {
             throw RuntimeError("Expected " + std::to_string(function.arity()) + " arguments but got " + std::to_string(arguments.size()) + ".",
@@ -189,7 +189,32 @@ std::any Interpreter::visitThisExpr(ThisExpression& expr) {
 }
 
 std::any Interpreter::visitSuperExpr(SuperExpression& expr) {
-    return std::any();
+    int distance = 0;
+    if (auto super_iter = locals->find(expr.shared_from_this()); super_iter != locals->end()) {
+        distance = super_iter->second;
+    }
+    auto env = *environment; //todo this is really hacky. getAt should really be const
+    auto superclassany{environment->getAt(distance, "super")};
+    if (!superclassany.has_value()) {
+        throw RuntimeError("Superclass '" + expr.getKeyword().getLexeme() + "' doesn't exist", expr.getKeyword());
+    }
+    *(this->environment) = env;
+    auto superclass{std::any_cast<std::shared_ptr<LoxClass>>(superclassany)};
+    std::any objectany;
+    try {
+        objectany = environment->getAt(distance - 1, "this");
+    } catch (const std::out_of_range& e) {
+        std::cout << e.what();
+    }
+    if (!objectany.has_value()) {
+        throw RuntimeError("'this' was never defined.", expr.getKeyword());
+    }
+    auto object{std::any_cast<std::shared_ptr<LoxInstance>>(objectany)};
+    auto method{superclass->findMethod(expr.getMethod().getLexeme())};
+    if (!method) {
+        throw RuntimeError("Undefined property '" + expr.getMethod().getLexeme() + "'.", expr.getMethod());
+    }
+    return method->bind(object);
 }
 
 void Interpreter::execute(std::shared_ptr<Statement> statement) {
@@ -307,16 +332,31 @@ void Interpreter::visitReturnStmt(const ReturnStatement& stmt) {
 }
 
 void Interpreter::visitClassStmt(const ClassStatement& stmt) {
+    std::any superclass{};
+    if (stmt.getSuperclass()) {
+        superclass = evaluate(stmt.getSuperclass());
+        if (!(superclass.type() == typeid(std::shared_ptr<LoxClass>))) {
+            throw RuntimeError("Superclass must be a class", stmt.getSuperclass()->getName());
+        }
+    }
     environment->define(stmt.getName().getLexeme(), std::any());
+
+    if (superclass.has_value()) {
+        environment = std::make_shared<Environment>(environment);
+        environment->define("super", superclass);
+    }
 
     std::unordered_map<std::string, std::shared_ptr<LoxFunction>> methods{};
     for (const auto& method : stmt.getMethods()) {
-
         auto function{std::make_shared<LoxFunction>(*method, environment, method->getName().getLexeme() == "init")};
         methods.insert(std::make_pair(method->getName().getLexeme(), function));
     }
-
-    LoxClass cls{stmt.getName().getLexeme(), methods};
+    auto cls{std::make_shared<LoxClass>(stmt.getName().getLexeme(), superclass.has_value() ? std::any_cast<std::shared_ptr<LoxClass>>(superclass) : nullptr,
+                                        methods)};
+    //    LoxClass cls{stmt.getName().getLexeme(), methods};
+    if (superclass.has_value()) {
+        environment = environment->getEnclosing();
+    }
     environment->assign(stmt.getName(), cls);
 }
 
@@ -327,6 +367,8 @@ void Interpreter::executeBlock(const std::vector<std::shared_ptr<Statement>>& st
         for (const auto& statement : statements) {
             execute(statement);
         }
+    } catch (const RuntimeError& e) {
+        runtimeError(e);
     } catch (const std::runtime_error& e) {
     } catch (const Return& e) {
         this->environment = previousEnv;

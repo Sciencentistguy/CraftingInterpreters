@@ -34,17 +34,30 @@ std::any Environment::get(const Token& name) {
 
     throw RuntimeError("Undefined variable '" + name.getLexeme() + "'.", name);
 }
+
 std::any Environment::getAt(int distance, std::string name) {
-    return ancestor(distance).values[name];
+    auto anc = ancestor(distance);
+    auto vals = anc.values;
+    auto val{vals.at(name)};
+    if (val.has_value()) {
+        return val;
+    } else {
+        return val;
+    }
 }
+
 Environment& Environment::ancestor(int distance) {
     Environment& env = *this;
     for (int i = 0; i < distance; ++i) {
         env = *env.enclosing;
     }
-    return env; // todo is this bad?
+    return env;  // todo is this bad?
 }
 
 void Environment::assignAt(int distance, const Token& name, std::any value) {
     ancestor(distance).values.insert(std::make_pair(name.getLexeme(), value));
+}
+
+const std::shared_ptr<Environment>& Environment::getEnclosing() const {
+    return enclosing;
 }

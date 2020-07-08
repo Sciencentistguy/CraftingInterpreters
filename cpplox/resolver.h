@@ -7,7 +7,7 @@
 
 class Resolver : public ExpressionVisitor, public StatementVisitor, public std::enable_shared_from_this<Resolver> {
     enum class FunctionType { None, Function, Constructor, Method };
-    enum class ClassType { None, Class };
+    enum class ClassType { None, Class, SubClass };
 
     Interpreter& interpreter;
     std::vector<std::unordered_map<std::string, bool>> scopes{};
