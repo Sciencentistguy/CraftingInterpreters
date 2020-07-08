@@ -16,7 +16,7 @@ std::vector<Token> Lexer::scanTokens() {
     return tokens;
 }
 
-bool Lexer::isAtEnd() {
+bool Lexer::isAtEnd() const {
     return current >= source.length();
 }
 
@@ -169,11 +169,11 @@ char Lexer::advance() {
     return source[current - 1];
 }
 
-void Lexer::addToken(TokenType type) {
+void Lexer::addToken(const TokenType type) {
     addToken(type, std::any());
 }
 
-void Lexer::addToken(TokenType type, std::any literal) {
+void Lexer::addToken(const TokenType type, const std::any& literal) {
     auto text = source.substr(start, (current - start));
     tokens.push_back(Token(type, text, literal, line));
 }
@@ -189,14 +189,14 @@ bool Lexer::match(char expected) {
     return true;
 }
 
-char Lexer::peek() {
+char Lexer::peek() const {
     if (isAtEnd()) {
         return '\0';
     }
     return source[current];
 }
 
-char Lexer::peekNext() {
+char Lexer::peekNext() const {
     if (current + 1 >= source.length()) {
         return '\0';
     }
