@@ -22,7 +22,7 @@ void Environment::assign(const Token& name, const std::any& value) {
     throw RuntimeError("Undefined variable '" + name.getLexeme() + "'", name);
 }
 
-std::any Environment::get(const Token& name) {
+std::any Environment::get(const Token& name) const {
     const std::string& str = name.getLexeme();
     auto it = values.find(str);
     if (it != values.end()) {
@@ -35,15 +35,15 @@ std::any Environment::get(const Token& name) {
     throw RuntimeError("Undefined variable '" + name.getLexeme() + "'.", name);
 }
 
-std::any Environment::getAt(int distance, std::string name) {
+std::any Environment::getAt(int distance, std::string name) const {
     auto anc = ancestor(distance);
     auto vals = anc.values;
-    auto val{vals.at(name)};
-    if (val.has_value()) {
-        return val;
-    } else {
-        return val;
+    auto valIt = vals.find(name);
+    if (valIt == vals.end()) {
+        return std::any();
     }
+    auto val{*valIt};
+    return val.second;
 }
 
 Environment& Environment::ancestor(int distance) {
@@ -51,7 +51,7 @@ Environment& Environment::ancestor(int distance) {
     for (int i = 0; i < distance; ++i) {
         env = *env.enclosing;
     }
-    return env;  // todo is this bad?
+    return env;
 }
 
 void Environment::assignAt(int distance, const Token& name, std::any value) {
@@ -60,4 +60,24 @@ void Environment::assignAt(int distance, const Token& name, std::any value) {
 
 const std::shared_ptr<Environment>& Environment::getEnclosing() const {
     return enclosing;
+}
+
+const Environment Environment::ancestor(int distance) const {
+    Environment env = deep_copy();
+    for (int i = 0; i < distance; ++i) {
+        env.values = env.enclosing->values;
+        env.enclosing = env.enclosing->enclosing;
+    }
+    return env;
+}
+
+Environment Environment::deep_copy() const {
+    auto out = Environment();
+    out.values = values;
+    if (enclosing) {
+        out.enclosing = std::make_shared<Environment>(enclosing->deep_copy());
+    } else {
+        out.enclosing = nullptr;
+    }
+    return out;
 }

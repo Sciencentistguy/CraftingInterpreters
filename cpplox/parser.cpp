@@ -23,7 +23,7 @@ bool Parser::match(const TT&... tokentypes) {
     return false;
 }
 
-bool Parser::check(TokenType type) {
+bool Parser::check(TokenType type) const {
     if (isAtEnd()) {
         return false;
     }
@@ -37,15 +37,15 @@ const Token& Parser::advance() {
     return previous();
 }
 
-bool Parser::isAtEnd() {
+bool Parser::isAtEnd() const {
     return peek().getType() == TokenType::Eof;
 }
 
-const Token& Parser::peek() {
+const Token& Parser::peek() const {
     return tokens[current];
 }
 
-const Token& Parser::previous() {
+const Token& Parser::previous() const {
     return tokens[current - 1];
 }
 

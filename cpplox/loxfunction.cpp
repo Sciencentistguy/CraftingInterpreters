@@ -8,9 +8,9 @@ LoxFunction::LoxFunction(const FunctionStatement& declaration, std::shared_ptr<E
     declaration{declaration}, closure{closure}, isConstructor{isInitializer} {
 }
 
-std::any LoxFunction::operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) {
+std::any LoxFunction::operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) const {
     auto environment{std::make_shared<Environment>(closure)};
-    for (int i = 0; i < declaration.getParams().size(); ++i) {
+    for (unsigned int i = 0; i < declaration.getParams().size(); ++i) {
         environment->define(declaration.getParams()[i].getLexeme(), arguments[i]);
     }
     try {
@@ -27,32 +27,27 @@ std::any LoxFunction::operator()(Interpreter& interpreter, const std::vector<std
     return std::any();
 }
 
-int LoxFunction::arity() {
+size_t LoxFunction::arity() const {
     return declaration.getParams().size();
 }
 
-// std::ostream& operator<<(std::ostream& os, const LoxFunction& function) {
-//    os << "<fn " + function.declaration.getName().getLexeme() << '>';
-//    return os;
-//}
-
-std::string LoxFunction::to_string() {
+std::string LoxFunction::to_string() const {
     return "<fn " + declaration.getName().getLexeme() + '>';
 }
 
 std::shared_ptr<LoxFunction> LoxFunction::bind(std::shared_ptr<LoxInstance> instance) {
     auto env{std::make_shared<Environment>(closure)};
-    env->define("this", instance);  // todo is this right?
+    env->define("this", instance);
     return std::make_shared<LoxFunction>(declaration, env, isConstructor);
 }
 
-std::any LoxBuiltinClock::operator()(Interpreter& interpreter, const std::vector<std::any>& args) {
+std::any LoxBuiltinClock::operator()(Interpreter& interpreter, const std::vector<std::any>& args) const {
     auto time = std::chrono::system_clock::now();
     auto since_epoch{time.time_since_epoch()};
     auto millis = std::chrono::duration_cast<std::chrono::seconds>(since_epoch);
     return millis.count() / 1000;
 }
 
-int LoxBuiltinClock::arity() {
+size_t LoxBuiltinClock::arity() const {
     return 0;
 }

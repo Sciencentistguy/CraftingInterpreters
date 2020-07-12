@@ -5,11 +5,11 @@
 LoxInstance::LoxInstance(const LoxClass& cls) : cls{cls} {
 }
 
-std::string LoxInstance::to_string() {
+std::string LoxInstance::to_string() const {
     return "<instance of " + cls.getName() + '>';
 }
 
-std::any LoxInstance::get(const Token& name){
+std::any LoxInstance::get(const Token& name) {
     if (fields.contains(name.getLexeme())) {
         return fields.at(name.getLexeme());
     }

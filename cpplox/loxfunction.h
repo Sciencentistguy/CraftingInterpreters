@@ -15,18 +15,18 @@ class LoxFunction : public LoxCallable {
  public:
     LoxFunction(const FunctionStatement& declaration, const std::shared_ptr<Environment> closure, bool isInitializer);
 
-    std::any operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) override;
-    int arity() override;
+    std::any operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) const override;
+    size_t arity() const override;
 
-//    friend std::ostream& operator<<(std::ostream& os, const LoxFunction& function);
+    //    friend std::ostream& operator<<(std::ostream& os, const LoxFunction& function);
     std::shared_ptr<LoxFunction> bind(std::shared_ptr<LoxInstance> instance);
 
-    std::string to_string();
+    std::string to_string() const;
 };
 
 class LoxBuiltinClock : public LoxCallable {
  public:
-    int arity() override;
+    size_t arity() const override;
 
-    std::any operator()(Interpreter& interpreter, const std::vector<std::any>& args) override;
+    std::any operator()(Interpreter& interpreter, const std::vector<std::any>& args) const override;
 };

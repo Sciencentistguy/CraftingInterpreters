@@ -12,8 +12,8 @@ RuntimeError::RuntimeError(const std::string& message, const Token& token) : run
 
 const char* RuntimeError::what() const noexcept {
     std::stringstream ss;
-    char* buf = new char[128];
     ss << "[Runtime error Line " << token.getLine() << "] " << message << '\n';
+    char* buf = new char[ss.str().length() + 2];
     std::strcpy(buf, ss.str().c_str());
     return buf;
 }
@@ -193,12 +193,10 @@ std::any Interpreter::visitSuperExpr(SuperExpression& expr) {
     if (auto super_iter = locals->find(expr.shared_from_this()); super_iter != locals->end()) {
         distance = super_iter->second;
     }
-    auto env = *environment; //todo this is really hacky. getAt should really be const
     auto superclassany{environment->getAt(distance, "super")};
     if (!superclassany.has_value()) {
         throw RuntimeError("Superclass '" + expr.getKeyword().getLexeme() + "' doesn't exist", expr.getKeyword());
     }
-    *(this->environment) = env;
     auto superclass{std::any_cast<std::shared_ptr<LoxClass>>(superclassany)};
     std::any objectany;
     try {
@@ -221,7 +219,7 @@ void Interpreter::execute(std::shared_ptr<Statement> statement) {
     statement->accept(this->shared_from_this());
 }
 
-bool Interpreter::isTruthy(const std::any& object) {
+bool Interpreter::isTruthy(const std::any& object) const {
     if (!object.has_value()) {
         return false;
     }
@@ -231,7 +229,7 @@ bool Interpreter::isTruthy(const std::any& object) {
     return true;
 }
 
-bool Interpreter::isEqual(const Token& token, const std::any& left, const std::any& right) {
+bool Interpreter::isEqual(const Token& token, const std::any& left, const std::any& right) const {
     if (!(left.has_value() || right.has_value())) {
         return true;
     }
@@ -255,14 +253,14 @@ bool Interpreter::isEqual(const Token& token, const std::any& left, const std::a
     return false;
 }
 
-void Interpreter::checkNumberOperand(const Token& token, const std::any& operand) {
+void Interpreter::checkNumberOperand(const Token& token, const std::any& operand) const {
     if (operand.type() == typeid(double)) {
         return;
     }
     throw RuntimeError("Operand must be a number", token);
 }
 
-void Interpreter::checkNumberOperand(const Token& token, const std::any& operand1, const std::any& operand2) {
+void Interpreter::checkNumberOperand(const Token& token, const std::any& operand1, const std::any& operand2) const {
     if (operand1.type() == typeid(double) && operand2.type() == typeid(double)) {
         return;
     }
@@ -386,11 +384,11 @@ void Interpreter::resolve(std::shared_ptr<Expression> expr, int depth) {
     locals->insert(std::make_pair(expr, depth));
 }
 
-std::any Interpreter::lookUpVariable(const Token& name, std::shared_ptr<Expression> expr) {
+std::any Interpreter::lookUpVariable(const Token& name, std::shared_ptr<Expression> expr) const {
     auto distanceIt = locals->find(expr);
     if (distanceIt != locals->end()) {  // exists
         return environment->getAt(distanceIt->second, name.getLexeme());
     } else {  // does not exist
         return globals->get(name);
     }
-};
+}

@@ -12,12 +12,15 @@ std::ostream& operator<<(std::ostream& lhs, const Token& rhs) {
 TokenType Token::getType() const {
     return type;
 }
+
 const std::any& Token::getLiteral() const {
     return literal;
 }
+
 int Token::getLine() const {
     return line;
 }
+
 const std::string& Token::getLexeme() const {
     return lexeme;
 }

@@ -11,11 +11,11 @@ LoxClass::LoxClass(const std::string& name, std::shared_ptr<LoxClass> superclass
     superclass{superclass}, methods{methods} {
 }
 
-std::string LoxClass::to_string() {
+std::string LoxClass::to_string() const {
     return "<class " + name + '>';
 }
 
-std::any LoxClass::operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) {
+std::any LoxClass::operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) const {
     auto instance{std::make_shared<LoxInstance>(*this)};
     auto initializer = findMethod("init");
     if (initializer) {
@@ -24,7 +24,7 @@ std::any LoxClass::operator()(Interpreter& interpreter, const std::vector<std::a
     return instance;
 }
 
-int LoxClass::arity() {
+size_t LoxClass::arity() const {
     auto initializer{findMethod("init")};
     if (!initializer) {
         return 0;

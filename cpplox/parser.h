@@ -24,11 +24,11 @@ class Parser {
     template<typename... TT>
     bool match(const TT&... tokentypes);
 
-    bool check(const TokenType type);
+    bool check(const TokenType type) const;
     const Token& advance();
-    bool isAtEnd();
-    const Token& peek();
-    const Token& previous();
+    bool isAtEnd() const;
+    const Token& peek() const;
+    const Token& previous() const;
 
     std::shared_ptr<Expression> expression();
     std::shared_ptr<Expression> assignmentExpression();

@@ -6,6 +6,6 @@ class Return {
 
  public:
     explicit Return(const std::any& value);
-    const char* what() noexcept;
-    const std::any& getValue() const;
+    static const char* what() noexcept;
+    [[nodiscard]] const std::any& getValue() const;
 };

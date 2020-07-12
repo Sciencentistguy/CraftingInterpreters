@@ -20,8 +20,8 @@ class Environment;
 class Token;
 
 class RuntimeError : public std::runtime_error {
-    std::string message;
-    Token token;
+    const std::string message;
+    const Token token;
 
  public:
     RuntimeError(const std::string& message, const Token& token);
@@ -35,11 +35,11 @@ class Interpreter : public ExpressionVisitor, public StatementVisitor, public st
 
     friend class LoxFunction;
     std::any evaluate(std::shared_ptr<Expression> expr);
-    bool isTruthy(const std::any& object);
-    bool isEqual(const Token& token, const std::any& left, const std::any& right);
-    void checkNumberOperand(const Token& token, const std::any& operand);
-    void checkNumberOperand(const Token& token, const std::any& operand1, const std::any& operand2);
-    std::any lookUpVariable(const Token& name, std::shared_ptr<Expression> expr);
+    bool isTruthy(const std::any& object) const;
+    bool isEqual(const Token& token, const std::any& left, const std::any& right) const;
+    void checkNumberOperand(const Token& token, const std::any& operand) const;
+    void checkNumberOperand(const Token& token, const std::any& operand1, const std::any& operand2) const;
+    std::any lookUpVariable(const Token& name, std::shared_ptr<Expression> expr) const;
 
     void execute(std::shared_ptr<Statement> statement);
     void executeBlock(const std::vector<std::shared_ptr<Statement>>& statements, std::shared_ptr<Environment> environment);

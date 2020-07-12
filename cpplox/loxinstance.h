@@ -11,5 +11,5 @@ class LoxInstance : public std::enable_shared_from_this<LoxInstance> {
     std::any get(const Token& name);
     void set(const Token& name, const std::any& value);
 
-    std::string to_string();
+    std::string to_string() const;
 };

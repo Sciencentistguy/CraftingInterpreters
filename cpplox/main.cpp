@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-#include "expression_printer.h"
 #include "interpreter.h"
 #include "lexer.h"
 #include "loxclass.h"
@@ -119,8 +118,9 @@ void runPrompt() {
 }
 
 void runtimeError(const RuntimeError& error) {
-    std::cerr << error.what();
-    delete[] error.what();
+    const char* msg = error.what();
+    std::cerr << msg;
+    delete[] msg;
     hadRuntimeError = true;
 }
 

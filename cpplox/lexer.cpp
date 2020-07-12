@@ -21,7 +21,7 @@ bool Lexer::isAtEnd() const {
 }
 
 void Lexer::scanToken() {
-    char c = advance();
+    const char c = advance();
     switch (c) {
         case '(':
             addToken(TokenType::Left_paren);
@@ -159,7 +159,7 @@ void Lexer::scanToken() {
             break;
 
         default:
-            error(line, "Unexpected character." + std::to_string(c));
+            error(line, "Unexpected character '" + std::to_string(c) + "'.");
             break;
     }
 }
@@ -178,7 +178,7 @@ void Lexer::addToken(const TokenType type, const std::any& literal) {
     tokens.push_back(Token(type, text, literal, line));
 }
 
-bool Lexer::match(char expected) {
+bool Lexer::match(const char expected) {
     if (isAtEnd()) {
         return false;
     }

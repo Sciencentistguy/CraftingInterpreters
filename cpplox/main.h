@@ -22,8 +22,3 @@ void run(const std::string& str);
 void runtimeError(const RuntimeError& error);
 
 std::string stringify(const std::any& a);
-
-template<typename Base, typename T>
-inline bool instanceof(const T*) {
-    return std::is_base_of<Base, T>::value;
-}

@@ -15,7 +15,8 @@ const std::unordered_map<std::string, TokenType> keywords{
     {"this", TokenType::This}, {"true", TokenType::True},   {"var", TokenType::Var},       {"while", TokenType::While}};
 
 class Lexer {
-    std::string source;
+    const std::string source;
+
     std::vector<Token> tokens;
     unsigned int start{0};
     unsigned int current{0};
@@ -29,7 +30,7 @@ class Lexer {
     char advance();
     void addToken(const TokenType type);
     void addToken(const TokenType type, const std::any& literal);
-    bool match(char expected);
+    bool match(const char expected);
     void string();
     void number();
     void identifier();
