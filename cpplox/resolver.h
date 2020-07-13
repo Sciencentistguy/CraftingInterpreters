@@ -3,7 +3,9 @@
 #include <vector>
 
 #include "environment.h"
+#include "expression.h"
 #include "interpreter.h"
+#include "statement.h"
 
 class Resolver : public ExpressionVisitor, public StatementVisitor, public std::enable_shared_from_this<Resolver> {
     enum class FunctionType { None, Function, Constructor, Method };

@@ -3,7 +3,6 @@
 #include <any>
 #include <vector>
 
-#include "interpreter.h"
 class Interpreter;
 
 class LoxCallable {

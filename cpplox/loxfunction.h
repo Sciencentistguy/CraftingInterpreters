@@ -4,6 +4,8 @@
 
 #include "loxcallable.h"
 #include "loxinstance.h"
+#include "statement.h"
+#include "environment.h"
 
 class LoxCallable;
 

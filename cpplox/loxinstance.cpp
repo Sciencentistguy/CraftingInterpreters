@@ -1,6 +1,7 @@
 #include "loxinstance.h"
 
 #include "loxfunction.h"
+#include "runtimeerror.h"
 
 LoxInstance::LoxInstance(const LoxClass& cls) : cls{cls} {
 }

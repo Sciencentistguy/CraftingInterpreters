@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "return.h"
+#include "interpreter.h"
 
 LoxFunction::LoxFunction(const FunctionStatement& declaration, std::shared_ptr<Environment> closure, bool isInitializer) :
     declaration{declaration}, closure{closure}, isConstructor{isInitializer} {

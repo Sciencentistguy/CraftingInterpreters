@@ -5,7 +5,6 @@
 
 #include <unordered_map>
 
-#include "interpreter.h"
 #include "token.h"
 
 class Environment {

@@ -1,8 +1,12 @@
 #pragma once
 
 #include <string>
+#include <memory>
+#include <unordered_map>
 
 #include "loxcallable.h"
+
+class LoxFunction;
 
 class LoxClass : public LoxCallable {
     const std::string name;

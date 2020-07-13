@@ -1,5 +1,7 @@
 #include "environment.h"
 
+#include "runtimeerror.h"
+
 Environment::Environment() : enclosing{nullptr} {
 }
 

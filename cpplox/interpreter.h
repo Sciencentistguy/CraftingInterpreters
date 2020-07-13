@@ -19,15 +19,6 @@ class Environment;
 
 class Token;
 
-class RuntimeError : public std::runtime_error {
-    const std::string message;
-    const Token token;
-
- public:
-    RuntimeError(const std::string& message, const Token& token);
-    const char* what() const noexcept override;
-};
-
 class Interpreter : public ExpressionVisitor, public StatementVisitor, public std::enable_shared_from_this<Interpreter> {
     std::shared_ptr<Environment> globals{std::make_shared<Environment>()};
     std::shared_ptr<std::unordered_map<std::shared_ptr<Expression>, int>> locals{std::make_shared<std::unordered_map<std::shared_ptr<Expression>, int>>()};

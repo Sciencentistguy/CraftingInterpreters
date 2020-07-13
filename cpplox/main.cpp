@@ -17,6 +17,7 @@
 #include "parser.h"
 #include "resolver.h"
 #include "token.h"
+#include "runtimeerror.h"
 
 bool hadError = false;
 bool hadRuntimeError = false;
@@ -71,13 +72,6 @@ void run(const std::string& str) {
     }
 
     interpreter->interpret(statements);
-
-    //    auto printer{std::make_shared<expressionprinter>()};
-    //    std::cout << printer->print(expression) << '\n';
-
-    //    for (const auto& token : tokens) {
-    //        std::cout << token << '\n';
-    //    }
 }
 
 std::string readFile(const std::string& filename) {

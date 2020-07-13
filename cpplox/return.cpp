@@ -1,13 +1,12 @@
-//
-// Created by jamie on 6/19/20.
-//
-
 #include "return.h"
-Return::Return(const std::any& value) : value{value} {
+
+#include <utility>
+
+Return::Return(std::any  value) : value{std::move(value)} {
 }
 
 const char* Return::what() noexcept {
-    return "return exception. this shouldn't have terminated";
+    return "Return exception. This shouldn't have terminated";
 }
 
 const std::any& Return::getValue() const {
