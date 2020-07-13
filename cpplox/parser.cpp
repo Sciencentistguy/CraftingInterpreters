@@ -327,8 +327,8 @@ std::shared_ptr<Statement> Parser::forStatement() {
     auto body{statement()};
 
     if (increment) {
-        std::vector<std::shared_ptr<Statement>> vec{{body, std::make_shared<ExpressionStatement>(increment)}};
-        body = std::make_shared<BlockStatement>(std::move(vec));
+        std::vector<std::shared_ptr<Statement>> vec{body, std::make_shared<ExpressionStatement>(increment)};
+        body = std::make_shared<BlockStatement>(vec);
     }
 
     if (!condition) {

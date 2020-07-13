@@ -29,8 +29,13 @@ std::any Resolver::visitUnaryExpr(UnaryExpression& expr) {
 }
 
 std::any Resolver::visitVariableExpr(VariableExpression& expr) {
-    if (!scopes.empty() && !scopes.back().at(expr.getName().getLexeme())) {
-        error(expr.getName(), "Cannot read local variable in its own initializer");
+    if (!scopes.empty()) {
+        auto scopeBackIt{scopes.back().find(expr.getName().getLexeme())};
+        if (scopeBackIt != scopes.back().end()) {  // exists
+            if (!scopeBackIt->second) {
+                error(expr.getName(), "Cannot read local variable in its own initializer");
+            }
+        }
     }
     resolveLocal(expr.shared_from_this(), expr.getName());
     return std::any();

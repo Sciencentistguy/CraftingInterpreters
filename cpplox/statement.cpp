@@ -140,3 +140,4 @@ const std::vector<std::shared_ptr<FunctionStatement>>& ClassStatement::getMethod
 const Token& ClassStatement::getName() const {
     return name;
 }
+

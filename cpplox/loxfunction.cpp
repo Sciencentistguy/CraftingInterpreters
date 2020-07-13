@@ -44,8 +44,9 @@ std::shared_ptr<LoxFunction> LoxFunction::bind(std::shared_ptr<LoxInstance> inst
 std::any LoxBuiltinClock::operator()(Interpreter& interpreter, const std::vector<std::any>& args) const {
     auto time = std::chrono::system_clock::now();
     auto since_epoch{time.time_since_epoch()};
-    auto millis = std::chrono::duration_cast<std::chrono::seconds>(since_epoch);
-    return millis.count() / 1000;
+    auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(since_epoch);
+    double ret = millis.count();
+    return ret;
 }
 
 size_t LoxBuiltinClock::arity() const {

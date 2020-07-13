@@ -264,7 +264,8 @@ void Interpreter::checkNumberOperand(const Token& token, const std::any& operand
     if (operand1.type() == typeid(double) && operand2.type() == typeid(double)) {
         return;
     }
-    throw RuntimeError("Operand must be a number", token);
+    using namespace std::literals::string_literals;
+    throw RuntimeError("Operand must be a number ('d'). (actual types: '"s + operand1.type().name() + "', '" + operand2.type().name() + "').", token);
 }
 
 std::any Interpreter::evaluate(std::shared_ptr<Expression> expr) {
@@ -340,7 +341,7 @@ void Interpreter::visitClassStmt(const ClassStatement& stmt) {
     environment->define(stmt.getName().getLexeme(), std::any());
 
     if (superclass.has_value()) {
-        environment = std::make_shared<Environment>(environment);
+        environment = std::make_unique<Environment>(environment);
         environment->define("super", superclass);
     }
 

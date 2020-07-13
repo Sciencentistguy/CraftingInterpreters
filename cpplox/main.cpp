@@ -128,11 +128,13 @@ std::string stringify(const std::any& a) {
     if (!a.has_value()) {
         return "nil";
     }
-
+    if (a.type() == typeid(long)) {
+        return std::to_string(std::any_cast<long>(a));
+    }
     if (a.type() == typeid(double)) {
         const double& val = std::any_cast<double>(a);
-        if (val == static_cast<int>(val)) {
-            return std::to_string(static_cast<int>(val));
+        if (val == static_cast<long>(val)) {
+            return std::to_string(static_cast<long>(val));
         }
         return std::to_string(val);
     }
