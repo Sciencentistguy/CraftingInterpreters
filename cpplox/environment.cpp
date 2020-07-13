@@ -47,37 +47,26 @@ std::any Environment::getAt(int distance, std::string name) const {
 }
 
 Environment& Environment::ancestor(int distance) {
-    Environment& env = *this;
+    Environment* envp = this;
     for (int i = 0; i < distance; ++i) {
-        env = *env.enclosing;
+        envp = envp->enclosing.get();
     }
-    return env;
+    return *envp;
+}
+
+const Environment& Environment::ancestor(int distance) const {
+    const auto* envp = this;
+    for (int i = 0; i < distance; ++i) {
+        envp = envp->enclosing.get();
+    }
+    return *envp;
 }
 
 void Environment::assignAt(int distance, const Token& name, std::any value) {
-    ancestor(distance).values.insert(std::make_pair(name.getLexeme(), value));
+    auto& env = ancestor(distance);
+    env.values[name.getLexeme()] = value;
 }
 
 const std::shared_ptr<Environment>& Environment::getEnclosing() const {
     return enclosing;
-}
-
-const Environment Environment::ancestor(int distance) const {
-    Environment env = deep_copy();
-    for (int i = 0; i < distance; ++i) {
-        env.values = env.enclosing->values;
-        env.enclosing = env.enclosing->enclosing;
-    }
-    return env;
-}
-
-Environment Environment::deep_copy() const {
-    auto out = Environment();
-    out.values = values;
-    if (enclosing) {
-        out.enclosing = std::make_shared<Environment>(enclosing->deep_copy());
-    } else {
-        out.enclosing = nullptr;
-    }
-    return out;
 }
