@@ -15,7 +15,7 @@ class LoxFunction : public LoxCallable {
     bool isConstructor;
 
  public:
-    LoxFunction(const FunctionStatement& declaration, const std::shared_ptr<Environment> closure, bool isInitializer);
+    LoxFunction(const FunctionStatement& declaration, const std::shared_ptr<Environment>& closure, bool isInitializer);
 
     std::any operator()(Interpreter& interpreter, const std::vector<std::any>& arguments) const override;
     size_t arity() const override;
@@ -29,6 +29,5 @@ class LoxFunction : public LoxCallable {
 class LoxBuiltinClock : public LoxCallable {
  public:
     size_t arity() const override;
-
     std::any operator()(Interpreter& interpreter, const std::vector<std::any>& args) const override;
 };

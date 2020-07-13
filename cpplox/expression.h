@@ -147,16 +147,16 @@ class SuperExpression : public Expression, public std::enable_shared_from_this<S
 
 class ExpressionVisitor {
  public:
-    virtual std::any visitLiteralExpr(LiteralExpression& expr) = 0;
-    virtual std::any visitAssignExpr(AssignExpression& expr) = 0;
-    virtual std::any visitBinaryExpr(BinaryExpression& expr) = 0;
-    virtual std::any visitGroupingExpr(GroupingExpression& expr) = 0;
-    virtual std::any visitUnaryExpr(UnaryExpression& expr) = 0;
-    virtual std::any visitVariableExpr(VariableExpression& expr) = 0;
-    virtual std::any visitLogicalExpr(LogicalExpression& expr) = 0;
-    virtual std::any visitCallExpr(CallExpression& expr) = 0;
-    virtual std::any visitGetExpr(GetExpression& expr) = 0;
-    virtual std::any visitSetExpr(SetExpression& expr) = 0;
-    virtual std::any visitThisExpr(ThisExpression& expr) = 0;
-    virtual std::any visitSuperExpr(SuperExpression& expr) = 0;
+    virtual std::any visitLiteralExpr(const LiteralExpression& expr) = 0;
+    virtual std::any visitAssignExpr(const AssignExpression& expr) = 0;
+    virtual std::any visitBinaryExpr(const BinaryExpression& expr) = 0;
+    virtual std::any visitGroupingExpr(const GroupingExpression& expr) = 0;
+    virtual std::any visitUnaryExpr(const UnaryExpression& expr) = 0;
+    virtual std::any visitVariableExpr(const VariableExpression& expr) = 0;
+    virtual std::any visitLogicalExpr(const LogicalExpression& expr) = 0;
+    virtual std::any visitCallExpr(const CallExpression& expr) = 0;
+    virtual std::any visitGetExpr(const GetExpression& expr) = 0;
+    virtual std::any visitSetExpr(const SetExpression& expr) = 0;
+    virtual std::any visitThisExpr(const ThisExpression& expr) = 0;
+    virtual std::any visitSuperExpr(const SuperExpression& expr) = 0;
 };

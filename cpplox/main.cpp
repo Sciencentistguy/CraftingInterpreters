@@ -111,9 +111,7 @@ void runPrompt() {
 }
 
 void runtimeError(const RuntimeError& error) {
-    const char* msg = error.what();
-    std::cerr << msg;
-    delete[] msg;
+    std::cerr << error.what();
     hadRuntimeError = true;
 }
 

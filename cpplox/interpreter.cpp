@@ -8,11 +8,11 @@
 #include "return.h"
 #include "runtimeerror.h"
 
-std::any Interpreter::visitLiteralExpr(LiteralExpression& expr) {
+std::any Interpreter::visitLiteralExpr(const LiteralExpression& expr) {
     return expr.getValue();
 }
 
-std::any Interpreter::visitAssignExpr(AssignExpression& expr) {
+std::any Interpreter::visitAssignExpr(const AssignExpression& expr) {
     std::any value{evaluate(expr.getValue())};
     auto distanceIt = locals->find(expr.shared_from_this());
     if (distanceIt != locals->end()) {
@@ -23,7 +23,7 @@ std::any Interpreter::visitAssignExpr(AssignExpression& expr) {
     return value;
 }
 
-std::any Interpreter::visitBinaryExpr(BinaryExpression& expr) {
+std::any Interpreter::visitBinaryExpr(const BinaryExpression& expr) {
     std::any left{evaluate(expr.getLeft())};
     std::any right{evaluate(expr.getRight())};
 
@@ -74,11 +74,11 @@ std::any Interpreter::visitBinaryExpr(BinaryExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitGroupingExpr(GroupingExpression& expr) {
+std::any Interpreter::visitGroupingExpr(const GroupingExpression& expr) {
     return evaluate(expr.getExpression());
 }
 
-std::any Interpreter::visitUnaryExpr(UnaryExpression& expr) {
+std::any Interpreter::visitUnaryExpr(const UnaryExpression& expr) {
     std::any right = evaluate(expr.getRight());
     switch (expr.getOperation().getType()) {
         case TokenType::Minus:
@@ -95,11 +95,11 @@ std::any Interpreter::visitUnaryExpr(UnaryExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitVariableExpr(VariableExpression& expr) {
+std::any Interpreter::visitVariableExpr(const VariableExpression& expr) {
     return lookUpVariable(expr.getName(), expr.shared_from_this());
 }
 
-std::any Interpreter::visitLogicalExpr(LogicalExpression& expr) {
+std::any Interpreter::visitLogicalExpr(const LogicalExpression& expr) {
     const auto& left{evaluate(expr.getLeft())};
     if (expr.getOperator().getType() == TokenType::Or) {
         if (isTruthy(left)) {
@@ -114,7 +114,7 @@ std::any Interpreter::visitLogicalExpr(LogicalExpression& expr) {
     return evaluate(expr.getRight());
 }
 
-std::any Interpreter::visitCallExpr(CallExpression& expr) {
+std::any Interpreter::visitCallExpr(const CallExpression& expr) {
     std::any callee{evaluate(expr.getCallee())};
     std::vector<std::any> arguments{};
     for (const auto& arg : expr.getArguments()) {
@@ -155,7 +155,7 @@ std::any Interpreter::visitCallExpr(CallExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitGetExpr(GetExpression& expr) {
+std::any Interpreter::visitGetExpr(const GetExpression& expr) {
     std::any obj{evaluate(expr.getObject())};
     if (obj.type() == typeid(std::shared_ptr<LoxInstance>)) {
         return std::any_cast<std::shared_ptr<LoxInstance>>(obj)->get(expr.getName());
@@ -164,7 +164,7 @@ std::any Interpreter::visitGetExpr(GetExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitSetExpr(SetExpression& expr) {
+std::any Interpreter::visitSetExpr(const SetExpression& expr) {
     std::any obj{evaluate(expr.getObject())};
     if (obj.type() != typeid(std::shared_ptr<LoxInstance>)) {
         throw RuntimeError("Cannot set property of non-instance type '" + std::string(obj.type().name()) + "'.", expr.getName());
@@ -174,11 +174,11 @@ std::any Interpreter::visitSetExpr(SetExpression& expr) {
     return value;
 }
 
-std::any Interpreter::visitThisExpr(ThisExpression& expr) {
+std::any Interpreter::visitThisExpr(const ThisExpression& expr) {
     return std::any();
 }
 
-std::any Interpreter::visitSuperExpr(SuperExpression& expr) {
+std::any Interpreter::visitSuperExpr(const SuperExpression& expr) {
     int distance = 0;
     if (auto super_iter = locals->find(expr.shared_from_this()); super_iter != locals->end()) {
         distance = super_iter->second;
@@ -205,7 +205,7 @@ std::any Interpreter::visitSuperExpr(SuperExpression& expr) {
     return method->bind(object);
 }
 
-void Interpreter::execute(std::shared_ptr<Statement> statement) {
+void Interpreter::execute(const std::shared_ptr<Statement>& statement) {
     statement->accept(*this);
 }
 
@@ -258,11 +258,11 @@ void Interpreter::checkNumberOperand(const Token& token, const std::any& operand
     throw RuntimeError("Operand must be a number ('d'). (actual types: '"s + operand1.type().name() + "', '" + operand2.type().name() + "').", token);
 }
 
-std::any Interpreter::evaluate(std::shared_ptr<Expression> expr) {
+std::any Interpreter::evaluate(const std::shared_ptr<Expression>& expr) {
     return expr->accept(*this);
 }
 
-void Interpreter::interpret(std::vector<std::shared_ptr<Statement>> statements) {
+void Interpreter::interpret(const std::vector<std::shared_ptr<Statement>>& statements) {
     try {
         for (const auto& statement : statements) {
             execute(statement);
@@ -349,7 +349,7 @@ void Interpreter::visitClassStmt(const ClassStatement& stmt) {
     environment->assign(stmt.getName(), cls);
 }
 
-void Interpreter::executeBlock(const std::vector<std::shared_ptr<Statement>>& statements, std::shared_ptr<Environment> environment) {
+void Interpreter::executeBlock(const std::vector<std::shared_ptr<Statement>>& statements, const std::shared_ptr<Environment>& environment) {
     auto previousEnv = this->environment;
     try {
         this->environment = environment;
@@ -371,11 +371,11 @@ Interpreter::Interpreter() {
     globals->define("clock", clock);
 }
 
-void Interpreter::resolve(std::shared_ptr<Expression> expr, int depth) {
+void Interpreter::resolve(const std::shared_ptr<const Expression>& expr, int depth) {
     locals->insert(std::make_pair(expr, depth));
 }
 
-std::any Interpreter::lookUpVariable(const Token& name, std::shared_ptr<Expression> expr) const {
+std::any Interpreter::lookUpVariable(const Token& name, const std::shared_ptr<const Expression>& expr) const {
     auto distanceIt = locals->find(expr);
     if (distanceIt != locals->end()) {  // exists
         return environment->getAt(distanceIt->second, name.getLexeme());

@@ -5,7 +5,7 @@
 #include "return.h"
 #include "interpreter.h"
 
-LoxFunction::LoxFunction(const FunctionStatement& declaration, std::shared_ptr<Environment> closure, bool isInitializer) :
+LoxFunction::LoxFunction(const FunctionStatement& declaration, const std::shared_ptr<Environment>& closure, bool isInitializer) :
     declaration{declaration}, closure{closure}, isConstructor{isInitializer} {
 }
 

@@ -3,13 +3,17 @@
 #include <cstring>
 #include <sstream>
 
-RuntimeError::RuntimeError(const std::string& message, const Token& token) : runtime_error{message}, message{message}, token{token} {
+RuntimeError::RuntimeError(const std::string& err_msg, const Token& token) : runtime_error{err_msg}, token{token} {
+    std::stringstream ss;
+    ss << "[Runtime error Line " << token.getLine() << "] " << err_msg << '\n';
+    message = new char[ss.str().length() + 1];
+    std::strcpy(message, ss.str().c_str());
 }
 
 const char* RuntimeError::what() const noexcept {
-    std::stringstream ss;
-    ss << "[Runtime error Line " << token.getLine() << "] " << message << '\n';
-    char* buf = new char[ss.str().length() + 2];
-    std::strcpy(buf, ss.str().c_str());
-    return buf;
+    return message;
+}
+
+RuntimeError::~RuntimeError() {
+    delete[] message;
 }

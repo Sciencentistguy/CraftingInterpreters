@@ -4,33 +4,33 @@
 Resolver::Resolver(Interpreter& interpreter) : interpreter{interpreter} {
 }
 
-std::any Resolver::visitLiteralExpr(LiteralExpression& expr) {
+std::any Resolver::visitLiteralExpr(const LiteralExpression& expr) {
     return std::any();
 }
 
-std::any Resolver::visitAssignExpr(AssignExpression& expr) {
+std::any Resolver::visitAssignExpr(const AssignExpression& expr) {
     resolve(expr.getValue());
     resolveLocal(expr.shared_from_this(), expr.getName());
     return std::any();
 }
 
-std::any Resolver::visitBinaryExpr(BinaryExpression& expr) {
+std::any Resolver::visitBinaryExpr(const BinaryExpression& expr) {
     resolve(expr.getLeft());
     resolve(expr.getRight());
     return std::any();
 }
 
-std::any Resolver::visitGroupingExpr(GroupingExpression& expr) {
+std::any Resolver::visitGroupingExpr(const GroupingExpression& expr) {
     resolve(expr.getExpression());
     return std::any();
 }
 
-std::any Resolver::visitUnaryExpr(UnaryExpression& expr) {
+std::any Resolver::visitUnaryExpr(const UnaryExpression& expr) {
     resolve(expr.getRight());
     return std::any();
 }
 
-std::any Resolver::visitVariableExpr(VariableExpression& expr) {
+std::any Resolver::visitVariableExpr(const VariableExpression& expr) {
     if (!scopes.empty()) {
         auto scopeBackIt{scopes.back().find(expr.getName().getLexeme())};
         if (scopeBackIt != scopes.back().end()) {  // exists
@@ -43,13 +43,13 @@ std::any Resolver::visitVariableExpr(VariableExpression& expr) {
     return std::any();
 }
 
-std::any Resolver::visitLogicalExpr(LogicalExpression& expr) {
+std::any Resolver::visitLogicalExpr(const LogicalExpression& expr) {
     resolve(expr.getRight());
     resolve(expr.getLeft());
     return std::any();
 }
 
-std::any Resolver::visitCallExpr(CallExpression& expr) {
+std::any Resolver::visitCallExpr(const CallExpression& expr) {
     resolve(expr.getCallee());
     for (const auto& arg : expr.getArguments()) {
         resolve(arg);
@@ -57,18 +57,18 @@ std::any Resolver::visitCallExpr(CallExpression& expr) {
     return std::any();
 }
 
-std::any Resolver::visitGetExpr(GetExpression& expr) {
+std::any Resolver::visitGetExpr(const GetExpression& expr) {
     resolve(expr.getObject());
     return std::any();
 }
 
-std::any Resolver::visitSetExpr(SetExpression& expr) {
+std::any Resolver::visitSetExpr(const SetExpression& expr) {
     resolve(expr.getValue());
     resolve(expr.getObject());
     return std::any();
 }
 
-std::any Resolver::visitThisExpr(ThisExpression& expr) {
+std::any Resolver::visitThisExpr(const ThisExpression& expr) {
     if (currentClass == ClassType::None) {
         error(expr.getKeyword(), "Cannot use 'this' outside of a class.");
         return std::any();
@@ -77,7 +77,7 @@ std::any Resolver::visitThisExpr(ThisExpression& expr) {
     return std::any();
 }
 
-std::any Resolver::visitSuperExpr(SuperExpression& expr) {
+std::any Resolver::visitSuperExpr(const SuperExpression& expr) {
     if (currentClass == ClassType::None) {
         error(expr.getKeyword(), "Cannot use 'super' outside of a class.");
     }
@@ -171,13 +171,13 @@ void Resolver::visitClassStmt(const ClassStatement& stmt) {
     currentClass = enclosingClass;
 }
 
-void Resolver::resolve(std::vector<std::shared_ptr<Statement>> statements) {
+void Resolver::resolve(const std::vector<std::shared_ptr<Statement>>& statements) {
     for (const auto& statement : statements) {
         resolve(statement);
     }
 }
 
-void Resolver::resolve(std::shared_ptr<Statement> statement) {
+void Resolver::resolve(const std::shared_ptr<Statement>& statement) {
     statement->accept(*this);
 }
 
@@ -189,7 +189,7 @@ void Resolver::endScope() {
     scopes.pop_back();
 }
 
-void Resolver::resolve(std::shared_ptr<Expression> expression) {
+void Resolver::resolve(const std::shared_ptr<Expression>& expression) {
     expression->accept(*this);
 }
 
@@ -214,7 +214,7 @@ void Resolver::define(const Token& name) {
     }
 }
 
-void Resolver::resolveLocal(std::shared_ptr<Expression> expr, const Token& name) {
+void Resolver::resolveLocal(const std::shared_ptr<const Expression>& expr, const Token& name) {
     for (int i = scopes.size() - 1; i >= 0; --i) {
         if (scopes[i].contains(name.getLexeme())) {
             interpreter.resolve(expr, scopes.size() - 1 - i);

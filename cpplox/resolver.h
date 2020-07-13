@@ -20,24 +20,24 @@ class Resolver : public ExpressionVisitor, public StatementVisitor, public std::
     void endScope();
     void declare(const Token& name);
     void define(const Token& name);
-    void resolveLocal(std::shared_ptr<Expression> expr, const Token& name);
+    void resolveLocal(const std::shared_ptr<const Expression>& expr, const Token& name);
     void resolveFunction(const FunctionStatement& function, FunctionType type);
 
  public:
     explicit Resolver(Interpreter& interpreter);
 
-    std::any visitLiteralExpr(LiteralExpression& expr) override;
-    std::any visitAssignExpr(AssignExpression& expr) override;
-    std::any visitBinaryExpr(BinaryExpression& expr) override;
-    std::any visitGroupingExpr(GroupingExpression& expr) override;
-    std::any visitUnaryExpr(UnaryExpression& expr) override;
-    std::any visitVariableExpr(VariableExpression& expr) override;
-    std::any visitLogicalExpr(LogicalExpression& expr) override;
-    std::any visitCallExpr(CallExpression& expr) override;
-    std::any visitGetExpr(GetExpression& expr) override;
-    std::any visitSetExpr(SetExpression& expr) override;
-    std::any visitThisExpr(ThisExpression& expr) override;
-    std::any visitSuperExpr(SuperExpression& expr) override;
+    std::any visitLiteralExpr(const LiteralExpression& expr) override;
+    std::any visitAssignExpr(const AssignExpression& expr) override;
+    std::any visitBinaryExpr(const BinaryExpression& expr) override;
+    std::any visitGroupingExpr(const GroupingExpression& expr) override;
+    std::any visitUnaryExpr(const UnaryExpression& expr) override;
+    std::any visitVariableExpr(const VariableExpression& expr) override;
+    std::any visitLogicalExpr(const LogicalExpression& expr) override;
+    std::any visitCallExpr(const CallExpression& expr) override;
+    std::any visitGetExpr(const GetExpression& expr) override;
+    std::any visitSetExpr(const SetExpression& expr) override;
+    std::any visitThisExpr(const ThisExpression& expr) override;
+    std::any visitSuperExpr(const SuperExpression& expr) override;
 
     void visitExpressionStmt(const ExpressionStatement& stmt) override;
     void visitPrintStmt(const PrintStatement& stmt) override;
@@ -49,7 +49,7 @@ class Resolver : public ExpressionVisitor, public StatementVisitor, public std::
     void visitReturnStmt(const ReturnStatement& stmt) override;
     void visitClassStmt(const ClassStatement& stmt) override;
 
-    void resolve(std::vector<std::shared_ptr<Statement>> statements);
-    void resolve(std::shared_ptr<Statement> statement);
-    void resolve(std::shared_ptr<Expression> expression);
+    void resolve(const std::vector<std::shared_ptr<Statement>>& statements);
+    void resolve(const std::shared_ptr<Statement>& statement);
+    void resolve(const std::shared_ptr<Expression>& expression);
 };
