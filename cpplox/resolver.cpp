@@ -178,7 +178,7 @@ void Resolver::resolve(std::vector<std::shared_ptr<Statement>> statements) {
 }
 
 void Resolver::resolve(std::shared_ptr<Statement> statement) {
-    statement->accept(this->shared_from_this());
+    statement->accept(*this);
 }
 
 void Resolver::beginScope() {
@@ -190,7 +190,7 @@ void Resolver::endScope() {
 }
 
 void Resolver::resolve(std::shared_ptr<Expression> expression) {
-    expression->accept(this->shared_from_this());
+    expression->accept(*this);
 }
 
 void Resolver::declare(const Token& name) {

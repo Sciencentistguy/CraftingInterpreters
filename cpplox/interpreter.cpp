@@ -206,7 +206,7 @@ std::any Interpreter::visitSuperExpr(SuperExpression& expr) {
 }
 
 void Interpreter::execute(std::shared_ptr<Statement> statement) {
-    statement->accept(this->shared_from_this());
+    statement->accept(*this);
 }
 
 bool Interpreter::isTruthy(const std::any& object) const {
@@ -259,7 +259,7 @@ void Interpreter::checkNumberOperand(const Token& token, const std::any& operand
 }
 
 std::any Interpreter::evaluate(std::shared_ptr<Expression> expr) {
-    return expr->accept(this->shared_from_this());
+    return expr->accept(*this);
 }
 
 void Interpreter::interpret(std::vector<std::shared_ptr<Statement>> statements) {

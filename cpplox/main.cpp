@@ -16,8 +16,8 @@
 #include "loxinstance.h"
 #include "parser.h"
 #include "resolver.h"
-#include "token.h"
 #include "runtimeerror.h"
+#include "token.h"
 
 bool hadError = false;
 bool hadRuntimeError = false;
@@ -63,9 +63,8 @@ void run(const std::string& str) {
     if (hadError) {
         return;
     }
-
-    auto r{std::make_shared<Resolver>(*interpreter)};
-    r->resolve(statements);
+    Resolver r(*interpreter);
+    r.resolve(statements);
 
     if (hadError) {
         return;

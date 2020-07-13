@@ -3,8 +3,8 @@
 ExpressionStatement::ExpressionStatement(const std::shared_ptr<Expression> expr) : expr{expr} {
 }
 
-void ExpressionStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitExpressionStmt(*this);
+void ExpressionStatement::accept(StatementVisitor& visitor) {
+    visitor.visitExpressionStmt(*this);
 }
 
 const std::shared_ptr<Expression>& ExpressionStatement::getExpr() const {
@@ -14,8 +14,8 @@ const std::shared_ptr<Expression>& ExpressionStatement::getExpr() const {
 PrintStatement::PrintStatement(const std::shared_ptr<Expression>& expr) : expr(expr) {
 }
 
-void PrintStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitPrintStmt(*this);
+void PrintStatement::accept(StatementVisitor& visitor) {
+    visitor.visitPrintStmt(*this);
 }
 
 std::shared_ptr<Expression> PrintStatement::getExpr() const {
@@ -25,8 +25,8 @@ std::shared_ptr<Expression> PrintStatement::getExpr() const {
 VarStatement::VarStatement(const std::shared_ptr<Expression> initializer, const Token& name) : initializer{initializer}, name{name} {
 }
 
-void VarStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitVarStmt(*this);
+void VarStatement::accept(StatementVisitor& visitor) {
+    visitor.visitVarStmt(*this);
 }
 
 const std::shared_ptr<Expression>& VarStatement::getInitializer() const {
@@ -40,8 +40,8 @@ const Token& VarStatement::getName() const {
 BlockStatement::BlockStatement(const std::vector<std::shared_ptr<Statement>>& statements) : statements{statements} {
 }
 
-void BlockStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitBlockStmt(*this);
+void BlockStatement::accept(StatementVisitor& visitor) {
+    visitor.visitBlockStmt(*this);
 }
 const std::vector<std::shared_ptr<Statement>>& BlockStatement::getStatements() const {
     return statements;
@@ -53,8 +53,8 @@ IfStatement::IfStatement(const std::shared_ptr<Expression> condition, const std:
     thenBranch{thenBranch}, elseBranch{elseBranch} {
 }
 
-void IfStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitIfStmt(*this);
+void IfStatement::accept(StatementVisitor& visitor) {
+    visitor.visitIfStmt(*this);
 }
 
 const std::shared_ptr<Expression>& IfStatement::getCondition() const {
@@ -72,8 +72,8 @@ const std::shared_ptr<Statement>& IfStatement::getElseBranch() const {
 WhileStatement::WhileStatement(const std::shared_ptr<Expression> condition, const std::shared_ptr<Statement> body) : condition{condition}, body{body} {
 }
 
-void WhileStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitWhileStmt(*this);
+void WhileStatement::accept(StatementVisitor& visitor) {
+    visitor.visitWhileStmt(*this);
 }
 
 const std::shared_ptr<Expression>& WhileStatement::getCondition() const {
@@ -88,8 +88,8 @@ FunctionStatement::FunctionStatement(const Token& name, const std::vector<Token>
     name{name}, params{params}, body{body} {
 }
 
-void FunctionStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitFunctionStmt(*this);
+void FunctionStatement::accept(StatementVisitor& visitor) {
+    visitor.visitFunctionStmt(*this);
 }
 
 const Token& FunctionStatement::getName() const {
@@ -107,8 +107,8 @@ const std::vector<std::shared_ptr<Statement>>& FunctionStatement::getBody() cons
 ReturnStatement::ReturnStatement(const Token& name, const std::shared_ptr<Expression> value) : name{name}, value{value} {
 }
 
-void ReturnStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitReturnStmt(*this);
+void ReturnStatement::accept(StatementVisitor& visitor) {
+    visitor.visitReturnStmt(*this);
 }
 
 const Token& ReturnStatement::getName() const {
@@ -125,8 +125,8 @@ ClassStatement::ClassStatement(const Token& name, const std::shared_ptr<Variable
     superclass{superclass}, methods{methods} {
 }
 
-void ClassStatement::accept(std::shared_ptr<StatementVisitor> visitor) {
-    visitor->visitClassStmt(*this);
+void ClassStatement::accept(StatementVisitor& visitor) {
+    visitor.visitClassStmt(*this);
 }
 
 const std::shared_ptr<VariableExpression>& ClassStatement::getSuperclass() const {

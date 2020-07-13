@@ -8,7 +8,7 @@ class StatementVisitor;
 
 class Statement {
  public:
-    virtual void accept(std::shared_ptr<StatementVisitor> visitor) = 0;
+    virtual void accept(StatementVisitor& visitor) = 0;
 };
 
 class ExpressionStatement : public Statement, public std::enable_shared_from_this<ExpressionStatement> {
@@ -16,7 +16,7 @@ class ExpressionStatement : public Statement, public std::enable_shared_from_thi
 
  public:
     explicit ExpressionStatement(const std::shared_ptr<Expression> expr);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     const std::shared_ptr<Expression>& getExpr() const;
 };
 
@@ -25,7 +25,7 @@ class PrintStatement : public Statement {
 
  public:
     explicit PrintStatement(const std::shared_ptr<Expression>& expr);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     std::shared_ptr<Expression> getExpr() const;
 };
 
@@ -35,7 +35,7 @@ class VarStatement : public Statement {
 
  public:
     VarStatement(const std::shared_ptr<Expression> initializer, const Token& name);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     const std::shared_ptr<Expression>& getInitializer() const;
     const Token& getName() const;
 };
@@ -45,7 +45,7 @@ class BlockStatement : public Statement {
 
  public:
     explicit BlockStatement(const std::vector<std::shared_ptr<Statement>>& statements);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     const std::vector<std::shared_ptr<Statement>>& getStatements() const;
 };
 
@@ -56,7 +56,7 @@ class IfStatement : public Statement {
 
  public:
     IfStatement(const std::shared_ptr<Expression> condition, const std::shared_ptr<Statement> thenBranch, const std::shared_ptr<Statement> elseBranch);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     const std::shared_ptr<Expression>& getCondition() const;
     const std::shared_ptr<Statement>& getThenBranch() const;
     const std::shared_ptr<Statement>& getElseBranch() const;
@@ -68,7 +68,7 @@ class WhileStatement : public Statement {
 
  public:
     WhileStatement(const std::shared_ptr<Expression> condition, const std::shared_ptr<Statement> body);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     const std::shared_ptr<Expression>& getCondition() const;
     const std::shared_ptr<Statement>& getBody() const;
 };
@@ -80,7 +80,7 @@ class FunctionStatement : public Statement, public std::enable_shared_from_this<
 
  public:
     FunctionStatement(const Token& name, const std::vector<Token>& params, const std::vector<std::shared_ptr<Statement>>& body);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     const Token& getName() const;
     const std::vector<Token>& getParams() const;
     const std::vector<std::shared_ptr<Statement>>& getBody() const;
@@ -92,7 +92,7 @@ class ReturnStatement : public Statement {
 
  public:
     ReturnStatement(const Token& name, const std::shared_ptr<Expression> value);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     const Token& getName() const;
     const std::shared_ptr<Expression>& getValue() const;
 };
@@ -104,7 +104,7 @@ class ClassStatement : public Statement {
 
  public:
     ClassStatement(const Token& name, const std::shared_ptr<VariableExpression> superclass, const std::vector<std::shared_ptr<FunctionStatement>>& methods);
-    void accept(std::shared_ptr<StatementVisitor> visitor) override;
+    void accept(StatementVisitor& visitor) override;
     const std::shared_ptr<VariableExpression>& getSuperclass() const;
     const std::vector<std::shared_ptr<FunctionStatement>>& getMethods() const;
     const Token& getName() const;
