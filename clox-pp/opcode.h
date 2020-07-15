@@ -1,3 +1,11 @@
 #pragma once
 #include <ostream>
-enum OpCode { Return, Constant };
+enum OpCode {
+    Constant,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Negate,
+    Return,
+};

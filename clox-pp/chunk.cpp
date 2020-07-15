@@ -32,26 +32,39 @@ void Chunk::disassemble(const std::string& name) const {
         } else {
             std::cout << std::setfill('0') << std::setw(4) << lines[offset] << '\t';
         }
-
-        switch (instruction) {
-            case Return:
-                std::cout << "return\n";
-                ++offset;
-                break;
-            case Constant: {
-                auto constant = constants[code[offset + 1]];
-                std::cout << "constant\t" << constant << '\n';
-                offset += 2;
-                break;
-            }
-            default:
-                std::cout << "Unknown instruction\t\t(" << instruction << ")\n";
-                break;
-        }
+        disasInstruction(instruction, offset);
     }
 }
 
 size_t Chunk::addConstant(LoxNumber number) {
     constants.push_back(number);
     return constants.size() - 1;
+}
+
+void Chunk::disasInstruction(uint8_t instruction, size_t& offset) const {
+    switch (instruction) {
+        case OpCode::Return:
+            std::cout << "return\n";
+            ++offset;
+            break;
+        case OpCode::Constant: {
+            auto constant = constants[code[offset + 1]];
+            std::cout << "constant\t" << constant << '\n';
+            offset += 2;
+            break;
+        }
+        case OpCode::Negate:
+            std::cout << "negate\n";
+            ++offset;
+            break;
+        default:
+            std::cout << "Unknown instruction\t\t(" << instruction << ")\n";
+            ++offset;
+            break;
+    }
+}
+
+void Chunk::disasInstruction(uint8_t instruction) const {
+    size_t nop{};
+    disasInstruction(instruction, nop);
 }
