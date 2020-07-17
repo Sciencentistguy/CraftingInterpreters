@@ -2,7 +2,7 @@
 
 #include <vector>
 
-constexpr bool DEBUG{true};
+constexpr bool DEBUG{false};
 
 using LoxNumber = double;
 

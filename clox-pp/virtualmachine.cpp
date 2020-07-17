@@ -1,6 +1,7 @@
 #include "virtualmachine.h"
 
 #include <iostream>
+
 #include "opcode.h"
 
 InterpretResult VirtualMachine::run() {
@@ -19,7 +20,7 @@ InterpretResult VirtualMachine::run() {
 
         switch (instruction) {
             case OpCode::Return:
-                std::cout << stack.back();
+                std::cout << stack.back() << '\n';
                 stack.pop_back();
                 return InterpretResult::Ok;
             case OpCode::Constant: {
@@ -68,10 +69,15 @@ InterpretResult VirtualMachine::run() {
 }
 
 InterpretResult VirtualMachine::interpret() {
-    compiler.compile();
-    return InterpretResult::Runtime_Error;
+    try {
+        compiler.compile();
+        chunk = compiler.getChunk();
+    } catch (const CompilerException&) {
+        return InterpretResult::Compile_Error;
+    }
+    instruction_pointer = chunk.code.begin();
+    return run();
 }
 
-
-VirtualMachine::VirtualMachine(const std::string& source) : compiler{source}{
+VirtualMachine::VirtualMachine(const std::string& source) : compiler{source} {
 }

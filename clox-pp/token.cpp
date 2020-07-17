@@ -27,3 +27,12 @@ int Token::getLine() const {
 Token::Token(const char* errorMsg, const Lexer& scanner) :
     type{TokenType::Error}, start{errorMsg}, length{static_cast<int>(std::strlen(errorMsg))}, line{scanner.getLine()} {
 }
+
+const char* Token::getEnd() const {
+    return start + length;
+}
+
+std::string Token::debugTokenStr() const {
+    return std::string(start, length);
+}
+

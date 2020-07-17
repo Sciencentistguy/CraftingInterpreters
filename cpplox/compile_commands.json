@@ -1,0 +1,72 @@
+[
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/main.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/main.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/main.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/lexer.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/lexer.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/lexer.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/token.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/token.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/token.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/expression.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/expression.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/expression.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/parser.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/parser.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/parser.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/interpreter.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/interpreter.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/interpreter.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/statement.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/statement.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/statement.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/environment.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/environment.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/environment.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/loxfunction.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/loxfunction.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/loxfunction.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/return.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/return.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/return.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/resolver.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/resolver.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/resolver.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/loxclass.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/loxclass.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/loxclass.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/loxinstance.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/loxinstance.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/loxinstance.cpp"
+},
+{
+  "directory": "/home/jamie/Git/CraftingInterpreters/cpplox/cmake-build-debug",
+  "command": "/usr/bin/c++   -I/home/jamie/Git/CraftingInterpreters/cpplox/.    -Wall -Wextra -pedantic -Wno-unused-parameter -std=gnu++2a -o CMakeFiles/cpplox.dir/runtimeerror.cpp.o -c /home/jamie/Git/CraftingInterpreters/cpplox/runtimeerror.cpp",
+  "file": "/home/jamie/Git/CraftingInterpreters/cpplox/runtimeerror.cpp"
+}
+]

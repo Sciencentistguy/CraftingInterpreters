@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 enum class TokenType {
     Left_paren,
     Right_paren,
@@ -56,10 +57,14 @@ class Token {
     int line;
 
  public:
+    Token() = default;
     Token(const char* errorMsg, const Lexer& scanner);
     Token(TokenType type, const Lexer& scanner);
     [[nodiscard]] TokenType getType() const;
     [[nodiscard]] const char* getStart() const;
     [[nodiscard]] int getLength() const;
     [[nodiscard]] int getLine() const;
+    [[nodiscard]] const char* getEnd() const;
+    [[nodiscard]] std::string debugTokenStr() const;
+    Token& operator=(const Token& rhs) = default;
 };
