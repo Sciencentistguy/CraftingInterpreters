@@ -1,12 +1,15 @@
 #include "compiler.h"
 
-#include <cstdio>
 #include <iomanip>
 #include <iostream>
 
 #include "lexer.h"
+#include "token.h"
 
-void Compiler::compile(std::string source) {
+Compiler::Compiler(const std::string& source) : source{source} {
+}
+
+void Compiler::compile() {
     Lexer l{source};
     int line = -1;
     while (true) {
@@ -18,6 +21,9 @@ void Compiler::compile(std::string source) {
             std::cout << "   | ";
         }
         std::cout << std::setfill('0') << std::setw(2) << static_cast<int>(token.getType());
+        if (token.getType() == TokenType::Error) {
+            std::cout << " Error:";
+        }
         std::cout << " '";
         std::cout.write(token.getStart(), token.getLength());
         std::cout << "'\n";

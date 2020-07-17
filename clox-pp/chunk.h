@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -21,6 +22,6 @@ class Chunk {
 
     size_t addConstant(LoxNumber number);
 
-    size_t getCount() const;
-    size_t getCapacity() const;
+    [[nodiscard]] size_t getCount() const;
+    [[nodiscard]] size_t getCapacity() const;
 };

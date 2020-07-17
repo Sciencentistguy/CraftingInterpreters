@@ -1,9 +1,5 @@
 #pragma once
 
-#include <cstring>
-
-#include "lexer.h"
-
 enum class TokenType {
     Left_paren,
     Right_paren,
@@ -62,10 +58,8 @@ class Token {
  public:
     Token(const char* errorMsg, const Lexer& scanner);
     Token(TokenType type, const Lexer& scanner);
-    TokenType getType() const;
-    const char* getStart() const;
-    int getLength() const;
-    int getLine() const;
+    [[nodiscard]] TokenType getType() const;
+    [[nodiscard]] const char* getStart() const;
+    [[nodiscard]] int getLength() const;
+    [[nodiscard]] int getLine() const;
 };
-
-// std::ostream& operator<<(std::ostream& os, TokenType rhs);

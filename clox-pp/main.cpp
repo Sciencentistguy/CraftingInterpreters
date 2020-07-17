@@ -1,10 +1,10 @@
+#include <cstdint>
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <iterator>
-#include <fstream>
+#include <string>
 
-#include "chunk.h"
-#include "common.h"
-#include "opcode.h"
 #include "virtualmachine.h"
 
 std::string readFile(const std::string& filename) {
@@ -13,20 +13,20 @@ std::string readFile(const std::string& filename) {
     return std::string((std::istream_iterator<uint8_t>(file)), std::istream_iterator<uint8_t>());
 }
 
-void repl() {
-    VirtualMachine vm;
+[[noreturn]] void repl() {
     std::string line{};
     while (true) {
         std::cout << ">>> ";
         std::getline(std::cin, line);
-        vm.interpret(line);
+        VirtualMachine vm{line};
+        vm.interpret();
     }
 }
 
-void runFile(std::string path) {
+void runFile(const std::string& path) {
     std::string source = readFile(path);
-    VirtualMachine vm{};
-    auto result = vm.interpret(source);
+    VirtualMachine vm{source};
+    auto result = vm.interpret();
     if (result == InterpretResult::Compile_Error) {
         std::exit(65);
     }

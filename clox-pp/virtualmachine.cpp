@@ -1,9 +1,7 @@
 #include "virtualmachine.h"
 
 #include <iostream>
-VirtualMachine::VirtualMachine(const Chunk& chunk) : chunk{chunk} {
-    instruction_pointer = this->chunk.code.begin();
-}
+#include "opcode.h"
 
 InterpretResult VirtualMachine::run() {
     while (true) {
@@ -68,14 +66,12 @@ InterpretResult VirtualMachine::run() {
         }
     }
 }
-InterpretResult VirtualMachine::interpret(const std::string& source) {
-    compiler.compile(source);
+
+InterpretResult VirtualMachine::interpret() {
+    compiler.compile();
     return InterpretResult::Runtime_Error;
 }
 
-VirtualMachine::VirtualMachine() {
-}
 
-void VirtualMachine::setChunk(const Chunk& chunk) {
-    VirtualMachine::chunk = chunk;
+VirtualMachine::VirtualMachine(const std::string& source) : compiler{source}{
 }

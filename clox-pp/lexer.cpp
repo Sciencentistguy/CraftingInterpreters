@@ -1,5 +1,9 @@
 #include "lexer.h"
 
+#include <cctype>
+#include <cstring>
+
+#include "token.h"
 Lexer::Lexer(const std::string& source) : source{source}, start{&source[0]}, current{&source[0]}, line{1} {
 }
 
@@ -230,9 +234,9 @@ TokenType Lexer::identifierType() const {
                     case 'a':
                         return checkKeyword(2, 3, "lse", TokenType::False);
                     case 'o':
-                        return checkKeyword(2, 3, "lse", TokenType::For);
+                        return checkKeyword(2, 1, "r", TokenType::For);
                     case 'u':
-                        return checkKeyword(2, 3, "lse", TokenType::Fun);
+                        return checkKeyword(2, 1, "n", TokenType::Fun);
                 }
             }
             break;

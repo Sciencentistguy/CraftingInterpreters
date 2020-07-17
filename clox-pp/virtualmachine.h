@@ -1,12 +1,18 @@
 #pragma once
 
-#include <stack>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 #include "chunk.h"
+#include "common.h"
 #include "compiler.h"
 
-enum class InterpretResult { Ok, Compile_Error, Runtime_Error };
+enum class InterpretResult {
+    Ok,
+    Compile_Error,
+    Runtime_Error
+};
 
 class VirtualMachine {
     Compiler compiler;
@@ -15,9 +21,8 @@ class VirtualMachine {
     std::vector<LoxNumber> stack;
 
  public:
-    VirtualMachine(const Chunk& chunk);
-    void setChunk(const Chunk& chunk);
-    VirtualMachine();
+    explicit VirtualMachine(const std::string& source);
+
     InterpretResult run();
-    InterpretResult interpret(const std::string &source);
+    InterpretResult interpret();
 };

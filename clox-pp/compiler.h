@@ -1,7 +1,10 @@
 #pragma once
 
 #include <string>
+
 class Compiler {
+    const std::string& source;
  public:
-    void compile(std::string source);
+    explicit Compiler(const std::string& source);
+    void compile();
 };
