@@ -25,25 +25,25 @@ void Chunk::disassemble(const std::string& name) const {
     std::cout << "== " << name << " ==\n";
     std::cout << "codepoint\tline\topcode\t\tconstant\n";
     for (size_t offset = 0; offset < code.size();) {
-        auto instruction{code[offset]};
+        OpCode instruction{code[offset]};
         std::cout << std::setfill('0') << std::setw(4) << static_cast<int>(instruction) << "\t\t";
-        if (lines[offset] == lines[offset-1]) {
+        if (lines[offset] == lines[offset - 1]) {
             std::cout << "   |\t";
         } else {
             std::cout << std::setfill('0') << std::setw(4) << lines[offset] << '\t';
         }
         disasInstruction(instruction, offset);
     }
-     std::cout << "== end " << name << " ==\n";
+    std::cout << "== end " << name << " ==\n";
 }
 
-size_t Chunk::addConstant(LoxNumber number) {
+size_t Chunk::addConstant(Value number) {
     constants.push_back(number);
     return constants.size() - 1;
 }
 
-void Chunk::disasInstruction(uint8_t instruction, size_t& offset) const {
-    switch (instruction) {
+void Chunk::disasInstruction(OpCode instruction, size_t& offset) const {
+    switch (static_cast<OpCode>(instruction)) {
         case OpCode::Add:
             std::cout << "add\n";
             ++offset;
@@ -66,7 +66,7 @@ void Chunk::disasInstruction(uint8_t instruction, size_t& offset) const {
             break;
         case OpCode::Constant: {
             auto constant = constants[code[offset + 1]];
-            std::cout << "constant\t" << constant << '\n';
+            std::cout << "constant\t" << value_to_string(constant) << '\n';
             offset += 2;
             break;
         }
@@ -74,14 +74,43 @@ void Chunk::disasInstruction(uint8_t instruction, size_t& offset) const {
             std::cout << "negate\n";
             ++offset;
             break;
-        default:
-            std::cout << "Unknown instruction\n";
+        case OpCode::Nil:
+            std::cout << "nil\n";
+            ++offset;
+            break;
+        case OpCode::True:
+            std::cout << "true\n";
+            ++offset;
+            break;
+        case OpCode::False:
+            std::cout << "false\n";
+            ++offset;
+            break;
+
+            //        default:
+            //            std::cout << "Unknown instruction\n";
+            //            ++offset;
+            //            break;
+        case OpCode::Not:
+            std::cout << "not\n";
+            ++offset;
+            break;
+        case OpCode::Equal:
+            std::cout << "equal\n";
+            ++offset;
+            break;
+        case OpCode::Greater:
+            std::cout << "greater\n";
+            ++offset;
+            break;
+        case OpCode::Less:
+            std::cout << "less\n";
             ++offset;
             break;
     }
 }
 
-void Chunk::disasInstruction(uint8_t instruction) const {
+void Chunk::disasInstruction(OpCode instruction) const {
     size_t nop{};
     disasInstruction(instruction, nop);
 }

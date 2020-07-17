@@ -5,6 +5,7 @@
 #include <iterator>
 #include <string>
 
+#include "exception.h"
 #include "virtualmachine.h"
 
 std::string readFile(const std::string& filename) {
@@ -19,19 +20,25 @@ std::string readFile(const std::string& filename) {
         std::cout << ">>> ";
         std::getline(std::cin, line);
         VirtualMachine vm{line};
-        vm.interpret();
+        try {
+            vm.interpret();
+        } catch (const CompilerException& e) {
+            std::cout << "Compiler error: " << e.what() << '\n';
+        } catch (const RuntimeException& e) {
+            std::cout << "Runtime error: " << e.what() << '\n';
+        }
     }
 }
 
 void runFile(const std::string& path) {
     std::string source = readFile(path);
     VirtualMachine vm{source};
-    auto result = vm.interpret();
-    if (result == InterpretResult::Compile_Error) {
-        std::exit(65);
-    }
-    if (result == InterpretResult::Runtime_Error) {
-        std::exit(70);
+    try {
+        vm.interpret();
+    } catch (const CompilerException& e) {
+        std::cout << "Compiler error: " << e.what() << '\n';
+    } catch (const RuntimeException& e) {
+        std::cout << "Runtime error: " << e.what() << '\n';
     }
 }
 

@@ -8,21 +8,21 @@
 #include "common.h"
 #include "compiler.h"
 
-enum class InterpretResult {
-    Ok,
-    Compile_Error,
-    Runtime_Error
-};
+enum class InterpretResult { Ok, Compile_Error, Runtime_Error };
 
 class VirtualMachine {
     Compiler compiler;
     Chunk chunk;
     std::vector<uint8_t>::iterator instruction_pointer;
-    std::vector<LoxNumber> stack;
+    std::vector<Value> stack;
+
+    const Value& peek(int distance);
+    template<typename Lambda>
+    void binary_op(Lambda l);
 
  public:
     explicit VirtualMachine(const std::string& source);
 
-    InterpretResult run();
-    InterpretResult interpret();
+    void run();
+    void interpret();
 };

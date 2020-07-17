@@ -2,82 +2,149 @@
 
 #include <iostream>
 
+#include "exception.h"
 #include "opcode.h"
+#include "value.h"
 
-InterpretResult VirtualMachine::run() {
+void VirtualMachine::run() {
     while (true) {
-        uint8_t instruction{*instruction_pointer++};
+        OpCode instruction{*instruction_pointer++};
         if constexpr (DEBUG) {
             std::cout << "Instruction: ";
-            chunk.disasInstruction(*instruction_pointer);
+            chunk.disasInstruction(instruction);
 
             std::cout << "Stack: ";
-            for (const auto i : stack) {
-                std::cout << "[" << i << "] ";
+            if (!stack.empty()) {
+                for (const auto i : stack) {
+                    std::cout << "[" << value_to_string(i) << "] ";
+                }
             }
             std::cout << '\n';
         }
 
-        switch (instruction) {
+        switch (static_cast<OpCode>(instruction)) {
             case OpCode::Return:
-                std::cout << stack.back() << '\n';
+                if (stack.empty()) {
+                    return;
+                }
+                std::cout << value_to_string(stack.back()) << '\n';
                 stack.pop_back();
-                return InterpretResult::Ok;
+                return;
             case OpCode::Constant: {
-                LoxNumber constant = chunk.constants[*instruction_pointer++];
+                Value constant = chunk.constants[*instruction_pointer++];
                 stack.push_back(constant);
                 break;
             }
             case OpCode::Negate: {
-                stack.back() = -stack.back();
+                if (!value_is<double>(peek(0))) {
+                    throw RuntimeException("Operand must be a number.");
+                }
+                stack.back() = -value_extract<double>(stack.back());
                 break;
             }
             case OpCode::Add: {
-                double b = stack.back();
+                auto b{stack.back()};
                 stack.pop_back();
-                double a = stack.back();
+                auto a{stack.back()};
                 stack.pop_back();
                 stack.push_back(a + b);
                 break;
             }
+
             case OpCode::Subtract: {
-                double b = stack.back();
+                auto b{stack.back()};
                 stack.pop_back();
-                double a = stack.back();
+                auto a{stack.back()};
                 stack.pop_back();
                 stack.push_back(a - b);
                 break;
             }
+
             case OpCode::Multiply: {
-                double b = stack.back();
+                auto b{stack.back()};
                 stack.pop_back();
-                double a = stack.back();
+                auto a{stack.back()};
                 stack.pop_back();
                 stack.push_back(a * b);
                 break;
             }
+
             case OpCode::Divide: {
-                double b = stack.back();
+                auto b{stack.back()};
                 stack.pop_back();
-                double a = stack.back();
+                auto a{stack.back()};
                 stack.pop_back();
                 stack.push_back(a / b);
+                break;
+            }
+
+            case OpCode::Nil:
+                stack.push_back(Nil());
+                break;
+
+            case OpCode::False:
+                stack.push_back(false);
+                break;
+
+            case OpCode::True:
+                stack.push_back(true);
+                break;
+            case OpCode::Not: {
+                auto back{stack.back()};
+                stack.pop_back();
+                stack.push_back(isFalsey(back));
+                break;
+            }
+            case OpCode::Equal: {
+                auto b{stack.back()};
+                stack.pop_back();
+                auto a{stack.back()};
+                stack.pop_back();
+                stack.push_back(a == b);
+                break;
+            }
+            case OpCode::Greater: {
+                auto b{stack.back()};
+                stack.pop_back();
+                auto a{stack.back()};
+                stack.pop_back();
+                stack.push_back(a > b);
+                break;
+            }
+            case OpCode::Less: {
+                auto b{stack.back()};
+                stack.pop_back();
+                auto a{stack.back()};
+                stack.pop_back();
+                stack.push_back(a < b);
                 break;
             }
         }
     }
 }
 
-InterpretResult VirtualMachine::interpret() {
-    try {
-        compiler.compile();
-        chunk = compiler.getChunk();
-    } catch (const CompilerException&) {
-        return InterpretResult::Compile_Error;
-    }
+void VirtualMachine::interpret() {
+    compiler.compile();
+    chunk = compiler.getChunk();
     instruction_pointer = chunk.code.begin();
-    return run();
+    run();
 }
 
 VirtualMachine::VirtualMachine(const std::string& source) : compiler{source} {
+}
+
+const Value& VirtualMachine::peek(int distance) {
+    return stack.rbegin()[distance];
+}
+
+template<typename Lambda>
+void VirtualMachine::binary_op(Lambda l) {
+    if (!value_is<double>(peek(0)) || !value_is<double>(peek(1))) {
+        throw RuntimeException("Operands to binary operation must be numbers.");
+    }
+    auto b = value_extract<double>(stack.back());
+    stack.pop_back();
+    auto a = value_extract<double>(stack.back());
+    stack.pop_back();
+    stack.push_back(l(a, b));
 }

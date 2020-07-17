@@ -2,9 +2,9 @@
 
 #include <iostream>
 
+#include "exception.h"
 #include "lexer.h"
 #include "token.h"
-
 
 Compiler::Compiler(const std::string& source) : lexer{source}, parser{} {
 }
@@ -15,12 +15,12 @@ void Compiler::compile() {
     consume(TokenType::Eof, "Expected end of expression.");
     emitByte(OpCode::Return);
     if (parser.hadError) {
-        throw CompilerException();
+        throw CompilerException("had error");
     }
     if (parser.panicMode) {
-        throw CompilerException();
+        throw CompilerException("panic!");
     }
-    if constexpr(DEBUG) {
+    if constexpr (DEBUG) {
         chunk.disassemble("code");
     }
 }
@@ -29,7 +29,7 @@ void Compiler::advance() {
     parser.previous = parser.current;
     while (true) {
         auto tmp = lexer.scanToken();
-        parser.current= tmp;
+        parser.current = tmp;
         if (parser.current.getType() != TokenType::Error) {
             break;
         }
@@ -46,20 +46,21 @@ void Compiler::errorAtPrevious(const char* message) {
 }
 
 void Compiler::errorAt(const Token& token, const char* message) {
-    std::cerr << "[line " << token.getLine() << "] Error ";
-    switch (token.getType()) {
-        case TokenType::Eof:
-            std::cerr << "at end ";
-            break;
-        case TokenType::Error:
-            break;
-        default:
-            std::cerr << ": ";
-            std::cerr.write(token.getStart(), token.getLength());
-            break;
-    }
-    std::cerr << ": " << message << '\n';
-    parser.hadError = true;
+    throw CompilerException(message, token);
+    //    switch (token.getType()) {
+    //        case TokenType::Eof:
+    //            std::cerr << "at end ";
+    //            break;
+    //        case TokenType::Error:
+    //            break;
+    //        default:
+    //            std::cerr << ": ";
+    //            std::cerr.write(token.getStart(), token.getLength());
+    //            break;
+    //    }
+    //    std::cerr << ": " << message << '\n';
+    //    parser.hadError = true;
+    //    throw CompilerException(message);
 }
 
 void Compiler::consume(TokenType type, const char* message) {
@@ -87,7 +88,7 @@ void Compiler::number() {
     emitConstant(value);
 }
 
-void Compiler::emitConstant(LoxNumber number) {
+void Compiler::emitConstant(Value number) {
     emitBytes(static_cast<uint8_t>(OpCode::Constant), makeConstant(number));
 }
 
@@ -98,7 +99,7 @@ void Compiler::emitBytes(T... bytes) {
     }
 }
 
-uint8_t Compiler::makeConstant(LoxNumber number) {
+uint8_t Compiler::makeConstant(Value number) {
     int constant = chunk.addConstant(number);
     if (constant > UINT8_MAX) {
         errorAtPrevious("Too many constants in one chunk.");
@@ -120,6 +121,9 @@ void Compiler::unary() {
         case TokenType::Minus:
             emitByte(OpCode::Negate);
             break;
+        case TokenType::Bang:
+            emitByte(OpCode::Not);
+            break;
         default:
             return;
     }
@@ -127,20 +131,20 @@ void Compiler::unary() {
 
 void Compiler::parsePrecedence(Precedence precedence) {
     advance();
-    ParseFn prefixRule{getRule(parser.previous.getType()).prefix};
+    auto rule = getRule(parser.previous.getType());
+    ParseFn prefixRule{rule.prefix};
     if (!prefixRule) {
         errorAtPrevious("Expected expression.");
         return;
     }
 
     (this->*prefixRule)();
-
     while (precedence <= getRule(parser.current.getType()).precedence) {
         advance();
-        auto infixRule{getRule(parser.previous.getType()).infix};
-        (this->*infixRule)();
+        auto rule3{getRule(parser.previous.getType())};
+        auto pFunction{rule3.infix};
+        (this->*pFunction)();
     }
-
 }
 
 void Compiler::binary() {
@@ -160,10 +164,47 @@ void Compiler::binary() {
         case TokenType::Slash:
             emitByte(OpCode::Divide);
             break;
+        case TokenType::Bang_equal:
+            emitBytes(OpCode::Equal, OpCode::Not);
+            break;
+        case TokenType::Equal_equal:
+            emitByte(OpCode::Equal);
+            break;
+        case TokenType::Greater:
+            emitByte(OpCode::Greater);
+            break;
+        case TokenType::Greater_equal:
+            emitBytes(OpCode::Less, OpCode::Not);
+            break;
+        case TokenType::Less:
+            emitByte(OpCode::Less);
+            break;
+        case TokenType::Less_equal:
+            emitBytes(OpCode::Greater, OpCode::Not);
+            break;
         default:
             return;  // unreachable
     }
 }
 const ParseRule& Compiler::getRule(TokenType type) const {
-    return rules[static_cast<int>(type)];
+    return rules.at(type);
+}
+
+void Compiler::emitByte(OpCode byte) {
+    emitByte(static_cast<uint8_t>(byte));
+}
+void Compiler::literal() {
+    switch (parser.previous.getType()) {
+        case TokenType::False:
+            emitByte(OpCode::False);
+            break;
+        case TokenType::True:
+            emitByte(OpCode::True);
+            break;
+        case TokenType::Nil:
+            emitByte(OpCode::Nil);
+            break;
+        default:
+            return;  // unreachable
+    }
 }
