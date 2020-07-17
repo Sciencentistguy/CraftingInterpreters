@@ -6,7 +6,7 @@
 // using Nil = std::nullptr_t;
 class Nil {};
 
-using Value = std::variant<double, bool, Nil>;
+using Value = std::variant<double, bool, Nil, std::string>;
 
 template<typename T>
 bool value_is(const Value& v);
@@ -20,7 +20,7 @@ std::string value_to_string(const Value& v);
 
 bool operator==(const Value& lhs, const Value& rhs);
 
-double operator+(const Value& lhs, const Value& rhs);
+Value operator+(const Value& lhs, const Value& rhs);
 
 double operator-(const Value& lhs, const Value& rhs);
 

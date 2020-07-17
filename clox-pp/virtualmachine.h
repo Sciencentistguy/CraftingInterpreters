@@ -17,8 +17,6 @@ class VirtualMachine {
     std::vector<Value> stack;
 
     const Value& peek(int distance);
-    template<typename Lambda>
-    void binary_op(Lambda l);
 
  public:
     explicit VirtualMachine(const std::string& source);

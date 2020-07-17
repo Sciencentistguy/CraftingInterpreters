@@ -30,14 +30,15 @@ class Compiler {
     void binary();
     void literal();
     void number();
+    void string();
 
     void emitByte(OpCode byte);
     void emitByte(uint8_t byte);
     template<typename... T>
     void emitBytes(T... bytes);
-    void emitConstant(Value number);
+    void emitConstant(const Value& value);
 
-    uint8_t makeConstant(Value number);
+    uint8_t makeConstant(Value value);
     const std::unordered_map<TokenType, ParseRule> rules = {
         std::make_pair(TokenType::Left_paren, ParseRule(&Compiler::grouping, nullptr, Precedence::None)),
         std::make_pair(TokenType::Right_paren, ParseRule{nullptr, nullptr, Precedence::None}),
@@ -59,7 +60,7 @@ class Compiler {
         std::make_pair(TokenType::Less, ParseRule{nullptr, &Compiler::binary, Precedence::Comparison}),
         std::make_pair(TokenType::Less_equal, ParseRule{nullptr, &Compiler::binary, Precedence::Comparison}),
         std::make_pair(TokenType::Identifier, ParseRule{nullptr, nullptr, Precedence::None}),
-        std::make_pair(TokenType::String, ParseRule{nullptr, nullptr, Precedence::None}),
+        std::make_pair(TokenType::String, ParseRule{&Compiler::string, nullptr, Precedence::None}),
         std::make_pair(TokenType::Number, ParseRule{&Compiler::number, nullptr, Precedence::None}),
         std::make_pair(TokenType::And, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::Class, ParseRule{nullptr, nullptr, Precedence::None}),

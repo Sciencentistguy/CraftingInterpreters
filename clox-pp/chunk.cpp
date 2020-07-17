@@ -37,8 +37,8 @@ void Chunk::disassemble(const std::string& name) const {
     std::cout << "== end " << name << " ==\n";
 }
 
-size_t Chunk::addConstant(Value number) {
-    constants.push_back(number);
+size_t Chunk::addConstant(const Value& value) {
+    constants.push_back(value);
     return constants.size() - 1;
 }
 

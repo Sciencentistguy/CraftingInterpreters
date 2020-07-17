@@ -276,3 +276,6 @@ TokenType Lexer::checkKeyword(int start, int length, const char* rest, TokenType
     }
     return TokenType::Identifier;
 }
+bool Lexer::isEmpty() const {
+    return source.empty();
+}

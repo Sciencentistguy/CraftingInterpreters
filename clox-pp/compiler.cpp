@@ -10,6 +10,9 @@ Compiler::Compiler(const std::string& source) : lexer{source}, parser{} {
 }
 
 void Compiler::compile() {
+    if (lexer.isEmpty()) {
+        throw CompilerException("Cannot compile \"\"");
+    }
     advance();
     expression();
     consume(TokenType::Eof, "Expected end of expression.");
@@ -88,8 +91,8 @@ void Compiler::number() {
     emitConstant(value);
 }
 
-void Compiler::emitConstant(Value number) {
-    emitBytes(static_cast<uint8_t>(OpCode::Constant), makeConstant(number));
+void Compiler::emitConstant(const Value& value) {
+    emitBytes(static_cast<uint8_t>(OpCode::Constant), makeConstant(value));
 }
 
 template<typename... T>
@@ -99,8 +102,8 @@ void Compiler::emitBytes(T... bytes) {
     }
 }
 
-uint8_t Compiler::makeConstant(Value number) {
-    int constant = chunk.addConstant(number);
+uint8_t Compiler::makeConstant(Value value) {
+    int constant = chunk.addConstant(value);
     if (constant > UINT8_MAX) {
         errorAtPrevious("Too many constants in one chunk.");
         return 0;
@@ -139,6 +142,7 @@ void Compiler::parsePrecedence(Precedence precedence) {
     }
 
     (this->*prefixRule)();
+
     while (precedence <= getRule(parser.current.getType()).precedence) {
         advance();
         auto rule3{getRule(parser.previous.getType())};
@@ -207,4 +211,7 @@ void Compiler::literal() {
         default:
             return;  // unreachable
     }
+}
+void Compiler::string() {
+    emitConstant(std::string(parser.previous.getStart()+1, parser.previous.getLength()-2));
 }

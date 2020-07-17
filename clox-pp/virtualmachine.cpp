@@ -15,7 +15,7 @@ void VirtualMachine::run() {
 
             std::cout << "Stack: ";
             if (!stack.empty()) {
-                for (const auto i : stack) {
+                for (const auto& i : stack) {
                     std::cout << "[" << value_to_string(i) << "] ";
                 }
             }
@@ -137,14 +137,3 @@ const Value& VirtualMachine::peek(int distance) {
     return stack.rbegin()[distance];
 }
 
-template<typename Lambda>
-void VirtualMachine::binary_op(Lambda l) {
-    if (!value_is<double>(peek(0)) || !value_is<double>(peek(1))) {
-        throw RuntimeException("Operands to binary operation must be numbers.");
-    }
-    auto b = value_extract<double>(stack.back());
-    stack.pop_back();
-    auto a = value_extract<double>(stack.back());
-    stack.pop_back();
-    stack.push_back(l(a, b));
-}

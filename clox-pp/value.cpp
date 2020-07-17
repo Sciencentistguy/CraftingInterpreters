@@ -32,6 +32,9 @@ std::string value_to_string(const Value& v) {
     if (value_is<Nil>(v)) {
         return "nil";
     }
+    if (value_is<std::string>(v)) {
+        return value_extract<std::string>(v);
+    }
     return "This should be unreachable.";
 }
 
@@ -48,27 +51,24 @@ bool operator==(const Value& lhs, const Value& rhs) {
     if (value_is<Nil>(lhs)) {
         return false;
     }
+    if (value_is<std::string>(lhs)) {
+        return value_extract<std::string>(lhs) == value_extract<std::string>(rhs);
+    }
     return false;
 }
 
-// void VirtualMachine::binary_op(Lambda l) {
-//    if (!value_is<double>(peek(0)) || !value_is<double>(peek(1))) {
-//        throw RuntimeException("Operands to binary operation must be numbers.");
-//    }
-//    auto b = value_extract<double>(stack.back());
-//    stack.pop_back();
-//    auto a = value_extract<double>(stack.back());
-//    stack.pop_back();
-//    stack.push_back(l(a, b));
-//}
-
-double operator+(const Value& lhs, const Value& rhs) {
-    if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
-        throw RuntimeException("Operands to + must be numbers.");
+Value operator+(const Value& lhs, const Value& rhs) {
+    if (value_is<std::string>(lhs) && value_is<std::string>(rhs)) {
+        auto a = value_extract<std::string>(lhs);
+        auto b = value_extract<std::string>(rhs);
+        return a + b;
     }
-    auto a = value_extract<double>(lhs);
-    auto b = value_extract<double>(rhs);
-    return a + b;
+    if (value_is<double>(lhs) && value_is<double>(rhs)) {
+        auto a = value_extract<double>(lhs);
+        auto b = value_extract<double>(rhs);
+        return a + b;
+    }
+    throw RuntimeException("Operands to + must be either both numbers or both strings.");
 }
 
 double operator-(const Value& lhs, const Value& rhs) {
@@ -82,7 +82,7 @@ double operator-(const Value& lhs, const Value& rhs) {
 
 double operator*(const Value& lhs, const Value& rhs) {
     if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
-        throw RuntimeException("Operands to / must be numbers.");
+        throw RuntimeException("Operands to * must be numbers.");
     }
     auto a = value_extract<double>(lhs);
     auto b = value_extract<double>(rhs);

@@ -27,4 +27,5 @@ class Lexer {
     [[nodiscard]] const char* getStart() const;
     [[nodiscard]] const char* getCurrent() const;
     [[nodiscard]] int getLine() const;
+    [[nodiscard]] bool isEmpty() const;
 };
