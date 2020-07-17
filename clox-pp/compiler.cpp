@@ -20,6 +20,9 @@ void Compiler::compile() {
     if (parser.panicMode) {
         throw CompilerException();
     }
+    if constexpr(DEBUG) {
+        chunk.disassemble("code");
+    }
 }
 
 void Compiler::advance() {

@@ -34,6 +34,7 @@ void Chunk::disassemble(const std::string& name) const {
         }
         disasInstruction(instruction, offset);
     }
+     std::cout << "== end " << name << " ==\n";
 }
 
 size_t Chunk::addConstant(LoxNumber number) {
@@ -43,6 +44,22 @@ size_t Chunk::addConstant(LoxNumber number) {
 
 void Chunk::disasInstruction(uint8_t instruction, size_t& offset) const {
     switch (instruction) {
+        case OpCode::Add:
+            std::cout << "add\n";
+            ++offset;
+            break;
+        case OpCode::Subtract:
+            std::cout << "subtract\n";
+            ++offset;
+            break;
+        case OpCode::Multiply:
+            std::cout << "multiply\n";
+            ++offset;
+            break;
+        case OpCode::Divide:
+            std::cout << "divide\n";
+            ++offset;
+            break;
         case OpCode::Return:
             std::cout << "return\n";
             ++offset;
@@ -58,7 +75,7 @@ void Chunk::disasInstruction(uint8_t instruction, size_t& offset) const {
             ++offset;
             break;
         default:
-            std::cout << "Unknown instruction\t\t(" << instruction << ")\n";
+            std::cout << "Unknown instruction\n";
             ++offset;
             break;
     }

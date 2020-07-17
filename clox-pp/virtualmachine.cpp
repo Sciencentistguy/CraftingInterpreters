@@ -13,7 +13,7 @@ InterpretResult VirtualMachine::run() {
 
             std::cout << "Stack: ";
             for (const auto i : stack) {
-                std::cout << "[ " << i << "] ";
+                std::cout << "[" << i << "] ";
             }
             std::cout << '\n';
         }
