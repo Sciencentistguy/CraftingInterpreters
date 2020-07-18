@@ -4,4 +4,3 @@
 #include <vector>
 
 constexpr bool DEBUG{true};
-

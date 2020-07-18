@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "common.h"
 #include "exception.h"
 #include "opcode.h"
 #include "value.h"
@@ -10,15 +11,16 @@ void VirtualMachine::run() {
     while (true) {
         OpCode instruction{*instruction_pointer++};
         if constexpr (DEBUG) {
-            std::cout << "Instruction: ";
-            chunk.disasInstruction(instruction);
-
             std::cout << "Stack: ";
             if (!stack.empty()) {
                 for (const auto& i : stack) {
                     std::cout << "[" << value_to_string(i) << "] ";
                 }
             }
+
+            std::cout << "\nInstruction: ";
+            chunk.disasInstruction(instruction);
+
             std::cout << '\n';
         }
 
@@ -136,4 +138,3 @@ VirtualMachine::VirtualMachine(const std::string& source) : compiler{source} {
 const Value& VirtualMachine::peek(int distance) {
     return stack.rbegin()[distance];
 }
-

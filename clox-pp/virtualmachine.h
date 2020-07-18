@@ -5,10 +5,8 @@
 #include <vector>
 
 #include "chunk.h"
-#include "common.h"
 #include "compiler.h"
-
-enum class InterpretResult { Ok, Compile_Error, Runtime_Error };
+#include "value.h"
 
 class VirtualMachine {
     Compiler compiler;

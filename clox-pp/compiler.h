@@ -1,13 +1,15 @@
 #pragma once
 
-#include <array>
+#include <cstdint>
 #include <string>
-
 #include <unordered_map>
+#include <utility>
 
 #include "chunk.h"
 #include "lexer.h"
+#include "opcode.h"
 #include "parser.h"
+#include "token.h"
 #include "value.h"
 
 class Compiler {
@@ -17,9 +19,8 @@ class Compiler {
 
     void advance();
     void consume(TokenType type, const char* message);
-    void errorAtCurrent(const char* message);
-    void errorAtPrevious(const char* message);
-    void errorAt(const Token& token, const char* message);
+    void errorAtCurrent(const char* message) const;
+    void errorAtPrevious(const char* message) const;
 
     [[nodiscard]] const ParseRule& getRule(TokenType type) const;
 
@@ -38,7 +39,7 @@ class Compiler {
     void emitBytes(T... bytes);
     void emitConstant(const Value& value);
 
-    uint8_t makeConstant(Value value);
+    uint8_t makeConstant(const Value& value);
     const std::unordered_map<TokenType, ParseRule> rules = {
         std::make_pair(TokenType::Left_paren, ParseRule(&Compiler::grouping, nullptr, Precedence::None)),
         std::make_pair(TokenType::Right_paren, ParseRule{nullptr, nullptr, Precedence::None}),

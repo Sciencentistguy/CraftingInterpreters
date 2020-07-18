@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "common.h"
 #include "opcode.h"
 #include "value.h"
 

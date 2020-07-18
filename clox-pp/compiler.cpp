@@ -1,7 +1,9 @@
 #include "compiler.h"
 
-#include <iostream>
+#include <cstdlib>
+#include <initializer_list>
 
+#include "common.h"
 #include "exception.h"
 #include "lexer.h"
 #include "token.h"
@@ -40,30 +42,12 @@ void Compiler::advance() {
     }
 }
 
-void Compiler::errorAtCurrent(const char* message) {
-    errorAt(parser.current, message);
+void Compiler::errorAtCurrent(const char* message) const {
+    throw CompilerException(message, parser.current);
 }
 
-void Compiler::errorAtPrevious(const char* message) {
-    errorAt(parser.previous, message);
-}
-
-void Compiler::errorAt(const Token& token, const char* message) {
-    throw CompilerException(message, token);
-    //    switch (token.getType()) {
-    //        case TokenType::Eof:
-    //            std::cerr << "at end ";
-    //            break;
-    //        case TokenType::Error:
-    //            break;
-    //        default:
-    //            std::cerr << ": ";
-    //            std::cerr.write(token.getStart(), token.getLength());
-    //            break;
-    //    }
-    //    std::cerr << ": " << message << '\n';
-    //    parser.hadError = true;
-    //    throw CompilerException(message);
+void Compiler::errorAtPrevious(const char* message) const {
+    throw CompilerException(message, parser.previous);
 }
 
 void Compiler::consume(TokenType type, const char* message) {
@@ -95,14 +79,14 @@ void Compiler::emitConstant(const Value& value) {
     emitBytes(static_cast<uint8_t>(OpCode::Constant), makeConstant(value));
 }
 
-template<typename... T>
-void Compiler::emitBytes(T... bytes) {
+template<typename... Byte>
+void Compiler::emitBytes(Byte... bytes) {
     for (auto byte : {bytes...}) {
         emitByte(byte);
     }
 }
 
-uint8_t Compiler::makeConstant(Value value) {
+uint8_t Compiler::makeConstant(const Value& value) {
     int constant = chunk.addConstant(value);
     if (constant > UINT8_MAX) {
         errorAtPrevious("Too many constants in one chunk.");
@@ -213,5 +197,5 @@ void Compiler::literal() {
     }
 }
 void Compiler::string() {
-    emitConstant(std::string(parser.previous.getStart()+1, parser.previous.getLength()-2));
+    emitConstant(std::string(parser.previous.getStart() + 1, parser.previous.getLength() - 2));
 }

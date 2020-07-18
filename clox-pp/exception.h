@@ -1,15 +1,15 @@
 #pragma once
 #include <stdexcept>
+#include <string>
 class Token;
 
 class CompilerException : public std::exception {
-    char* errorMsg;
+    std::string errorMsg;
 
  public:
     explicit CompilerException(const char* errorMsg);
     CompilerException(const char* errorMsg, const Token& token);
     [[nodiscard]] const char* what() const noexcept override;
-    ~CompilerException() override;
 };
 
 class RuntimeException : public std::exception {

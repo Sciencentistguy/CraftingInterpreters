@@ -1,7 +1,6 @@
 #include "value.h"
 
 #include "exception.h"
-#include "virtualmachine.h"
 
 template<typename T>
 bool value_is(const Value& v) {

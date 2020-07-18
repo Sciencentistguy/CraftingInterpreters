@@ -86,11 +86,6 @@ void Chunk::disasInstruction(OpCode instruction, size_t& offset) const {
             std::cout << "false\n";
             ++offset;
             break;
-
-            //        default:
-            //            std::cout << "Unknown instruction\n";
-            //            ++offset;
-            //            break;
         case OpCode::Not:
             std::cout << "not\n";
             ++offset;

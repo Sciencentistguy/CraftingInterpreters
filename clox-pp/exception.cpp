@@ -1,20 +1,17 @@
 #include "exception.h"
 
-#include <cstring>
 #include <sstream>
 
 #include "token.h"
 
-CompilerException::CompilerException(const char* errorMsg) {
-    this->errorMsg = new char[std::strlen(errorMsg)+1];
-    std::strcpy(this->errorMsg, errorMsg);
+CompilerException::CompilerException(const char* errorMsg) : errorMsg{errorMsg} {
 }
 
 const char* CompilerException::what() const noexcept {
-    return errorMsg;
+    return errorMsg.c_str();
 }
 
-CompilerException::CompilerException(const char* errorMsg, const Token& token){
+CompilerException::CompilerException(const char* errorMsg, const Token& token) {
     std::stringstream ss;
     ss << "[Error line " << token.getLine() << ']';
     switch (token.getType()) {
@@ -29,12 +26,7 @@ CompilerException::CompilerException(const char* errorMsg, const Token& token){
             break;
     }
     ss << ": " << errorMsg << '\n';
-    this->errorMsg = new char[ss.str().size() + 1];
-    std::strcpy(this->errorMsg, ss.str().c_str());
-}
-
-CompilerException::~CompilerException() {
-    delete [] errorMsg;
+    this->errorMsg = ss.str();
 }
 
 RuntimeException::RuntimeException(const char* errorMsg) : errorMsg{errorMsg} {
