@@ -279,3 +279,8 @@ TokenType Lexer::checkKeyword(int start, int length, const char* rest, TokenType
 bool Lexer::isEmpty() const {
     return source.empty();
 }
+void Lexer::setSource(const std::string& source) {
+    this->source = source;
+    start = source.c_str();
+    current = start;
+}

@@ -32,7 +32,7 @@ const char* Token::getEnd() const {
     return start + length;
 }
 
-std::string Token::debugTokenStr() const {
+std::string Token::getTokenStr() const {
     return std::string(start, length);
 }
 

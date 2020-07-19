@@ -65,6 +65,7 @@ class Token {
     [[nodiscard]] int getLength() const;
     [[nodiscard]] int getLine() const;
     [[nodiscard]] const char* getEnd() const;
-    [[nodiscard]] std::string debugTokenStr() const;
+    [[nodiscard]] std::string getTokenStr() const;
+
     Token& operator=(const Token& rhs) = default;
 };

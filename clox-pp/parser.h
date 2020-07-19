@@ -19,18 +19,16 @@ enum class Precedence {
 Precedence operator+(Precedence lhs, int rhs);
 class Compiler;
 
-using ParseFn = void (Compiler::*)();
+using ParseFn = void (Compiler::*)(bool canAssign);
 
 struct ParseRule {
     ParseFn prefix;
     ParseFn infix;
     Precedence precedence;
-    ParseRule(void (Compiler::*prefix)(), void (Compiler::*infix)(), Precedence precedence);
+    ParseRule(ParseFn prefix, ParseFn infix, Precedence precedence);
 };
 
 struct Parser {
     Token current{};
     Token previous{};
-    bool hadError{false};
-    bool panicMode{false};
 };

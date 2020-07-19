@@ -28,4 +28,5 @@ class Lexer {
     [[nodiscard]] const char* getCurrent() const;
     [[nodiscard]] int getLine() const;
     [[nodiscard]] bool isEmpty() const;
+    void setSource(const std::string& source);
 };

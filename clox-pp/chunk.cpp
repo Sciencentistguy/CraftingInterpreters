@@ -23,8 +23,8 @@ size_t Chunk::getCapacity() const {
 
 void Chunk::disassemble(const std::string& name) const {
     std::cout << "== " << name << " ==\n";
-    std::cout << "codepoint\tline\topcode\t\tconstant\n";
-    for (size_t offset = 0; offset < code.size();) {
+    std::cout << "codepoint\tline\topcode\t\t\tconstant\n";
+    for (size_t offset = 0; offset < code.size(); ++offset) {
         OpCode instruction{code[offset]};
         std::cout << std::setfill('0') << std::setw(4) << static_cast<int>(instruction) << "\t\t";
         if (lines[offset] == lines[offset - 1]) {
@@ -37,7 +37,7 @@ void Chunk::disassemble(const std::string& name) const {
     std::cout << "== end " << name << " ==\n";
 }
 
-size_t Chunk::addConstant(const Value& value) {
+uint8_t Chunk::addConstant(const Value& value) {
     constants.push_back(value);
     return constants.size() - 1;
 }
@@ -46,62 +46,73 @@ void Chunk::disasInstruction(OpCode instruction, size_t& offset) const {
     switch (static_cast<OpCode>(instruction)) {
         case OpCode::Add:
             std::cout << "add\n";
-            ++offset;
             break;
         case OpCode::Subtract:
             std::cout << "subtract\n";
-            ++offset;
             break;
         case OpCode::Multiply:
             std::cout << "multiply\n";
-            ++offset;
             break;
         case OpCode::Divide:
             std::cout << "divide\n";
-            ++offset;
             break;
         case OpCode::Return:
             std::cout << "return\n";
-            ++offset;
             break;
         case OpCode::Constant: {
             auto constant = constants[code[offset + 1]];
-            std::cout << "constant\t" << value_to_string(constant) << '\n';
-            offset += 2;
+            std::cout << "constant\t\t" << value_to_string(constant) << '\n';
+            ++offset;
             break;
         }
         case OpCode::Negate:
             std::cout << "negate\n";
-            ++offset;
             break;
         case OpCode::Nil:
             std::cout << "nil\n";
-            ++offset;
             break;
         case OpCode::True:
             std::cout << "true\n";
-            ++offset;
             break;
         case OpCode::False:
             std::cout << "false\n";
-            ++offset;
             break;
         case OpCode::Not:
             std::cout << "not\n";
-            ++offset;
             break;
         case OpCode::Equal:
             std::cout << "equal\n";
-            ++offset;
             break;
         case OpCode::Greater:
             std::cout << "greater\n";
-            ++offset;
             break;
         case OpCode::Less:
             std::cout << "less\n";
+            break;
+        case OpCode::Print:
+            std::cout << "print\n";
+            break;
+        case OpCode::Pop:
+            std::cout << "pop\n";
+            break;
+        case OpCode::Define_global: {
+            auto constant = constants[code[offset + 1]];
+            std::cout << "define_global\t" << value_to_string(constant) << '\n';
             ++offset;
             break;
+        }
+        case OpCode::Get_global: {
+            auto constant = constants[code[offset + 1]];
+            std::cout << "get_global\t\t" << value_to_string(constant) << '\n';
+            ++offset;
+            break;
+        }
+        case OpCode::Set_global: {
+            auto constant = constants[code[offset + 1]];
+            std::cout << "set_global\t\t" << value_to_string(constant) << '\n';
+            ++offset;
+            break;
+        }
     }
 }
 

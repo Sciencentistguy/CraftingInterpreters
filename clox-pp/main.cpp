@@ -16,10 +16,11 @@ std::string readFile(const std::string& filename) {
 
 [[noreturn]] void repl() {
     std::string line{};
+    VirtualMachine vm{""};
     while (true) {
         std::cout << ">>> ";
         std::getline(std::cin, line);
-        VirtualMachine vm{line};
+        vm.setSource(line);
         try {
             vm.interpret();
         } catch (const CompilerException& e) {

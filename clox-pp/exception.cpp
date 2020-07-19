@@ -29,9 +29,9 @@ CompilerException::CompilerException(const char* errorMsg, const Token& token) {
     this->errorMsg = ss.str();
 }
 
-RuntimeException::RuntimeException(const char* errorMsg) : errorMsg{errorMsg} {
+RuntimeException::RuntimeException(const std::string& errorMsg) : errorMsg{errorMsg} {
 }
 
 const char* RuntimeException::what() const noexcept {
-    return errorMsg;
+    return errorMsg.c_str();
 }

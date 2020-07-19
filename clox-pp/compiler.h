@@ -24,20 +24,38 @@ class Compiler {
 
     [[nodiscard]] const ParseRule& getRule(TokenType type) const;
 
+    uint8_t identifierConstant(const Token& name);
+
+    void defineVariable(uint8_t global);
+    void variable(bool canAssign);
+    void namedVariable(const Token& name, bool canAssign);
+
+    void declaration();
+    void variableDeclaration();
+
+    void statement();
+    void printStatement();
+    void expressionStatement();
+
     void parsePrecedence(Precedence precedence);
+    uint8_t parseVariable(const char* errorMessage);
+
     void expression();
-    void grouping();
-    void unary();
-    void binary();
-    void literal();
-    void number();
-    void string();
+    void grouping(bool canAssign);
+    void unary(bool canAssign);
+    void binary(bool canAssign);
+    void literal(bool canAssign);
+    void number(bool canAssign);
+    void string(bool canAssign);
 
     void emitByte(OpCode byte);
     void emitByte(uint8_t byte);
-    template<typename... T>
-    void emitBytes(T... bytes);
+    template<typename... Byte>
+    void emitBytes(Byte... bytes);
     void emitConstant(const Value& value);
+
+    bool match(TokenType tokenType);
+    bool check(TokenType tokenType) const;
 
     uint8_t makeConstant(const Value& value);
     const std::unordered_map<TokenType, ParseRule> rules = {
@@ -60,7 +78,7 @@ class Compiler {
         std::make_pair(TokenType::Greater_equal, ParseRule{nullptr, &Compiler::binary, Precedence::Comparison}),
         std::make_pair(TokenType::Less, ParseRule{nullptr, &Compiler::binary, Precedence::Comparison}),
         std::make_pair(TokenType::Less_equal, ParseRule{nullptr, &Compiler::binary, Precedence::Comparison}),
-        std::make_pair(TokenType::Identifier, ParseRule{nullptr, nullptr, Precedence::None}),
+        std::make_pair(TokenType::Identifier, ParseRule{&Compiler::variable, nullptr, Precedence::None}),
         std::make_pair(TokenType::String, ParseRule{&Compiler::string, nullptr, Precedence::None}),
         std::make_pair(TokenType::Number, ParseRule{&Compiler::number, nullptr, Precedence::None}),
         std::make_pair(TokenType::And, ParseRule{nullptr, nullptr, Precedence::None}),
@@ -86,4 +104,5 @@ class Compiler {
     explicit Compiler(const std::string& source);
     void compile();
     [[nodiscard]] const Chunk& getChunk() const;
+    void setSource(const std::string& source);
 };

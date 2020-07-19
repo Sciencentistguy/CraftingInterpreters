@@ -20,7 +20,7 @@ class Chunk {
     void disasInstruction(OpCode instruction, size_t& offset) const;
     void disasInstruction(OpCode instruction) const;
 
-    size_t addConstant(const Value& value);
+    uint8_t addConstant(const Value& value);
 
     [[nodiscard]] size_t getCount() const;
     [[nodiscard]] size_t getCapacity() const;

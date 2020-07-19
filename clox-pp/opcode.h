@@ -5,6 +5,10 @@ enum class OpCode {
     Nil,
     True,
     False,
+    Pop,
+    Get_global,
+    Define_global,
+    Set_global,
     Equal,
     Greater,
     Less,
@@ -14,5 +18,6 @@ enum class OpCode {
     Divide,
     Not,
     Negate,
+    Print,
     Return,
 };

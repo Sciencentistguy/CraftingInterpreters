@@ -13,9 +13,9 @@ class CompilerException : public std::exception {
 };
 
 class RuntimeException : public std::exception {
-    const char* errorMsg;
+    std::string errorMsg;
 
  public:
-    explicit RuntimeException(const char* errorMsg);
+    explicit RuntimeException(const std::string& errorMsg);
     [[nodiscard]] const char* what() const noexcept override;
 };

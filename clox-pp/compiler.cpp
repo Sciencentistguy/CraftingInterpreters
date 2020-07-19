@@ -16,15 +16,11 @@ void Compiler::compile() {
         throw CompilerException("Cannot compile \"\"");
     }
     advance();
-    expression();
-    consume(TokenType::Eof, "Expected end of expression.");
+    while (!match(TokenType::Eof)) {
+        declaration();
+    }
     emitByte(OpCode::Return);
-    if (parser.hadError) {
-        throw CompilerException("had error");
-    }
-    if (parser.panicMode) {
-        throw CompilerException("panic!");
-    }
+
     if constexpr (DEBUG) {
         chunk.disassemble("code");
     }
@@ -70,7 +66,7 @@ void Compiler::expression() {
     parsePrecedence(Precedence::Assignment);
 }
 
-void Compiler::number() {
+void Compiler::number(bool canAssign) {
     double value = std::strtod(parser.previous.getStart(), nullptr);
     emitConstant(value);
 }
@@ -95,12 +91,12 @@ uint8_t Compiler::makeConstant(const Value& value) {
     return constant;
 }
 
-void Compiler::grouping() {
+void Compiler::grouping(bool canAssign) {
     expression();
     consume(TokenType::Right_paren, "Expected ')' after expression.");
 }
 
-void Compiler::unary() {
+void Compiler::unary(bool canAssign) {
     TokenType opType{parser.previous.getType()};
     parsePrecedence(Precedence::Unary);
 
@@ -125,17 +121,21 @@ void Compiler::parsePrecedence(Precedence precedence) {
         return;
     }
 
-    (this->*prefixRule)();
+    bool canAssign = precedence <= Precedence::Assignment;
+    (this->*prefixRule)(canAssign);
 
     while (precedence <= getRule(parser.current.getType()).precedence) {
         advance();
         auto rule3{getRule(parser.previous.getType())};
         auto pFunction{rule3.infix};
-        (this->*pFunction)();
+        (this->*pFunction)(canAssign);
+    }
+    if (canAssign && match(TokenType::Equal)) {
+        errorAtPrevious("Invalid assignment target.");
     }
 }
 
-void Compiler::binary() {
+void Compiler::binary(bool canAssign) {
     auto opType{parser.previous.getType()};
     ParseRule rule{getRule(opType)};
     parsePrecedence(rule.precedence + 1);
@@ -174,6 +174,7 @@ void Compiler::binary() {
             return;  // unreachable
     }
 }
+
 const ParseRule& Compiler::getRule(TokenType type) const {
     return rules.at(type);
 }
@@ -181,7 +182,8 @@ const ParseRule& Compiler::getRule(TokenType type) const {
 void Compiler::emitByte(OpCode byte) {
     emitByte(static_cast<uint8_t>(byte));
 }
-void Compiler::literal() {
+
+void Compiler::literal(bool canAssign) {
     switch (parser.previous.getType()) {
         case TokenType::False:
             emitByte(OpCode::False);
@@ -196,6 +198,92 @@ void Compiler::literal() {
             return;  // unreachable
     }
 }
-void Compiler::string() {
+
+void Compiler::string(bool canAssign) {
     emitConstant(std::string(parser.previous.getStart() + 1, parser.previous.getLength() - 2));
+}
+
+void Compiler::declaration() {
+    if (match(TokenType::Var)) {
+        variableDeclaration();
+    } else {
+        statement();
+    }
+}
+
+void Compiler::statement() {
+    if (match(TokenType::Print)) {
+        printStatement();
+    } else {
+        expressionStatement();
+    }
+}
+
+bool Compiler::match(TokenType tokenType) {
+    if (!check(tokenType)) {
+        return false;
+    }
+    advance();
+    return true;
+}
+
+bool Compiler::check(TokenType tokenType) const {
+    return parser.current.getType() == tokenType;
+}
+
+void Compiler::printStatement() {
+    expression();
+    consume(TokenType::Semicolon, "Expected ';' after value.");
+    emitByte(OpCode::Print);
+}
+
+void Compiler::expressionStatement() {
+    expression();
+    consume(TokenType::Semicolon, "Expected ';' after expression.");
+    emitByte(OpCode::Pop);
+}
+
+void Compiler::variableDeclaration() {
+    uint8_t global{parseVariable("Expected variable name.")};
+    if (match(TokenType::Equal)) {
+        expression();
+    } else {
+        emitByte(OpCode::Nil);
+    }
+    consume(TokenType::Semicolon, "Expected ';' after variable declaration.");
+    defineVariable(global);
+}
+
+uint8_t Compiler::parseVariable(const char* errorMessage) {
+    consume(TokenType::Identifier, errorMessage);
+    return identifierConstant(parser.previous);
+}
+
+uint8_t Compiler::identifierConstant(const Token& name) {
+    return chunk.addConstant(name.getTokenStr());
+}
+
+void Compiler::defineVariable(uint8_t global) {
+    emitBytes(static_cast<uint8_t>(OpCode::Define_global), global);
+}
+
+void Compiler::setSource(const std::string& source) {
+    lexer.setSource(source);
+    chunk = Chunk();
+}
+
+void Compiler::variable(bool canAssign) {
+    namedVariable(parser.previous, canAssign);
+}
+
+void Compiler::namedVariable(const Token& name, bool canAssign) {
+    auto arg{identifierConstant(name)};
+
+    if (canAssign && match(TokenType::Equal)) {
+        expression();
+        emitBytes(static_cast<uint8_t>(OpCode::Set_global), arg);
+    } else {
+        emitBytes(static_cast<uint8_t>(OpCode::Get_global), arg);
+    }
+
 }
