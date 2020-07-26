@@ -12,47 +12,73 @@
 #include "token.h"
 #include "value.h"
 
+constexpr int MAX_LOCALS{UINT8_MAX + 1};
+
+struct LocalVariable {
+    Token name;
+    int depth;
+};
+
 class Compiler {
     Lexer lexer;
     Parser parser;
     Chunk chunk;
 
+    std::vector<LocalVariable> locals{MAX_LOCALS};
+    int localCount{};
+    int scopeDepth{};
+
     void advance();
     void consume(TokenType type, const char* message);
-    void errorAtCurrent(const char* message) const;
-    void errorAtPrevious(const char* message) const;
+    [[noreturn]] void errorAtCurrent(const char* message) const;
+    [[noreturn]] void errorAtPrevious(const char* message) const;
 
     [[nodiscard]] const ParseRule& getRule(TokenType type) const;
 
     uint8_t identifierConstant(const Token& name);
 
     void defineVariable(uint8_t global);
+    void declareVariable();
     void variable(bool canAssign);
     void namedVariable(const Token& name, bool canAssign);
+    void addLocal(const Token& name);
+    int resolveLocal(const Token& name);
 
     void declaration();
     void variableDeclaration();
 
     void statement();
+    void forStatement();
     void printStatement();
+    void whileStatement();
+    void ifStatement();
     void expressionStatement();
 
     void parsePrecedence(Precedence precedence);
     uint8_t parseVariable(const char* errorMessage);
 
+    void beginScope();
+    void endScope();
+
     void expression();
+    void block();
     void grouping(bool canAssign);
     void unary(bool canAssign);
     void binary(bool canAssign);
     void literal(bool canAssign);
     void number(bool canAssign);
     void string(bool canAssign);
+    void and_(bool canAssign);
+    void or_(bool canAssign);
 
     void emitByte(OpCode byte);
     void emitByte(uint8_t byte);
     template<typename... Byte>
     void emitBytes(Byte... bytes);
     void emitConstant(const Value& value);
+    std::size_t emitJump(OpCode instruction);
+    void emitLoop(std::size_t loopStart);
+    void patchJump(size_t offset);
 
     bool match(TokenType tokenType);
     bool check(TokenType tokenType) const;
@@ -81,7 +107,7 @@ class Compiler {
         std::make_pair(TokenType::Identifier, ParseRule{&Compiler::variable, nullptr, Precedence::None}),
         std::make_pair(TokenType::String, ParseRule{&Compiler::string, nullptr, Precedence::None}),
         std::make_pair(TokenType::Number, ParseRule{&Compiler::number, nullptr, Precedence::None}),
-        std::make_pair(TokenType::And, ParseRule{nullptr, nullptr, Precedence::None}),
+        std::make_pair(TokenType::And, ParseRule{nullptr, &Compiler::and_, Precedence::And}),
         std::make_pair(TokenType::Class, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::Else, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::False, ParseRule{&Compiler::literal, nullptr, Precedence::None}),
@@ -89,7 +115,7 @@ class Compiler {
         std::make_pair(TokenType::Fun, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::If, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::Nil, ParseRule{&Compiler::literal, nullptr, Precedence::None}),
-        std::make_pair(TokenType::Or, ParseRule{nullptr, nullptr, Precedence::None}),
+        std::make_pair(TokenType::Or, ParseRule{nullptr, &Compiler::or_, Precedence::Or}),
         std::make_pair(TokenType::Print, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::Return, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::Super, ParseRule{nullptr, nullptr, Precedence::None}),

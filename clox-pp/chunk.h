@@ -16,12 +16,12 @@ class Chunk {
     void write(OpCode byte, int line);
     void write(unsigned char byte, int line);
 
-    void disassemble(const std::string& name) const;
-    void disasInstruction(OpCode instruction, size_t& offset) const;
-    void disasInstruction(OpCode instruction) const;
+    void disassemble(const std::string_view& name) const;
+    void disasInstruction(OpCode instruction,std::size_t& offset) const;
+    void disasInstruction(OpCode instruction, long&& offset) const;
 
     uint8_t addConstant(const Value& value);
 
-    [[nodiscard]] size_t getCount() const;
-    [[nodiscard]] size_t getCapacity() const;
+    [[nodiscard]] std::size_t getCount() const;
+    [[nodiscard]] std::size_t getCapacity() const;
 };

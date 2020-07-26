@@ -1,5 +1,7 @@
 #include "value.h"
 
+#include <fmt/core.h>
+
 #include "exception.h"
 
 template<typename T>
@@ -23,9 +25,9 @@ std::string value_to_string(const Value& v) {
     if (value_is<double>(v)) {
         double d{value_extract<double>(v)};
         if (d == static_cast<int>(d)) {
-            return std::to_string(static_cast<int>(d));
+            return fmt::format("{}", static_cast<int>(d));
         } else {
-            return std::to_string(d);
+            return fmt::format("{}", d);
         }
     }
     if (value_is<Nil>(v)) {
@@ -67,12 +69,12 @@ Value operator+(const Value& lhs, const Value& rhs) {
         auto b = value_extract<double>(rhs);
         return a + b;
     }
-    throw RuntimeException("Operands to + must be either both numbers or both strings.");
+    throw RuntimeException("Operands to '+' must be either both numbers or both strings.");
 }
 
 double operator-(const Value& lhs, const Value& rhs) {
     if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
-        throw RuntimeException("Operands to - must be numbers.");
+        throw RuntimeException("Operands to '-' must be numbers.");
     }
     auto a = value_extract<double>(lhs);
     auto b = value_extract<double>(rhs);
@@ -81,7 +83,7 @@ double operator-(const Value& lhs, const Value& rhs) {
 
 double operator*(const Value& lhs, const Value& rhs) {
     if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
-        throw RuntimeException("Operands to * must be numbers.");
+        throw RuntimeException("Operands to '*' must be numbers.");
     }
     auto a = value_extract<double>(lhs);
     auto b = value_extract<double>(rhs);
@@ -90,7 +92,7 @@ double operator*(const Value& lhs, const Value& rhs) {
 
 double operator/(const Value& lhs, const Value& rhs) {
     if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
-        throw RuntimeException("Operands to / must be numbers.");
+        throw RuntimeException("Operands to '/' must be numbers.");
     }
     auto a = value_extract<double>(lhs);
     auto b = value_extract<double>(rhs);
@@ -98,8 +100,11 @@ double operator/(const Value& lhs, const Value& rhs) {
 }
 
 bool operator>(const Value& lhs, const Value& rhs) {
-    auto a = isFalsey(lhs);
-    auto b = isFalsey(rhs);
+    if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
+        throw RuntimeException("Operands to '>' must be numbers.");
+    }
+    auto a = value_extract<double>(lhs);
+    auto b = value_extract<double>(rhs);
     return a > b;
 }
 

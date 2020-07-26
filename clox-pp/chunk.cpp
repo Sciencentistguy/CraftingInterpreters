@@ -1,7 +1,6 @@
 #include "chunk.h"
 
-#include <iomanip>
-#include <iostream>
+#include <fmt/format.h>
 
 void Chunk::write(OpCode byte, int line) {
     code.push_back(static_cast<uint8_t>(byte));
@@ -13,28 +12,29 @@ void Chunk::write(unsigned char byte, int line) {
     lines.push_back(line);
 }
 
-size_t Chunk::getCount() const {
+std::size_t Chunk::getCount() const {
     return code.size();
 }
 
-size_t Chunk::getCapacity() const {
+std::size_t Chunk::getCapacity() const {
     return code.capacity();
 }
 
-void Chunk::disassemble(const std::string& name) const {
-    std::cout << "== " << name << " ==\n";
-    std::cout << "codepoint\tline\topcode\t\t\tconstant\n";
-    for (size_t offset = 0; offset < code.size(); ++offset) {
+void Chunk::disassemble(const std::string_view& name) const {
+    fmt::print("== {} ==\n", name);
+    fmt::print("offset\tcodepoint\tline\topcode\t\t\tvalue\n");
+    for (std::size_t offset = 0; offset < code.size();) {
+        fmt::print("{:04d}\t", offset);
         OpCode instruction{code[offset]};
-        std::cout << std::setfill('0') << std::setw(4) << static_cast<int>(instruction) << "\t\t";
+        fmt::print("{:04d}\t\t", instruction);
         if (lines[offset] == lines[offset - 1]) {
-            std::cout << "   |\t";
+            fmt::print("   |\t");
         } else {
-            std::cout << std::setfill('0') << std::setw(4) << lines[offset] << '\t';
+            fmt::print("{:04d}\t", lines[offset]);
         }
         disasInstruction(instruction, offset);
     }
-    std::cout << "== end " << name << " ==\n";
+    fmt::print("== end {} ==\n", name);
 }
 
 uint8_t Chunk::addConstant(const Value& value) {
@@ -42,81 +42,134 @@ uint8_t Chunk::addConstant(const Value& value) {
     return constants.size() - 1;
 }
 
-void Chunk::disasInstruction(OpCode instruction, size_t& offset) const {
+
+
+void Chunk::disasInstruction(OpCode instruction, std::size_t& offset) const {
     switch (static_cast<OpCode>(instruction)) {
         case OpCode::Add:
-            std::cout << "add\n";
+            fmt::print("add\n");
+            ++offset;
             break;
         case OpCode::Subtract:
-            std::cout << "subtract\n";
+            fmt::print("subtract\n");
+            ++offset;
             break;
         case OpCode::Multiply:
-            std::cout << "multiply\n";
+            fmt::print("multiply\n");
+            ++offset;
             break;
         case OpCode::Divide:
-            std::cout << "divide\n";
+            fmt::print("divide\n");
+            ++offset;
             break;
         case OpCode::Return:
-            std::cout << "return\n";
+            fmt::print("return\n");
+            ++offset;
             break;
         case OpCode::Constant: {
-            auto constant = constants[code[offset + 1]];
-            std::cout << "constant\t\t" << value_to_string(constant) << '\n';
+            auto constant = constants[code[++offset]];
+            fmt::print("constant\t\t{}\n", value_to_string(constant));
             ++offset;
             break;
         }
         case OpCode::Negate:
-            std::cout << "negate\n";
+            fmt::print("negate\n");
+            ++offset;
             break;
         case OpCode::Nil:
-            std::cout << "nil\n";
+            fmt::print("nil\n");
+            ++offset;
             break;
         case OpCode::True:
-            std::cout << "true\n";
+            fmt::print("true\n");
+            ++offset;
             break;
         case OpCode::False:
-            std::cout << "false\n";
+            fmt::print("false\n");
+            ++offset;
             break;
         case OpCode::Not:
-            std::cout << "not\n";
+            fmt::print("not\n");
+            ++offset;
             break;
         case OpCode::Equal:
-            std::cout << "equal\n";
+            fmt::print("equal\n");
+            ++offset;
             break;
         case OpCode::Greater:
-            std::cout << "greater\n";
+            fmt::print("greater\n");
+            ++offset;
             break;
         case OpCode::Less:
-            std::cout << "less\n";
+            fmt::print("less\n");
+            ++offset;
             break;
         case OpCode::Print:
-            std::cout << "print\n";
+            fmt::print("print\n");
+            ++offset;
             break;
         case OpCode::Pop:
-            std::cout << "pop\n";
+            fmt::print("pop\n");
+            ++offset;
             break;
         case OpCode::Define_global: {
-            auto constant = constants[code[offset + 1]];
-            std::cout << "define_global\t" << value_to_string(constant) << '\n';
+            auto constant = constants[code[++offset]];
+            fmt::print("define_global\t{}\n", value_to_string(constant));
             ++offset;
             break;
         }
         case OpCode::Get_global: {
-            auto constant = constants[code[offset + 1]];
-            std::cout << "get_global\t\t" << value_to_string(constant) << '\n';
+            auto constant = constants[code[++offset]];
+            fmt::print("get_global\t\t{}\n", value_to_string(constant));
             ++offset;
             break;
         }
         case OpCode::Set_global: {
-            auto constant = constants[code[offset + 1]];
-            std::cout << "set_global\t\t" << value_to_string(constant) << '\n';
+            auto constant = constants[code[++offset]];
+            fmt::print("set_global\t\t{}\n", value_to_string(constant));
             ++offset;
+            break;
+        }
+        case OpCode::Get_local: {
+            uint8_t slot{code[++offset]};
+            fmt::print("get_local\t\t{:04d}\n", slot);
+            ++offset;
+            break;
+        }
+        case OpCode::Set_local: {
+            uint8_t slot{code[++offset]};
+            fmt::print("set_local\t\t{:04d}\n", slot);
+            ++offset;
+            break;
+        }
+        case OpCode::Jump_if_false: {
+            auto jump{static_cast<uint16_t>(code[offset + 1] << 8u)};
+            auto sign{1};
+            jump |= code[offset + 2];
+            fmt::print("jump_if_false\t{:04d} -> {:04d}\n", offset, offset + 3 + sign * jump);
+            offset += 3;
+            break;
+        }
+        case OpCode::Jump: {
+            auto jump{static_cast<uint16_t>(code[offset + 1] << 8u)};
+            auto sign{1};
+            jump |= code[offset + 2];
+            fmt::print("jump\t\t\t{:04d} -> {:04d}\n", offset, offset + 3 + sign * jump);
+            offset += 3;
+            break;
+        }
+        case OpCode::Loop: {
+            auto jump{static_cast<uint16_t>(code[offset + 1] << 8u)};
+            auto sign{-1};
+            jump |= code[offset + 2];
+            fmt::print("loop\t\t\t{:04d} -> {:04d}\n", offset, offset + 3 + sign * jump);
+            offset += 3;
             break;
         }
     }
 }
 
-void Chunk::disasInstruction(OpCode instruction) const {
-    size_t nop{};
-    disasInstruction(instruction, nop);
+void Chunk::disasInstruction(OpCode instruction, long&& offset) const {
+    std::size_t ofst = offset;
+    disasInstruction(instruction, ofst);
 }

@@ -6,6 +6,8 @@ enum class OpCode {
     True,
     False,
     Pop,
+    Get_local,
+    Set_local,
     Get_global,
     Define_global,
     Set_global,
@@ -19,5 +21,8 @@ enum class OpCode {
     Not,
     Negate,
     Print,
+    Jump,
+    Jump_if_false,
+    Loop,
     Return,
 };

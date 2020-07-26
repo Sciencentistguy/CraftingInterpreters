@@ -1,6 +1,6 @@
 #include "virtualmachine.h"
 
-#include <iostream>
+#include <fmt/core.h>
 
 #include "common.h"
 #include "exception.h"
@@ -11,17 +11,16 @@ void VirtualMachine::run() {
     while (true) {
         OpCode instruction{*instruction_pointer++};
         if constexpr (DEBUG) {
-            std::cout << "Stack: ";
+            fmt::print("Stack: ");
             if (!stack.empty()) {
                 for (const auto& i : stack) {
-                    std::cout << "[" << value_to_string(i) << "] ";
+                    fmt::print("[{}] ", value_to_string(i));
                 }
             }
-
-            std::cout << "\nInstruction: ";
-            chunk.disasInstruction(instruction);
-
-            std::cout << '\n';
+            fmt::print("\nInstruction: ");
+            auto ofst{std::distance(chunk.code.cbegin(), instruction_pointer)};
+            chunk.disasInstruction(instruction, ofst - 1);
+            fmt::print("\n");
         }
 
         switch (static_cast<OpCode>(instruction)) {
@@ -122,7 +121,7 @@ void VirtualMachine::run() {
             }
 
             case OpCode::Print:
-                std::cout << value_to_string(stack.back()) << '\n';
+                fmt::print("{}\n", value_to_string(stack.back()));
                 stack.pop_back();
                 break;
 
@@ -136,7 +135,8 @@ void VirtualMachine::run() {
                 break;
             }
             case OpCode::Get_global: {
-                const auto& name = value_extract<std::string>(chunk.constants[*instruction_pointer++]);
+                auto v{chunk.constants[*instruction_pointer++]};
+                const auto& name = value_extract<std::string>(v);
                 auto it{globals.find(name)};
                 if (it == globals.end()) {  // not in map
                     using namespace std::string_literals;
@@ -153,6 +153,36 @@ void VirtualMachine::run() {
                     throw RuntimeException("Undefined variable '"s + name + "'.");
                 }
                 globals[name] = peek(0);
+                break;
+            }
+            case OpCode::Get_local: {
+                uint8_t slot{*instruction_pointer++};
+                stack.push_back(stack[slot]);
+                break;
+            }
+            case OpCode::Set_local: {
+                uint8_t slot{*instruction_pointer++};
+                stack[slot] = peek(0);
+                break;
+            }
+            case OpCode::Jump_if_false: {
+                instruction_pointer += 2;
+                if (isFalsey(peek(0))) {
+                    uint16_t offset{static_cast<uint16_t>(instruction_pointer[-2] << 8u | instruction_pointer[-1])};
+                    instruction_pointer += offset;
+                }
+                break;
+            }
+            case OpCode::Jump: {
+                instruction_pointer += 2;
+                uint16_t offset{static_cast<uint16_t>(instruction_pointer[-2] << 8u | instruction_pointer[-1])};
+                instruction_pointer += offset;
+                break;
+            }
+            case OpCode::Loop: {
+                instruction_pointer += 2;
+                uint16_t offset{static_cast<uint16_t>(instruction_pointer[-2] << 8u | instruction_pointer[-1])};
+                instruction_pointer -= offset;
                 break;
             }
         }

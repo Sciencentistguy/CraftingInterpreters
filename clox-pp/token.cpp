@@ -36,3 +36,9 @@ std::string Token::getTokenStr() const {
     return std::string(start, length);
 }
 
+bool operator==(const Token& lhs, const Token& rhs) {
+    if (lhs.length != rhs.length) {
+        return false;
+    }
+    return std::memcmp(lhs.start, rhs.start, lhs.length) == 0;
+}

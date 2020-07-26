@@ -68,4 +68,6 @@ class Token {
     [[nodiscard]] std::string getTokenStr() const;
 
     Token& operator=(const Token& rhs) = default;
+
+    friend bool operator==(const Token& lhs, const Token& rhs);
 };

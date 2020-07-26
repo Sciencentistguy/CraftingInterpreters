@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <initializer_list>
 
+#include <oniguruma.h>
+
 #include "common.h"
 #include "exception.h"
 #include "lexer.h"
@@ -118,7 +120,6 @@ void Compiler::parsePrecedence(Precedence precedence) {
     ParseFn prefixRule{rule.prefix};
     if (!prefixRule) {
         errorAtPrevious("Expected expression.");
-        return;
     }
 
     bool canAssign = precedence <= Precedence::Assignment;
@@ -214,6 +215,16 @@ void Compiler::declaration() {
 void Compiler::statement() {
     if (match(TokenType::Print)) {
         printStatement();
+    } else if (match(TokenType::For)) {
+        forStatement();
+    } else if (match(TokenType::If)) {
+        ifStatement();
+    } else if (match(TokenType::While)) {
+        whileStatement();
+    } else if (match(TokenType::Left_brace)) {
+        beginScope();
+        block();
+        endScope();
     } else {
         expressionStatement();
     }
@@ -256,6 +267,10 @@ void Compiler::variableDeclaration() {
 
 uint8_t Compiler::parseVariable(const char* errorMessage) {
     consume(TokenType::Identifier, errorMessage);
+    declareVariable();
+    if (scopeDepth > 0) {
+        return 0;
+    }
     return identifierConstant(parser.previous);
 }
 
@@ -264,6 +279,10 @@ uint8_t Compiler::identifierConstant(const Token& name) {
 }
 
 void Compiler::defineVariable(uint8_t global) {
+    if (scopeDepth > 0) {
+        locals[localCount - 1].depth = scopeDepth;
+        return;
+    }
     emitBytes(static_cast<uint8_t>(OpCode::Define_global), global);
 }
 
@@ -277,13 +296,192 @@ void Compiler::variable(bool canAssign) {
 }
 
 void Compiler::namedVariable(const Token& name, bool canAssign) {
-    auto arg{identifierConstant(name)};
+    int arg{resolveLocal(name)};
+    OpCode getOp;
+    OpCode setOp;
+    if (arg != -1) {
+        getOp = OpCode::Get_local;
+        setOp = OpCode::Set_local;
+    } else {
+        arg = identifierConstant(name);
+        getOp = OpCode::Get_global;
+        setOp = OpCode::Set_global;
+    }
 
     if (canAssign && match(TokenType::Equal)) {
         expression();
-        emitBytes(static_cast<uint8_t>(OpCode::Set_global), arg);
+        emitBytes(static_cast<uint8_t>(setOp), static_cast<uint8_t>(arg));
     } else {
-        emitBytes(static_cast<uint8_t>(OpCode::Get_global), arg);
+        emitBytes(static_cast<uint8_t>(getOp), static_cast<uint8_t>(arg));
+    }
+}
+
+void Compiler::block() {
+    while (!check(TokenType::Right_brace) && !check(TokenType::Eof)) {
+        declaration();
+    }
+    consume(TokenType::Right_brace, "Expected '}' after block.");
+}
+
+void Compiler::beginScope() {
+    ++scopeDepth;
+}
+
+void Compiler::endScope() {
+    --scopeDepth;
+    while (localCount > 0 && locals[localCount - 1].depth > scopeDepth) {
+        emitByte(OpCode::Pop);
+        --localCount;
+    }
+}
+
+void Compiler::declareVariable() {
+    for (int i = localCount; i >= 0; --i) {
+        const LocalVariable& local{locals[i]};
+        if (local.depth != -1 && local.depth < scopeDepth) {
+            break;
+        }
+        if (parser.previous == local.name) {
+            errorAtPrevious("Variable with this name already declared in this scope.");
+        }
+    }
+    addLocal(parser.previous);
+}
+
+void Compiler::addLocal(const Token& name) {
+    if (localCount == MAX_LOCALS) {
+        errorAtPrevious("Too many local variables in scope.");
+    }
+    auto& l = locals[localCount++];
+    l.name = name;
+    l.depth = -1;
+}
+
+int Compiler::resolveLocal(const Token& name) {
+    for (int i = localCount; i >= 0; --i) {
+        const LocalVariable& local = locals[i];
+        if (name == local.name) {
+            if (local.depth == -1) {
+                errorAtPrevious("Cannot read local variable in its own initializer.");
+            }
+            return i;
+        }
+    }
+    return -1;
+}
+
+void Compiler::ifStatement() {
+    consume(TokenType::Left_paren, "Expected '(' after 'if'.");
+    expression();
+    consume(TokenType::Right_paren, "Expected ')' after condition.");
+    auto thenJump = emitJump(OpCode::Jump_if_false);
+    emitByte(OpCode::Pop);
+
+    statement();
+    auto elseJump = emitJump(OpCode::Jump);
+    patchJump(thenJump);
+    emitByte(OpCode::Pop);
+    if (match(TokenType::Else)) {
+        statement();
+    }
+    patchJump(elseJump);
+}
+
+std::size_t Compiler::emitJump(OpCode instruction) {
+    constexpr uint8_t placeholder = 0xff;
+    emitBytes(static_cast<uint8_t>(instruction), placeholder, placeholder);
+    return chunk.getCount() - 2;
+}
+
+void Compiler::patchJump(size_t offset) {
+    auto jump = chunk.getCount() - offset - 2;
+    if (jump > UINT16_MAX) {
+        errorAtPrevious("Too much code to jump over.");
+    }
+    chunk.code[offset] = (jump >> 8u) & 0xffu;
+    chunk.code[offset + 1] = jump & 0xffu;
+}
+
+void Compiler::and_(bool canAssign) {
+    auto endJump{emitJump(OpCode::Jump_if_false)};
+    emitByte(OpCode::Pop);
+    parsePrecedence(Precedence::And);
+    patchJump(endJump);
+}
+
+void Compiler::or_(bool canAssign) {
+    auto elseJump{emitJump(OpCode::Jump_if_false)};
+    auto endJump{emitJump(OpCode::Jump)};
+    patchJump(elseJump);
+    emitByte(OpCode::Pop);
+    parsePrecedence(Precedence::Or);
+    patchJump(endJump);
+}
+
+void Compiler::whileStatement() {
+    auto loopStart{chunk.getCount()};
+    consume(TokenType::Left_paren, "Expected '(' after 'while'.");
+    expression();
+    consume(TokenType::Right_paren, "Expected ')' after condition.");
+
+    auto exitJump{emitJump(OpCode::Jump_if_false)};
+    emitByte(OpCode::Pop);
+    statement();
+
+    emitLoop(loopStart);
+
+    patchJump(exitJump);
+    emitByte(OpCode::Pop);
+}
+
+void Compiler::emitLoop(std::size_t loopStart) {
+    emitByte(OpCode::Loop);
+    auto offset{chunk.getCount() - loopStart + 2};
+    if (offset > UINT16_MAX) {
+        errorAtPrevious("Loop body too large.");
+    }
+    emitByte((offset >> 8u) & 0xff);
+    emitByte(offset & 0xff);
+}
+
+void Compiler::forStatement() {
+    beginScope();
+    consume(TokenType::Left_paren, "Expected '(' after 'for'.");
+    if (match(TokenType::Semicolon)) {
+    } else if (match(TokenType::Var)) {
+        variableDeclaration();
+    } else {
+        expressionStatement();
     }
 
+    auto loopStart{chunk.getCount()};
+
+    auto exitJump{-1};
+    if (!match(TokenType::Semicolon)) {
+        expression();
+        consume(TokenType::Semicolon, "Expected ';' after loop condition.");
+
+        exitJump = emitJump(OpCode::Jump_if_false);
+        emitByte(OpCode::Pop);
+    }
+
+    if (!match(TokenType::Right_paren)) {
+        auto bodyJump{emitJump(OpCode::Jump)};
+        auto incrementStart{chunk.getCount()};
+        expression();
+        emitByte(OpCode::Pop);
+        consume(TokenType::Right_paren, "Expected ')' after for clauses.");
+
+        emitLoop(loopStart);
+        loopStart = incrementStart;
+        patchJump(bodyJump);
+    }
+
+    statement();
+    emitLoop(loopStart);
+    if (exitJump != -1) {
+        patchJump(exitJump);
+        emitByte(OpCode::Pop);
+    }
+    endScope();
 }

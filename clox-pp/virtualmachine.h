@@ -11,7 +11,7 @@
 class VirtualMachine {
     Compiler compiler;
     Chunk chunk;
-    std::vector<uint8_t>::iterator instruction_pointer;
+    std::vector<uint8_t>::const_iterator instruction_pointer;
     std::vector<Value> stack;
     std::unordered_map<std::string, Value> globals;
 

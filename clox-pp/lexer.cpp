@@ -34,6 +34,9 @@ Token Lexer::scanToken() {
         case '+':
             return makeToken(TokenType::Plus);
         case '/':
+            //            if (peekNext() == '/') {
+            //                while (peek()!='\n' && !isAtEnd()) {advance();}
+            //            }
             return makeToken(TokenType::Slash);
         case '*':
             return makeToken(TokenType::Star);
@@ -194,6 +197,7 @@ void Lexer::skipWhitespace() {
                 } else {
                     return;
                 }
+                break;
 
             default:
                 return;
