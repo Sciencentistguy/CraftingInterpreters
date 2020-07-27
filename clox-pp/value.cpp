@@ -36,6 +36,13 @@ std::string value_to_string(const Value& v) {
     if (value_is<std::string>(v)) {
         return value_extract<std::string>(v);
     }
+    if (value_is<Function>(v)) {
+        const auto& fun{value_extract<Function>(v)};
+        if (fun.getName().empty()) {
+            return fmt::format("<main>");
+        }
+        return fmt::format("<Fn {}>", value_extract<Function>(v).getName());
+    }
     return "This should be unreachable.";
 }
 

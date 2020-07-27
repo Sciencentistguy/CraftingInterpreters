@@ -51,12 +51,12 @@ enum class TokenType {
 class Lexer;
 
 class Token {
+ public:
     TokenType type;
     const char* start;
     int length;
     int line;
 
- public:
     Token() = default;
     Token(const char* errorMsg, const Lexer& scanner);
     Token(TokenType type, const Lexer& scanner);

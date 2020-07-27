@@ -3,10 +3,12 @@
 #include <string>
 #include <variant>
 
-// using Nil = std::nullptr_t;
-class Nil {};
+#include "function.h"
 
-using Value = std::variant<double, bool, Nil, std::string>;
+class Nil {};
+class Function;
+
+using Value = std::variant<std::monostate, double, bool, Nil, std::string, Function>;
 
 template<typename T>
 bool value_is(const Value& v);

@@ -10,6 +10,9 @@
 #include "exception.h"
 #include "virtualmachine.h"
 
+std::array<Chunk, 255> chunks{};
+int chunkCount{};
+
 std::string readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::binary);
     file.unsetf(std::ios::skipws);

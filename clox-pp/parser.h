@@ -17,9 +17,9 @@ enum class Precedence {
 };
 
 Precedence operator+(Precedence lhs, int rhs);
-class Compiler;
+class CompilerDriver;
 
-using ParseFn = void (Compiler::*)(bool canAssign);
+using ParseFn = void (CompilerDriver::*)(bool canAssign);
 
 struct ParseRule {
     ParseFn prefix;

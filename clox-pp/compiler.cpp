@@ -3,17 +3,15 @@
 #include <cstdlib>
 #include <initializer_list>
 
-#include <oniguruma.h>
-
 #include "common.h"
 #include "exception.h"
 #include "lexer.h"
 #include "token.h"
 
-Compiler::Compiler(const std::string& source) : lexer{source}, parser{} {
+CompilerDriver::CompilerDriver(FunctionType type) : lexer{""}, parser{}, currentCompiler{FunctionType::Script} {
 }
 
-void Compiler::compile() {
+Function CompilerDriver::compile() {
     if (lexer.isEmpty()) {
         throw CompilerException("Cannot compile \"\"");
     }
@@ -24,11 +22,14 @@ void Compiler::compile() {
     emitByte(OpCode::Return);
 
     if constexpr (DEBUG) {
-        chunk.disassemble("code");
+        auto fname{currentCompiler.currentFunction.getName()};
+
+        currentChunk().disassemble(fname.empty() ? "<main>" : fname);
     }
+    return currentCompiler.getCurrentFunction();
 }
 
-void Compiler::advance() {
+void CompilerDriver::advance() {
     parser.previous = parser.current;
     while (true) {
         auto tmp = lexer.scanToken();
@@ -40,15 +41,15 @@ void Compiler::advance() {
     }
 }
 
-void Compiler::errorAtCurrent(const char* message) const {
+void CompilerDriver::errorAtCurrent(const char* message) const {
     throw CompilerException(message, parser.current);
 }
 
-void Compiler::errorAtPrevious(const char* message) const {
+void CompilerDriver::errorAtPrevious(const char* message) const {
     throw CompilerException(message, parser.previous);
 }
 
-void Compiler::consume(TokenType type, const char* message) {
+void CompilerDriver::consume(TokenType type, const char* message) {
     if (parser.current.getType() == type) {
         advance();
         return;
@@ -56,49 +57,48 @@ void Compiler::consume(TokenType type, const char* message) {
     errorAtCurrent(message);
 }
 
-void Compiler::emitByte(uint8_t byte) {
-    chunk.write(byte, parser.previous.getLine());
+void CompilerDriver::emitByte(uint8_t byte) {
+    currentChunk().write(byte, parser.previous.getLine());
 }
 
-const Chunk& Compiler::getChunk() const {
-    return chunk;
+const Chunk& CompilerDriver::getChunk() const {
+    return currentChunk();
 }
 
-void Compiler::expression() {
+void CompilerDriver::expression() {
     parsePrecedence(Precedence::Assignment);
 }
 
-void Compiler::number(bool canAssign) {
+void CompilerDriver::number(bool canAssign) {
     double value = std::strtod(parser.previous.getStart(), nullptr);
     emitConstant(value);
 }
 
-void Compiler::emitConstant(const Value& value) {
+void CompilerDriver::emitConstant(const Value& value) {
     emitBytes(static_cast<uint8_t>(OpCode::Constant), makeConstant(value));
 }
 
 template<typename... Byte>
-void Compiler::emitBytes(Byte... bytes) {
+void CompilerDriver::emitBytes(Byte... bytes) {
     for (auto byte : {bytes...}) {
         emitByte(byte);
     }
 }
 
-uint8_t Compiler::makeConstant(const Value& value) {
-    int constant = chunk.addConstant(value);
+uint8_t CompilerDriver::makeConstant(const Value& value) {
+    int constant = currentChunk().addConstant(value);
     if (constant > UINT8_MAX) {
         errorAtPrevious("Too many constants in one chunk.");
-        return 0;
     }
     return constant;
 }
 
-void Compiler::grouping(bool canAssign) {
+void CompilerDriver::grouping(bool canAssign) {
     expression();
     consume(TokenType::Right_paren, "Expected ')' after expression.");
 }
 
-void Compiler::unary(bool canAssign) {
+void CompilerDriver::unary(bool canAssign) {
     TokenType opType{parser.previous.getType()};
     parsePrecedence(Precedence::Unary);
 
@@ -114,7 +114,7 @@ void Compiler::unary(bool canAssign) {
     }
 }
 
-void Compiler::parsePrecedence(Precedence precedence) {
+void CompilerDriver::parsePrecedence(Precedence precedence) {
     advance();
     auto rule = getRule(parser.previous.getType());
     ParseFn prefixRule{rule.prefix};
@@ -136,7 +136,7 @@ void Compiler::parsePrecedence(Precedence precedence) {
     }
 }
 
-void Compiler::binary(bool canAssign) {
+void CompilerDriver::binary(bool canAssign) {
     auto opType{parser.previous.getType()};
     ParseRule rule{getRule(opType)};
     parsePrecedence(rule.precedence + 1);
@@ -176,15 +176,15 @@ void Compiler::binary(bool canAssign) {
     }
 }
 
-const ParseRule& Compiler::getRule(TokenType type) const {
+const ParseRule& CompilerDriver::getRule(TokenType type) const {
     return rules.at(type);
 }
 
-void Compiler::emitByte(OpCode byte) {
+void CompilerDriver::emitByte(OpCode byte) {
     emitByte(static_cast<uint8_t>(byte));
 }
 
-void Compiler::literal(bool canAssign) {
+void CompilerDriver::literal(bool canAssign) {
     switch (parser.previous.getType()) {
         case TokenType::False:
             emitByte(OpCode::False);
@@ -200,11 +200,11 @@ void Compiler::literal(bool canAssign) {
     }
 }
 
-void Compiler::string(bool canAssign) {
+void CompilerDriver::string(bool canAssign) {
     emitConstant(std::string(parser.previous.getStart() + 1, parser.previous.getLength() - 2));
 }
 
-void Compiler::declaration() {
+void CompilerDriver::declaration() {
     if (match(TokenType::Var)) {
         variableDeclaration();
     } else {
@@ -212,7 +212,7 @@ void Compiler::declaration() {
     }
 }
 
-void Compiler::statement() {
+void CompilerDriver::statement() {
     if (match(TokenType::Print)) {
         printStatement();
     } else if (match(TokenType::For)) {
@@ -230,7 +230,7 @@ void Compiler::statement() {
     }
 }
 
-bool Compiler::match(TokenType tokenType) {
+bool CompilerDriver::match(TokenType tokenType) {
     if (!check(tokenType)) {
         return false;
     }
@@ -238,23 +238,23 @@ bool Compiler::match(TokenType tokenType) {
     return true;
 }
 
-bool Compiler::check(TokenType tokenType) const {
+bool CompilerDriver::check(TokenType tokenType) const {
     return parser.current.getType() == tokenType;
 }
 
-void Compiler::printStatement() {
+void CompilerDriver::printStatement() {
     expression();
     consume(TokenType::Semicolon, "Expected ';' after value.");
     emitByte(OpCode::Print);
 }
 
-void Compiler::expressionStatement() {
+void CompilerDriver::expressionStatement() {
     expression();
     consume(TokenType::Semicolon, "Expected ';' after expression.");
     emitByte(OpCode::Pop);
 }
 
-void Compiler::variableDeclaration() {
+void CompilerDriver::variableDeclaration() {
     uint8_t global{parseVariable("Expected variable name.")};
     if (match(TokenType::Equal)) {
         expression();
@@ -265,37 +265,37 @@ void Compiler::variableDeclaration() {
     defineVariable(global);
 }
 
-uint8_t Compiler::parseVariable(const char* errorMessage) {
+uint8_t CompilerDriver::parseVariable(const char* errorMessage) {
     consume(TokenType::Identifier, errorMessage);
     declareVariable();
-    if (scopeDepth > 0) {
+    if (currentCompiler.scopeDepth > 0) {
         return 0;
     }
     return identifierConstant(parser.previous);
 }
 
-uint8_t Compiler::identifierConstant(const Token& name) {
-    return chunk.addConstant(name.getTokenStr());
+uint8_t CompilerDriver::identifierConstant(const Token& name) {
+    return currentChunk().addConstant(name.getTokenStr());
 }
 
-void Compiler::defineVariable(uint8_t global) {
-    if (scopeDepth > 0) {
-        locals[localCount - 1].depth = scopeDepth;
+void CompilerDriver::defineVariable(uint8_t global) {
+    if (currentCompiler.scopeDepth > 0) {
+        currentCompiler.locals[currentCompiler.localCount - 1].depth = currentCompiler.scopeDepth;
         return;
     }
     emitBytes(static_cast<uint8_t>(OpCode::Define_global), global);
 }
 
-void Compiler::setSource(const std::string& source) {
+void CompilerDriver::setSource(const std::string& source) {
     lexer.setSource(source);
-    chunk = Chunk();
+    currentCompiler = Compiler(FunctionType::Script);
 }
 
-void Compiler::variable(bool canAssign) {
+void CompilerDriver::variable(bool canAssign) {
     namedVariable(parser.previous, canAssign);
 }
 
-void Compiler::namedVariable(const Token& name, bool canAssign) {
+void CompilerDriver::namedVariable(const Token& name, bool canAssign) {
     int arg{resolveLocal(name)};
     OpCode getOp;
     OpCode setOp;
@@ -316,29 +316,29 @@ void Compiler::namedVariable(const Token& name, bool canAssign) {
     }
 }
 
-void Compiler::block() {
+void CompilerDriver::block() {
     while (!check(TokenType::Right_brace) && !check(TokenType::Eof)) {
         declaration();
     }
     consume(TokenType::Right_brace, "Expected '}' after block.");
 }
 
-void Compiler::beginScope() {
-    ++scopeDepth;
+void CompilerDriver::beginScope() {
+    ++currentCompiler.scopeDepth;
 }
 
-void Compiler::endScope() {
-    --scopeDepth;
-    while (localCount > 0 && locals[localCount - 1].depth > scopeDepth) {
+void CompilerDriver::endScope() {
+    --currentCompiler.scopeDepth;
+    while (currentCompiler.localCount > 0 && currentCompiler.locals[currentCompiler.localCount - 1].depth > currentCompiler.scopeDepth) {
         emitByte(OpCode::Pop);
-        --localCount;
+        --currentCompiler.localCount;
     }
 }
 
-void Compiler::declareVariable() {
-    for (int i = localCount; i >= 0; --i) {
-        const LocalVariable& local{locals[i]};
-        if (local.depth != -1 && local.depth < scopeDepth) {
+void CompilerDriver::declareVariable() {
+    for (int i = currentCompiler.localCount; i >= 0; --i) {
+        const LocalVariable& local{currentCompiler.locals[i]};
+        if (local.depth != -1 && local.depth < currentCompiler.scopeDepth) {
             break;
         }
         if (parser.previous == local.name) {
@@ -348,18 +348,18 @@ void Compiler::declareVariable() {
     addLocal(parser.previous);
 }
 
-void Compiler::addLocal(const Token& name) {
-    if (localCount == MAX_LOCALS) {
+void CompilerDriver::addLocal(const Token& name) {
+    if (currentCompiler.localCount == MAX_LOCALS) {
         errorAtPrevious("Too many local variables in scope.");
     }
-    auto& l = locals[localCount++];
+    auto& l = currentCompiler.locals[currentCompiler.localCount++];
     l.name = name;
     l.depth = -1;
 }
 
-int Compiler::resolveLocal(const Token& name) {
-    for (int i = localCount; i >= 0; --i) {
-        const LocalVariable& local = locals[i];
+int CompilerDriver::resolveLocal(const Token& name) {
+    for (int i = currentCompiler.localCount; i >= 0; --i) {
+        const LocalVariable& local = currentCompiler.locals[i];
         if (name == local.name) {
             if (local.depth == -1) {
                 errorAtPrevious("Cannot read local variable in its own initializer.");
@@ -370,7 +370,7 @@ int Compiler::resolveLocal(const Token& name) {
     return -1;
 }
 
-void Compiler::ifStatement() {
+void CompilerDriver::ifStatement() {
     consume(TokenType::Left_paren, "Expected '(' after 'if'.");
     expression();
     consume(TokenType::Right_paren, "Expected ')' after condition.");
@@ -387,29 +387,29 @@ void Compiler::ifStatement() {
     patchJump(elseJump);
 }
 
-std::size_t Compiler::emitJump(OpCode instruction) {
+std::size_t CompilerDriver::emitJump(OpCode instruction) {
     constexpr uint8_t placeholder = 0xff;
     emitBytes(static_cast<uint8_t>(instruction), placeholder, placeholder);
-    return chunk.getCount() - 2;
+    return currentChunk().getCount() - 2;
 }
 
-void Compiler::patchJump(size_t offset) {
-    auto jump = chunk.getCount() - offset - 2;
+void CompilerDriver::patchJump(size_t offset) {
+    auto jump = currentChunk().getCount() - offset - 2;
     if (jump > UINT16_MAX) {
         errorAtPrevious("Too much code to jump over.");
     }
-    chunk.code[offset] = (jump >> 8u) & 0xffu;
-    chunk.code[offset + 1] = jump & 0xffu;
+    currentChunk().code[offset] = (jump >> 8u) & 0xffu;
+    currentChunk().code[offset + 1] = jump & 0xffu;
 }
 
-void Compiler::and_(bool canAssign) {
+void CompilerDriver::and_(bool canAssign) {
     auto endJump{emitJump(OpCode::Jump_if_false)};
     emitByte(OpCode::Pop);
     parsePrecedence(Precedence::And);
     patchJump(endJump);
 }
 
-void Compiler::or_(bool canAssign) {
+void CompilerDriver::or_(bool canAssign) {
     auto elseJump{emitJump(OpCode::Jump_if_false)};
     auto endJump{emitJump(OpCode::Jump)};
     patchJump(elseJump);
@@ -418,8 +418,8 @@ void Compiler::or_(bool canAssign) {
     patchJump(endJump);
 }
 
-void Compiler::whileStatement() {
-    auto loopStart{chunk.getCount()};
+void CompilerDriver::whileStatement() {
+    auto loopStart{currentChunk().getCount()};
     consume(TokenType::Left_paren, "Expected '(' after 'while'.");
     expression();
     consume(TokenType::Right_paren, "Expected ')' after condition.");
@@ -434,9 +434,9 @@ void Compiler::whileStatement() {
     emitByte(OpCode::Pop);
 }
 
-void Compiler::emitLoop(std::size_t loopStart) {
+void CompilerDriver::emitLoop(std::size_t loopStart) {
     emitByte(OpCode::Loop);
-    auto offset{chunk.getCount() - loopStart + 2};
+    auto offset{currentChunk().getCount() - loopStart + 2};
     if (offset > UINT16_MAX) {
         errorAtPrevious("Loop body too large.");
     }
@@ -444,7 +444,7 @@ void Compiler::emitLoop(std::size_t loopStart) {
     emitByte(offset & 0xff);
 }
 
-void Compiler::forStatement() {
+void CompilerDriver::forStatement() {
     beginScope();
     consume(TokenType::Left_paren, "Expected '(' after 'for'.");
     if (match(TokenType::Semicolon)) {
@@ -454,7 +454,7 @@ void Compiler::forStatement() {
         expressionStatement();
     }
 
-    auto loopStart{chunk.getCount()};
+    auto loopStart{currentChunk().getCount()};
 
     auto exitJump{-1};
     if (!match(TokenType::Semicolon)) {
@@ -467,7 +467,7 @@ void Compiler::forStatement() {
 
     if (!match(TokenType::Right_paren)) {
         auto bodyJump{emitJump(OpCode::Jump)};
-        auto incrementStart{chunk.getCount()};
+        auto incrementStart{currentChunk().getCount()};
         expression();
         emitByte(OpCode::Pop);
         consume(TokenType::Right_paren, "Expected ')' after for clauses.");
@@ -484,4 +484,23 @@ void Compiler::forStatement() {
         emitByte(OpCode::Pop);
     }
     endScope();
+}
+
+Chunk& CompilerDriver::currentChunk() {
+    return currentCompiler.currentFunction.getChunk();
+}
+
+const Chunk& CompilerDriver::currentChunk() const {
+    return currentCompiler.currentFunction.getChunk();
+}
+
+CompilerDriver::Compiler::Compiler(FunctionType type) : currentFunction{}, functionType{type} {
+    LocalVariable v{};
+    v.name.start = "";
+    v.name.length = 0;
+    locals[localCount++] = v;
+}
+
+const Function& CompilerDriver::Compiler::getCurrentFunction() const {
+    return currentFunction;
 }

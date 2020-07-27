@@ -1,5 +1,7 @@
 #include "virtualmachine.h"
 
+#include <variant>
+
 #include <fmt/core.h>
 
 #include "common.h"
@@ -8,18 +10,19 @@
 #include "value.h"
 
 void VirtualMachine::run() {
+    CallFrame& frame = frames[frameCount - 1];
     while (true) {
-        OpCode instruction{*instruction_pointer++};
+        OpCode instruction{*frame.instruction_pointer++};
         if constexpr (DEBUG) {
             fmt::print("Stack: ");
             if (!stack.empty()) {
-                for (const auto& i : stack) {
-                    fmt::print("[{}] ", value_to_string(i));
+                for (Value* stackptr = stack.data(); stackptr != stack_top; ++stackptr) {
+                    fmt::print("[{}] ", value_to_string(*stackptr));
                 }
             }
             fmt::print("\nInstruction: ");
-            auto ofst{std::distance(chunk.code.cbegin(), instruction_pointer)};
-            chunk.disasInstruction(instruction, ofst - 1);
+            auto offset{std::distance(frame.getChunk().code.cbegin(), frame.instruction_pointer)};
+            frame.getChunk().disasInstruction(instruction, offset - 1);
             fmt::print("\n");
         }
 
@@ -27,8 +30,9 @@ void VirtualMachine::run() {
             case OpCode::Return:
                 return;
             case OpCode::Constant: {
-                Value constant = chunk.constants[*instruction_pointer++];
-                stack.push_back(constant);
+                const Value& constant = frame.getChunk().constants[*frame.instruction_pointer++];
+                push(constant);
+                fmt::print("");
                 break;
             }
             case OpCode::Negate: {
@@ -39,114 +43,100 @@ void VirtualMachine::run() {
                 break;
             }
             case OpCode::Add: {
-                auto b{stack.back()};
-                stack.pop_back();
-                auto a{stack.back()};
-                stack.pop_back();
-                stack.push_back(a + b);
+                auto b{pop()};
+                auto a{pop()};
+                push(a + b);
                 break;
             }
 
             case OpCode::Subtract: {
-                auto b{stack.back()};
-                stack.pop_back();
-                auto a{stack.back()};
-                stack.pop_back();
-                stack.push_back(a - b);
+                auto b{pop()};
+                auto a{pop()};
+                push(a - b);
                 break;
             }
 
             case OpCode::Multiply: {
-                auto b{stack.back()};
-                stack.pop_back();
-                auto a{stack.back()};
-                stack.pop_back();
-                stack.push_back(a * b);
+                auto b{pop()};
+                auto a{pop()};
+                push(a * b);
                 break;
             }
 
             case OpCode::Divide: {
-                auto b{stack.back()};
-                stack.pop_back();
-                auto a{stack.back()};
-                stack.pop_back();
-                stack.push_back(a / b);
+                auto b{pop()};
+                auto a{pop()};
+                push(a / b);
                 break;
             }
 
             case OpCode::Nil:
-                stack.push_back(Nil());
+                push(Nil());
                 break;
 
             case OpCode::False:
-                stack.push_back(false);
+                push(false);
                 break;
 
             case OpCode::True:
-                stack.push_back(true);
+                push(true);
                 break;
 
             case OpCode::Not: {
-                auto back{stack.back()};
-                stack.pop_back();
-                stack.push_back(isFalsey(back));
+                auto back{pop()};
+                push(isFalsey(back));
                 break;
             }
 
             case OpCode::Equal: {
-                auto b{stack.back()};
-                stack.pop_back();
-                auto a{stack.back()};
-                stack.pop_back();
-                stack.push_back(a == b);
+                auto b{pop()};
+                auto a{pop()};
+                push(a == b);
                 break;
             }
 
             case OpCode::Greater: {
-                auto b{stack.back()};
-                stack.pop_back();
-                auto a{stack.back()};
-                stack.pop_back();
-                stack.push_back(a > b);
+                auto b{pop()};
+                auto a{pop()};
+                push(a > b);
                 break;
             }
 
             case OpCode::Less: {
-                auto b{stack.back()};
-                stack.pop_back();
-                auto a{stack.back()};
-                stack.pop_back();
-                stack.push_back(a < b);
+                auto b{pop()};
+                auto a{pop()};
+                push(a < b);
                 break;
             }
 
             case OpCode::Print:
-                fmt::print("{}\n", value_to_string(stack.back()));
-                stack.pop_back();
+                fmt::print("{}\n", value_to_string(pop()));
                 break;
 
             case OpCode::Pop:
-                stack.pop_back();
+                pop();
                 break;
+
             case OpCode::Define_global: {
-                Value name = chunk.constants[*instruction_pointer++];
-                globals[value_extract<std::string>(name)] = peek(0);
-                stack.pop_back();
+                Value name = frame.getChunk().constants[*frame.instruction_pointer++];
+                globals[value_extract<std::string>(name)] = pop();
                 break;
             }
+
             case OpCode::Get_global: {
-                auto v{chunk.constants[*instruction_pointer++]};
+                auto v{frame.getChunk().constants[*frame.instruction_pointer++]};
                 const auto& name = value_extract<std::string>(v);
                 auto it{globals.find(name)};
                 if (it == globals.end()) {  // not in map
                     using namespace std::string_literals;
                     throw RuntimeException("Undefined variable '"s + name + "'.");
                 }
-                stack.push_back(it->second);
+                push(it->second);
                 break;
             }
+
             case OpCode::Set_global: {
-                const auto& name = value_extract<std::string>(chunk.constants[*instruction_pointer++]);
+                const auto& name = value_extract<std::string>(frame.getChunk().constants[*frame.instruction_pointer++]);
                 auto it{globals.find(name)};
                 if (it == globals.end()) {  // not in map
                     using namespace std::string_literals;
@@ -155,34 +145,35 @@ void VirtualMachine::run() {
                 globals[name] = peek(0);
                 break;
             }
+
             case OpCode::Get_local: {
-                uint8_t slot{*instruction_pointer++};
-                stack.push_back(stack[slot]);
+                uint8_t slot{*frame.instruction_pointer++};
+                push(frame.slots[slot]);
                 break;
             }
             case OpCode::Set_local: {
-                uint8_t slot{*instruction_pointer++};
-                stack[slot] = peek(0);
+                uint8_t slot{*frame.instruction_pointer++};
+                frame.slots[slot] = peek(0);
                 break;
             }
             case OpCode::Jump_if_false: {
-                instruction_pointer += 2;
+                frame.instruction_pointer += 2;
                 if (isFalsey(peek(0))) {
-                    uint16_t offset{static_cast<uint16_t>(instruction_pointer[-2] << 8u | instruction_pointer[-1])};
-                    instruction_pointer += offset;
+                    uint16_t offset{static_cast<uint16_t>(frame.instruction_pointer[-2] << 8u | frame.instruction_pointer[-1])};
+                    frame.instruction_pointer += offset;
                 }
                 break;
             }
             case OpCode::Jump: {
-                instruction_pointer += 2;
-                uint16_t offset{static_cast<uint16_t>(instruction_pointer[-2] << 8u | instruction_pointer[-1])};
-                instruction_pointer += offset;
+                frame.instruction_pointer += 2;
+                uint16_t offset{static_cast<uint16_t>(frame.instruction_pointer[-2] << 8u | frame.instruction_pointer[-1])};
+                frame.instruction_pointer += offset;
                 break;
             }
             case OpCode::Loop: {
-                instruction_pointer += 2;
-                uint16_t offset{static_cast<uint16_t>(instruction_pointer[-2] << 8u | instruction_pointer[-1])};
-                instruction_pointer -= offset;
+                frame.instruction_pointer += 2;
+                uint16_t offset{static_cast<uint16_t>(frame.instruction_pointer[-2] << 8u | frame.instruction_pointer[-1])};
+                frame.instruction_pointer -= offset;
                 break;
             }
         }
@@ -190,19 +181,34 @@ void VirtualMachine::run() {
 }
 
 void VirtualMachine::interpret() {
-    compiler.compile();
-    chunk = compiler.getChunk();
-    instruction_pointer = chunk.code.begin();
+    auto function = compiler.compile();
+    auto p = push(function);
+    CallFrame& frame = frames[frameCount++];
+    frame.function = std::get_if<Function>(p);
+    frame.instruction_pointer = frame.getChunk().code.begin();
+    frame.slots = stack.data();
     run();
 }
 
-VirtualMachine::VirtualMachine(const std::string& source) : compiler{source} {
+VirtualMachine::VirtualMachine(const std::string& source) : compiler{FunctionType::Script} {
+    setSource(source);
 }
 
 const Value& VirtualMachine::peek(int distance) const {
-    return stack.rbegin()[distance];
+    return stack_top[-1 - distance];
 }
+
 void VirtualMachine::setSource(const std::string& source) {
     compiler.setSource(source);
-    stack.clear();
+    std::fill(stack.begin(), stack.end(), Value());
+}
+
+Value* VirtualMachine::push(const Value& value) {
+    *(stack_top)=value;
+    return stack_top++;
+}
+
+Value& VirtualMachine::pop() {
+    --stack_top;
+    return *stack_top;
 }

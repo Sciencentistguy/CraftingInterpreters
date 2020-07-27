@@ -173,3 +173,4 @@ void Chunk::disasInstruction(OpCode instruction, long&& offset) const {
     std::size_t ofst = offset;
     disasInstruction(instruction, ofst);
 }
+
