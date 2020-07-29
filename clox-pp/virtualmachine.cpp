@@ -18,8 +18,7 @@ void VirtualMachine::run() {
             fmt::print("Stack: ");
             if (!stack.empty()) {
                 for (auto stackIt = stack.cbegin(); stackIt != stack_top; ++stackIt) {
-                    auto str = value_to_string(*stackIt);
-                    fmt::print("[{}] ", str);
+                    fmt::print("[{}] ", value_to_string(*stackIt));
                 }
             }
             fmt::print("\nInstruction: ");
@@ -38,7 +37,8 @@ void VirtualMachine::run() {
                 }
                 stack_top = frame->slots;
                 push(result);
-                frame = &frames[frameCount-1];
+                frame = &frames[frameCount - 1];
+                break;
             }
             case OpCode::Constant: {
                 const Value& constant = frame->getChunk().constants[*frame->instruction_pointer++];
@@ -189,7 +189,7 @@ void VirtualMachine::run() {
             case OpCode::Call: {
                 uint8_t argCount{*frame->instruction_pointer++};
                 callValue(peek(argCount), argCount);
-                frame = &frames[frameCount-1];
+                frame = &frames[frameCount - 1];
                 break;
             }
         }

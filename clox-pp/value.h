@@ -14,7 +14,7 @@ template<typename T>
 bool value_is(const Value& v);
 
 template<typename T>
-T value_extract(const Value& v);
+const T& value_extract(const Value& v);
 
 bool isFalsey(const Value& value);
 

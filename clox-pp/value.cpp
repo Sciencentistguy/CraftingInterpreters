@@ -10,7 +10,7 @@ bool value_is(const Value& v) {
 }
 
 template<typename T>
-T value_extract(const Value& v) {
+const T& value_extract(const Value& v) {
     return std::get<T>(v);
 }
 
@@ -41,8 +41,7 @@ std::string value_to_string(const Value& v) {
         if (fun.getName().empty()) {
             return fmt::format("<main>");
         }
-        auto s = fmt::format("<Fn {}>", fun.getName());
-        return s;
+        return fmt::format("<Fn {}>", fun.getName());
     }
     return "This should be unreachable.";
 }
