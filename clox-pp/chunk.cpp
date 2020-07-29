@@ -166,6 +166,11 @@ void Chunk::disasInstruction(OpCode instruction, std::size_t& offset) const {
             offset += 3;
             break;
         }
+        case OpCode::Call:
+            uint8_t slot{code[++offset]};
+            fmt::print("call\t\t\t{:04d}\n", slot);
+            ++offset;
+            break;
     }
 }
 

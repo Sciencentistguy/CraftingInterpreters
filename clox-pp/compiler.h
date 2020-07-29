@@ -23,11 +23,12 @@ struct LocalVariable {
 
 class CompilerDriver {
     struct Compiler {
-        std::vector<LocalVariable> locals{MAX_LOCALS};
+        std::unique_ptr<Compiler> parent{};
+        std::array<LocalVariable, MAX_LOCALS> locals{};
         int localCount{};
         int scopeDepth{};
 
-        Function currentFunction;
+        Function function;
         FunctionType functionType{};
         explicit Compiler(FunctionType type);
         [[nodiscard]] const Function& getCurrentFunction() const;
@@ -35,11 +36,13 @@ class CompilerDriver {
 
     Lexer lexer;
     Parser parser;
-//    Chunk chunk;
-    Compiler currentCompiler;
+    std::unique_ptr<Compiler> currentCompiler;
 
     Chunk& currentChunk();
     const Chunk& currentChunk() const;
+
+    void newCompiler(FunctionType type);
+    void parentCompiler();
 
     void advance();
     void consume(TokenType type, const char* message);
@@ -56,8 +59,11 @@ class CompilerDriver {
     void namedVariable(const Token& name, bool canAssign);
     void addLocal(const Token& name);
     int resolveLocal(const Token& name);
+    uint8_t argumentList();
+    void markInitialized();
 
     void declaration();
+    void functionDeclaration();
     void variableDeclaration();
 
     void statement();
@@ -75,9 +81,11 @@ class CompilerDriver {
 
     void expression();
     void block();
+    void function(FunctionType type);
     void grouping(bool canAssign);
     void unary(bool canAssign);
     void binary(bool canAssign);
+    void call(bool canAssign);
     void literal(bool canAssign);
     void number(bool canAssign);
     void string(bool canAssign);
@@ -96,9 +104,11 @@ class CompilerDriver {
     bool match(TokenType tokenType);
     bool check(TokenType tokenType) const;
 
+    Function endCompiler();
+
     uint8_t makeConstant(const Value& value);
     const std::unordered_map<TokenType, ParseRule> rules = {
-        std::make_pair(TokenType::Left_paren, ParseRule(&CompilerDriver::grouping, nullptr, Precedence::None)),
+        std::make_pair(TokenType::Left_paren, ParseRule(&CompilerDriver::grouping, &CompilerDriver::call, Precedence::Call)),
         std::make_pair(TokenType::Right_paren, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::Left_brace, ParseRule{nullptr, nullptr, Precedence::None}),
         std::make_pair(TokenType::Right_brace, ParseRule{nullptr, nullptr, Precedence::None}),

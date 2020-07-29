@@ -24,5 +24,6 @@ enum class OpCode {
     Jump,
     Jump_if_false,
     Loop,
+    Call,
     Return,
 };

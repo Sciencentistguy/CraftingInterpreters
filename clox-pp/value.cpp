@@ -41,7 +41,8 @@ std::string value_to_string(const Value& v) {
         if (fun.getName().empty()) {
             return fmt::format("<main>");
         }
-        return fmt::format("<Fn {}>", value_extract<Function>(v).getName());
+        auto s = fmt::format("<Fn {}>", fun.getName());
+        return s;
     }
     return "This should be unreachable.";
 }

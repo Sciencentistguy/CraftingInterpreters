@@ -8,7 +8,7 @@
 class Nil {};
 class Function;
 
-using Value = std::variant<std::monostate, double, bool, Nil, std::string, Function>;
+using Value = std::variant<double, bool, Nil, std::string, Function>;
 
 template<typename T>
 bool value_is(const Value& v);

@@ -10,29 +10,39 @@
 #include "value.h"
 
 void VirtualMachine::run() {
-    CallFrame& frame = frames[frameCount - 1];
+    CallFrame* frame = &frames[frameCount - 1];
     while (true) {
-        OpCode instruction{*frame.instruction_pointer++};
+        OpCode instruction{*frame->instruction_pointer++};
         if constexpr (DEBUG) {
+            fmt::print("/*\n");
             fmt::print("Stack: ");
             if (!stack.empty()) {
-                for (Value* stackptr = stack.data(); stackptr != stack_top; ++stackptr) {
-                    fmt::print("[{}] ", value_to_string(*stackptr));
+                for (auto stackIt = stack.cbegin(); stackIt != stack_top; ++stackIt) {
+                    auto str = value_to_string(*stackIt);
+                    fmt::print("[{}] ", str);
                 }
             }
             fmt::print("\nInstruction: ");
-            auto offset{std::distance(frame.getChunk().code.cbegin(), frame.instruction_pointer)};
-            frame.getChunk().disasInstruction(instruction, offset - 1);
-            fmt::print("\n");
+            auto offset{std::distance(frame->getChunk().code.cbegin(), frame->instruction_pointer)};
+            frame->getChunk().disasInstruction(instruction, offset - 1);
+            fmt::print("*/\n");
         }
 
         switch (static_cast<OpCode>(instruction)) {
-            case OpCode::Return:
-                return;
+            case OpCode::Return: {
+                auto result = pop();
+                --frameCount;
+                if (frameCount == 0) {
+                    pop();
+                    return;
+                }
+                stack_top = frame->slots;
+                push(result);
+                frame = &frames[frameCount-1];
+            }
             case OpCode::Constant: {
-                const Value& constant = frame.getChunk().constants[*frame.instruction_pointer++];
+                const Value& constant = frame->getChunk().constants[*frame->instruction_pointer++];
                 push(constant);
-                fmt::print("");
                 break;
             }
             case OpCode::Negate: {
@@ -118,13 +128,13 @@ void VirtualMachine::run() {
                 break;
 
             case OpCode::Define_global: {
-                Value name = frame.getChunk().constants[*frame.instruction_pointer++];
+                Value name = frame->getChunk().constants[*frame->instruction_pointer++];
                 globals[value_extract<std::string>(name)] = pop();
                 break;
             }
 
             case OpCode::Get_global: {
-                auto v{frame.getChunk().constants[*frame.instruction_pointer++]};
+                auto v{frame->getChunk().constants[*frame->instruction_pointer++]};
                 const auto& name = value_extract<std::string>(v);
                 auto it{globals.find(name)};
                 if (it == globals.end()) {  // not in map
@@ -136,7 +146,7 @@ void VirtualMachine::run() {
             }
 
             case OpCode::Set_global: {
-                const auto& name = value_extract<std::string>(frame.getChunk().constants[*frame.instruction_pointer++]);
+                const auto& name = value_extract<std::string>(frame->getChunk().constants[*frame->instruction_pointer++]);
                 auto it{globals.find(name)};
                 if (it == globals.end()) {  // not in map
                     using namespace std::string_literals;
@@ -147,33 +157,39 @@ void VirtualMachine::run() {
             }
 
             case OpCode::Get_local: {
-                uint8_t slot{*frame.instruction_pointer++};
-                push(frame.slots[slot]);
+                uint8_t slot{*frame->instruction_pointer++};
+                push(frame->slots[slot]);
                 break;
             }
             case OpCode::Set_local: {
-                uint8_t slot{*frame.instruction_pointer++};
-                frame.slots[slot] = peek(0);
+                uint8_t slot{*frame->instruction_pointer++};
+                frame->slots[slot] = peek(0);
                 break;
             }
             case OpCode::Jump_if_false: {
-                frame.instruction_pointer += 2;
+                frame->instruction_pointer += 2;
                 if (isFalsey(peek(0))) {
-                    uint16_t offset{static_cast<uint16_t>(frame.instruction_pointer[-2] << 8u | frame.instruction_pointer[-1])};
-                    frame.instruction_pointer += offset;
+                    uint16_t offset{static_cast<uint16_t>(frame->instruction_pointer[-2] << 8u | frame->instruction_pointer[-1])};
+                    frame->instruction_pointer += offset;
                 }
                 break;
             }
             case OpCode::Jump: {
-                frame.instruction_pointer += 2;
-                uint16_t offset{static_cast<uint16_t>(frame.instruction_pointer[-2] << 8u | frame.instruction_pointer[-1])};
-                frame.instruction_pointer += offset;
+                frame->instruction_pointer += 2;
+                uint16_t offset{static_cast<uint16_t>(frame->instruction_pointer[-2] << 8u | frame->instruction_pointer[-1])};
+                frame->instruction_pointer += offset;
                 break;
             }
             case OpCode::Loop: {
-                frame.instruction_pointer += 2;
-                uint16_t offset{static_cast<uint16_t>(frame.instruction_pointer[-2] << 8u | frame.instruction_pointer[-1])};
-                frame.instruction_pointer -= offset;
+                frame->instruction_pointer += 2;
+                uint16_t offset{static_cast<uint16_t>(frame->instruction_pointer[-2] << 8u | frame->instruction_pointer[-1])};
+                frame->instruction_pointer -= offset;
+                break;
+            }
+            case OpCode::Call: {
+                uint8_t argCount{*frame->instruction_pointer++};
+                callValue(peek(argCount), argCount);
+                frame = &frames[frameCount-1];
                 break;
             }
         }
@@ -183,10 +199,7 @@ void VirtualMachine::run() {
 void VirtualMachine::interpret() {
     auto function = compiler.compile();
     auto p = push(function);
-    CallFrame& frame = frames[frameCount++];
-    frame.function = std::get_if<Function>(p);
-    frame.instruction_pointer = frame.getChunk().code.begin();
-    frame.slots = stack.data();
+    callValue(*p, 0);
     run();
 }
 
@@ -204,11 +217,33 @@ void VirtualMachine::setSource(const std::string& source) {
 }
 
 Value* VirtualMachine::push(const Value& value) {
-    *(stack_top)=value;
+    *(stack_top) = value;
     return stack_top++;
 }
 
 Value& VirtualMachine::pop() {
     --stack_top;
     return *stack_top;
+}
+
+void VirtualMachine::callValue(const Value& callee, uint8_t argCount) {
+    if (value_is<Function>(callee)) {
+        return call(value_extract<Function>(callee), argCount);
+    }
+
+    throw RuntimeException("Can only call functions and classes.");
+}
+
+void VirtualMachine::call(const Function& function, uint8_t argCount) {
+    if (argCount != function.arity) {
+        throw RuntimeException(fmt::format("Expected {} arguments but got {}.", function.arity, argCount));
+    }
+    if (frameCount == FRAMES_MAX) {
+        throw RuntimeException("Stack overflow (frame limit reached).");
+    }
+    CallFrame& frame = frames[frameCount++];
+    frame.function = &function;
+    frame.instruction_pointer = function.chunk->code.begin();
+    frame.slots = stack_top - argCount - 1;
+    fmt::print("{}\n", value_to_string(function));
 }

@@ -8,7 +8,21 @@
 #include "lexer.h"
 #include "token.h"
 
-CompilerDriver::CompilerDriver(FunctionType type) : lexer{""}, parser{}, currentCompiler{FunctionType::Script} {
+CompilerDriver::Compiler::Compiler(FunctionType type) : function{}, functionType{type} {
+    if (type == FunctionType::Script) {
+        function.name = "<main>";
+    }
+    LocalVariable v{};
+    v.name.start = "";
+    v.name.length = 0;
+    locals[localCount++] = v;
+}
+
+const Function& CompilerDriver::Compiler::getCurrentFunction() const {
+    return function;
+}
+
+CompilerDriver::CompilerDriver(FunctionType type) : lexer{""}, parser{}, currentCompiler{std::make_unique<Compiler>(FunctionType::Script)} {
 }
 
 Function CompilerDriver::compile() {
@@ -19,14 +33,9 @@ Function CompilerDriver::compile() {
     while (!match(TokenType::Eof)) {
         declaration();
     }
-    emitByte(OpCode::Return);
+    auto fun = endCompiler();
 
-    if constexpr (DEBUG) {
-        auto fname{currentCompiler.currentFunction.getName()};
-
-        currentChunk().disassemble(fname.empty() ? "<main>" : fname);
-    }
-    return currentCompiler.getCurrentFunction();
+    return fun;
 }
 
 void CompilerDriver::advance() {
@@ -205,7 +214,9 @@ void CompilerDriver::string(bool canAssign) {
 }
 
 void CompilerDriver::declaration() {
-    if (match(TokenType::Var)) {
+    if (match(TokenType::Fun)) {
+        functionDeclaration();
+    } else if (match(TokenType::Var)) {
         variableDeclaration();
     } else {
         statement();
@@ -268,7 +279,7 @@ void CompilerDriver::variableDeclaration() {
 uint8_t CompilerDriver::parseVariable(const char* errorMessage) {
     consume(TokenType::Identifier, errorMessage);
     declareVariable();
-    if (currentCompiler.scopeDepth > 0) {
+    if (currentCompiler->scopeDepth > 0) {
         return 0;
     }
     return identifierConstant(parser.previous);
@@ -279,8 +290,8 @@ uint8_t CompilerDriver::identifierConstant(const Token& name) {
 }
 
 void CompilerDriver::defineVariable(uint8_t global) {
-    if (currentCompiler.scopeDepth > 0) {
-        currentCompiler.locals[currentCompiler.localCount - 1].depth = currentCompiler.scopeDepth;
+    if (currentCompiler->scopeDepth > 0) {
+        markInitialized();
         return;
     }
     emitBytes(static_cast<uint8_t>(OpCode::Define_global), global);
@@ -288,7 +299,7 @@ void CompilerDriver::defineVariable(uint8_t global) {
 
 void CompilerDriver::setSource(const std::string& source) {
     lexer.setSource(source);
-    currentCompiler = Compiler(FunctionType::Script);
+    currentCompiler = std::make_unique<Compiler>(FunctionType::Script);
 }
 
 void CompilerDriver::variable(bool canAssign) {
@@ -324,21 +335,24 @@ void CompilerDriver::block() {
 }
 
 void CompilerDriver::beginScope() {
-    ++currentCompiler.scopeDepth;
+    ++currentCompiler->scopeDepth;
 }
 
 void CompilerDriver::endScope() {
-    --currentCompiler.scopeDepth;
-    while (currentCompiler.localCount > 0 && currentCompiler.locals[currentCompiler.localCount - 1].depth > currentCompiler.scopeDepth) {
+    --currentCompiler->scopeDepth;
+    while (currentCompiler->localCount > 0 && currentCompiler->locals[currentCompiler->localCount - 1].depth > currentCompiler->scopeDepth) {
         emitByte(OpCode::Pop);
-        --currentCompiler.localCount;
+        --currentCompiler->localCount;
     }
 }
 
 void CompilerDriver::declareVariable() {
-    for (int i = currentCompiler.localCount; i >= 0; --i) {
-        const LocalVariable& local{currentCompiler.locals[i]};
-        if (local.depth != -1 && local.depth < currentCompiler.scopeDepth) {
+    if (currentCompiler->scopeDepth == 0) {
+        return;
+    }
+    for (int i = currentCompiler->localCount; i >= 0; --i) {
+        const LocalVariable& local{currentCompiler->locals[i]};
+        if (local.depth != -1 && local.depth < currentCompiler->scopeDepth) {
             break;
         }
         if (parser.previous == local.name) {
@@ -349,17 +363,17 @@ void CompilerDriver::declareVariable() {
 }
 
 void CompilerDriver::addLocal(const Token& name) {
-    if (currentCompiler.localCount == MAX_LOCALS) {
+    if (currentCompiler->localCount == MAX_LOCALS) {
         errorAtPrevious("Too many local variables in scope.");
     }
-    auto& l = currentCompiler.locals[currentCompiler.localCount++];
+    auto& l = currentCompiler->locals[currentCompiler->localCount++];
     l.name = name;
     l.depth = -1;
 }
 
 int CompilerDriver::resolveLocal(const Token& name) {
-    for (int i = currentCompiler.localCount; i >= 0; --i) {
-        const LocalVariable& local = currentCompiler.locals[i];
+    for (int i = currentCompiler->localCount - 1; i >= 0; --i) {
+        const LocalVariable& local = currentCompiler->locals[i];
         if (name == local.name) {
             if (local.depth == -1) {
                 errorAtPrevious("Cannot read local variable in its own initializer.");
@@ -487,20 +501,90 @@ void CompilerDriver::forStatement() {
 }
 
 Chunk& CompilerDriver::currentChunk() {
-    return currentCompiler.currentFunction.getChunk();
+    return currentCompiler->function.getChunk();
 }
 
 const Chunk& CompilerDriver::currentChunk() const {
-    return currentCompiler.currentFunction.getChunk();
+    return currentCompiler->function.getChunk();
 }
 
-CompilerDriver::Compiler::Compiler(FunctionType type) : currentFunction{}, functionType{type} {
-    LocalVariable v{};
-    v.name.start = "";
-    v.name.length = 0;
-    locals[localCount++] = v;
+void CompilerDriver::functionDeclaration() {
+    auto global{parseVariable("Expected function name after 'fun'.")};
+    markInitialized();
+    function(FunctionType::Script);
+    defineVariable(global);
 }
 
-const Function& CompilerDriver::Compiler::getCurrentFunction() const {
-    return currentFunction;
+void CompilerDriver::markInitialized() {
+    if (currentCompiler->scopeDepth == 0) {
+        return;
+    }
+    currentCompiler->locals[currentCompiler->localCount - 1].depth = currentCompiler->scopeDepth;
+}
+
+void CompilerDriver::function(FunctionType type) {
+    newCompiler(FunctionType::Function);
+    beginScope();
+    consume(TokenType::Left_paren, "Expected '(' after function name.");
+    if (!check(TokenType::Right_paren)) {
+        do {
+            currentCompiler->function.arity++;
+            if (currentCompiler->function.arity > 255) {
+                errorAtCurrent("Cannot have more than 255 parameters.");
+            }
+            auto constant{parseVariable("Expected  parameter name.")};
+            defineVariable(constant);
+        } while (match(TokenType::Comma));
+    }
+    consume(TokenType::Right_paren, "Expected '(' after function parameters.");
+
+    consume(TokenType::Left_brace, "Expected '{' before function body");
+    block();
+
+    const auto& f = endCompiler();
+    endScope();
+    parentCompiler();
+    emitBytes(static_cast<uint8_t>(OpCode::Constant), makeConstant(f));
+}
+
+void CompilerDriver::newCompiler(FunctionType type) {
+    auto newCompiler{std::make_unique<Compiler>(type)};
+    if (type != FunctionType::Script) {
+        newCompiler->function.name = std::string(parser.previous.start, parser.previous.length);
+    }
+    newCompiler->parent = std::move(currentCompiler);
+    currentCompiler = std::move(newCompiler);
+}
+
+void CompilerDriver::parentCompiler() {
+    currentCompiler = std::move(currentCompiler->parent);
+}
+
+void CompilerDriver::call(bool canAssign) {
+    auto argcount{argumentList()};
+    emitBytes(static_cast<uint8_t>(OpCode::Call), argcount);
+}
+
+uint8_t CompilerDriver::argumentList() {
+    uint8_t argCount{};
+    if (!check(TokenType::Right_paren)) {
+        do {
+            expression();
+            ++argCount;
+        } while (match(TokenType::Comma));
+    }
+    consume(TokenType::Right_paren, "Expected ')' after arguments.");
+    return argCount;
+}
+
+Function CompilerDriver::endCompiler() {
+    emitByte(OpCode::Nil);
+    emitByte(OpCode::Return);
+
+    if constexpr (DEBUG) {
+        const auto& fname{currentCompiler->function.getName()};
+        currentChunk().disassemble(fname.empty() ? "<main>" : fname);
+    }
+
+    return currentCompiler->function;
 }

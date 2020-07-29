@@ -8,22 +8,23 @@
 #include "chunk.h"
 #include "compiler.h"
 #include "value.h"
-
-constexpr auto FRAMES_MAX{256};
-constexpr auto STACK_MAX{FRAMES_MAX * UINT8_MAX};
-
+#include "common.h"
 class VirtualMachine {
+    friend class RuntimeException;
     CompilerDriver compiler;
     std::array<CallFrame, FRAMES_MAX> frames{};
     int frameCount{};
 
     std::array<Value, STACK_MAX> stack;
-    Value* stack_top{stack.data()};
+    std::array<Value, STACK_MAX>::iterator stack_top{stack.begin()};
     std::unordered_map<std::string, Value> globals;
 
     [[nodiscard]] const Value& peek(int distance) const;
     Value* push(const Value& value);
     Value& pop();
+
+    void callValue(const Value& callee, uint8_t argCount);
+    void call(const Function& function, uint8_t argCount);
 
 
  public:

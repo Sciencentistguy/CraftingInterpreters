@@ -1,16 +1,17 @@
 #pragma once
 
-#include <vector>
 #include <span>
+#include <vector>
 
+#include "common.h"
 #include "function.h"
 #include "value.h"
 
 class CallFrame {
  public:
-    Function* function;
+    const Function* function;
     std::vector<uint8_t>::const_iterator instruction_pointer;
-    Value* slots;
+    std::array<Value, STACK_MAX>::iterator slots;
 
     [[nodiscard]] const Chunk& getChunk() const;
 };
