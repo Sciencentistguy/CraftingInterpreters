@@ -2,6 +2,9 @@
 
 #include <memory>
 #include <string>
+#include <vector>
+
+#include "value.h"
 
 class Chunk;
 enum class FunctionType {
@@ -23,3 +26,4 @@ class Function {
     [[nodiscard]] const std::string& getName() const;
 //    virtual ~Function();
 };
+

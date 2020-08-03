@@ -21,7 +21,7 @@ class CompilerException : public std::exception {
 
 class RuntimeException : public std::exception {
     std::string errorMsg;
-    std::string stackTrace;
+    std::string stackTrace{};
 
  public:
     explicit RuntimeException(const std::string& errorMsg);

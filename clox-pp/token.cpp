@@ -5,7 +5,7 @@
 #include "lexer.h"
 
 Token::Token(TokenType type, const Lexer& scanner) :
-    type{type}, start{scanner.getStart()}, length{static_cast<int>(scanner.getCurrent() - scanner.getStart())}, line{scanner.getLine()} {
+    type{type}, lexeme{scanner.getStart(), static_cast<std::size_t>((scanner.getCurrent() - scanner.getStart()))}, line{scanner.getLine()} {
 }
 
 TokenType Token::getType() const {
@@ -13,32 +13,31 @@ TokenType Token::getType() const {
 }
 
 const char* Token::getStart() const {
-    return start;
+    return lexeme.data();
 }
 
 int Token::getLength() const {
-    return length;
+    return lexeme.length();
 }
 
 int Token::getLine() const {
     return line;
 }
 
-Token::Token(const char* errorMsg, const Lexer& scanner) :
-    type{TokenType::Error}, start{errorMsg}, length{static_cast<int>(std::strlen(errorMsg))}, line{scanner.getLine()} {
+Token::Token(const char* errorMsg, const Lexer& scanner) : type{TokenType::Error}, lexeme{errorMsg}, line{scanner.getLine()} {
 }
 
 const char* Token::getEnd() const {
-    return start + length;
+    return getStart() + getLength();
 }
 
 std::string Token::getTokenStr() const {
-    return std::string(start, length);
+    return std::string(lexeme);
 }
 
 bool operator==(const Token& lhs, const Token& rhs) {
-    if (lhs.length != rhs.length) {
-        return false;
-    }
-    return std::memcmp(lhs.start, rhs.start, lhs.length) == 0;
+    return lhs.lexeme == rhs.lexeme;
+}
+const std::string_view& Token::getLexeme() const {
+    return lexeme;
 }

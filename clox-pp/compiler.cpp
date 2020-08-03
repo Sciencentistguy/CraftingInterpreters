@@ -13,8 +13,7 @@ CompilerDriver::Compiler::Compiler(FunctionType type) : function{}, functionType
         function.name = "<main>";
     }
     LocalVariable v{};
-    v.name.start = "";
-    v.name.length = 0;
+    v.name.lexeme = "";
     locals[localCount++] = v;
 }
 
@@ -22,7 +21,7 @@ const Function& CompilerDriver::Compiler::getCurrentFunction() const {
     return function;
 }
 
-CompilerDriver::CompilerDriver(FunctionType type) : lexer{""}, parser{}, currentCompiler{std::make_unique<Compiler>(FunctionType::Script)} {
+CompilerDriver::CompilerDriver(FunctionType type) : lexer{""}, parser{}, currentCompiler{std::make_unique<Compiler>(type)} {
 }
 
 Function CompilerDriver::compile() {
@@ -230,6 +229,8 @@ void CompilerDriver::statement() {
         forStatement();
     } else if (match(TokenType::If)) {
         ifStatement();
+    } else if (match(TokenType::Return)) {
+        returnStatement();
     } else if (match(TokenType::While)) {
         whileStatement();
     } else if (match(TokenType::Left_brace)) {
@@ -550,7 +551,7 @@ void CompilerDriver::function(FunctionType type) {
 void CompilerDriver::newCompiler(FunctionType type) {
     auto newCompiler{std::make_unique<Compiler>(type)};
     if (type != FunctionType::Script) {
-        newCompiler->function.name = std::string(parser.previous.start, parser.previous.length);
+        newCompiler->function.name = parser.previous.getTokenStr();
     }
     newCompiler->parent = std::move(currentCompiler);
     currentCompiler = std::move(newCompiler);
@@ -587,4 +588,17 @@ Function CompilerDriver::endCompiler() {
     }
 
     return currentCompiler->function;
+}
+
+void CompilerDriver::returnStatement() {
+    if (currentCompiler->functionType == FunctionType::Script) {
+        errorAtPrevious("Cannot return from top-level code.");
+    }
+    if (match(TokenType::Semicolon)) {
+        emitBytes(OpCode::Nil, OpCode::Return);
+    } else {
+        expression();
+        consume(TokenType::Semicolon, "Expected semicolon after return value.");
+        emitByte(OpCode::Return);
+    }
 }

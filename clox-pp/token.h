@@ -53,8 +53,9 @@ class Lexer;
 class Token {
  public:
     TokenType type;
-    const char* start;
-    int length;
+    std::string_view lexeme;
+//    const char* start;
+//    int length;
     int line;
 
     Token() = default;
@@ -66,6 +67,7 @@ class Token {
     [[nodiscard]] int getLine() const;
     [[nodiscard]] const char* getEnd() const;
     [[nodiscard]] std::string getTokenStr() const;
+    const std::string_view& getLexeme() const;
 
     Token& operator=(const Token& rhs) = default;
 

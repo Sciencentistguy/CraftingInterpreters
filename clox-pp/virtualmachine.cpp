@@ -3,6 +3,7 @@
 #include <variant>
 
 #include <fmt/core.h>
+#include <chrono>
 
 #include "common.h"
 #include "exception.h"
@@ -98,9 +99,7 @@ void VirtualMachine::run() {
                 break;
             }
 
-            case OpCode::Equal: {
-                auto b{pop()};
-                auto a{pop()};
+            case OpCode::Equal: { auto b{pop()}; auto a{pop()};
                 push(a == b);
                 break;
             }
@@ -205,6 +204,7 @@ void VirtualMachine::interpret() {
 
 VirtualMachine::VirtualMachine(const std::string& source) : compiler{FunctionType::Script} {
     setSource(source);
+    defineNative("clock", clockNative);
 }
 
 const Value& VirtualMachine::peek(int distance) const {
@@ -227,11 +227,17 @@ Value& VirtualMachine::pop() {
 }
 
 void VirtualMachine::callValue(const Value& callee, uint8_t argCount) {
-    if (value_is<Function>(callee)) {
-        return call(value_extract<Function>(callee), argCount);
+    if (std::holds_alternative<NativeFn>(callee)) {
+        auto native = std::get<NativeFn>(callee);
+//        auto native = value_extract<NativeFn>(callee);
+        auto result = native();
+        stack_top -= argCount + 1;
+        push(result);
+    } else if (value_is<Function>(callee)) {
+        call(value_extract<Function>(callee), argCount);
+    } else {
+        throw RuntimeException("Can only call functions and classes.");
     }
-
-    throw RuntimeException("Can only call functions and classes.");
 }
 
 void VirtualMachine::call(const Function& function, uint8_t argCount) {
@@ -245,5 +251,14 @@ void VirtualMachine::call(const Function& function, uint8_t argCount) {
     frame.function = &function;
     frame.instruction_pointer = function.chunk->code.begin();
     frame.slots = stack_top - argCount - 1;
-    fmt::print("{}\n", value_to_string(function));
+//    fmt::print("{}\n", value_to_string(function));
 }
+
+void VirtualMachine::defineNative(std::string_view name, NativeFn function) {
+    push(std::string(name));
+    push(function);
+    globals.insert(std::make_pair(name, function));
+    pop();
+    pop();
+}
+

@@ -1,6 +1,7 @@
 #include "value.h"
 
 #include <fmt/core.h>
+#include <chrono>
 
 #include "exception.h"
 
@@ -42,6 +43,9 @@ std::string value_to_string(const Value& v) {
             return fmt::format("<main>");
         }
         return fmt::format("<Fn {}>", fun.getName());
+    }
+    if (std::holds_alternative<NativeFn>(v)) {
+        return "<Fn clock>";
     }
     return "This should be unreachable.";
 }
@@ -118,3 +122,8 @@ bool operator>(const Value& lhs, const Value& rhs) {
 bool operator<(const Value& lhs, const Value& rhs) {
     return rhs > lhs;
 }
+
+double clockNative() {
+    return static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count());
+}
+

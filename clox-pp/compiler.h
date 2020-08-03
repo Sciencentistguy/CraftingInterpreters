@@ -71,6 +71,7 @@ class CompilerDriver {
     void printStatement();
     void whileStatement();
     void ifStatement();
+    void returnStatement();
     void expressionStatement();
 
     void parsePrecedence(Precedence precedence);

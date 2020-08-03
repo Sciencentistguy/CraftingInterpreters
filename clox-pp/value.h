@@ -8,7 +8,10 @@
 class Nil {};
 class Function;
 
-using Value = std::variant<double, bool, Nil, std::string, Function>;
+using NativeFn = double (*)();
+using Value = std::variant<double, bool, Nil, std::string, Function, NativeFn>;
+
+double clockNative();
 
 template<typename T>
 bool value_is(const Value& v);
