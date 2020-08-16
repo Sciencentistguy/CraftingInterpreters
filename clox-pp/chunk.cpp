@@ -1,6 +1,6 @@
 #include "chunk.h"
 
-#include <fmt/format.h>
+#include <fmt/core.h>
 
 void Chunk::write(OpCode byte, int line) {
     code.push_back(static_cast<uint8_t>(byte));
@@ -41,8 +41,6 @@ uint8_t Chunk::addConstant(const Value& value) {
     constants.push_back(value);
     return constants.size() - 1;
 }
-
-
 
 void Chunk::disasInstruction(OpCode instruction, std::size_t& offset) const {
     switch (static_cast<OpCode>(instruction)) {
@@ -166,11 +164,36 @@ void Chunk::disasInstruction(OpCode instruction, std::size_t& offset) const {
             offset += 3;
             break;
         }
-        case OpCode::Call:
+        case OpCode::Call: {
             uint8_t slot{code[++offset]};
             fmt::print("call\t\t\t{:04d}\n", slot);
             ++offset;
             break;
+        }
+        case OpCode::Closure: {
+            ++offset;
+            uint8_t index_of_closure{code[offset++]};
+            fmt::print("closure\t\t\t{:04d}\t{}\n", index_of_closure, value_to_string(constants[index_of_closure]));
+            const auto& function = std::get<Function>(constants[index_of_closure]);
+            for (int i = 0; i < function.upvalueCount; ++i) {
+                auto isLocal{static_cast<bool>(code[offset++])};
+                int index{code[offset++]};
+                fmt::print("{:04d}\t   |\t\t\t\t{}\t\t\t{:04d}\n", offset - 2, isLocal ? "local" : "upvalue", index);
+            }
+            break;
+        }
+        case OpCode::Get_upvalue:{
+            uint8_t slot{code[++offset]};
+            fmt::print("get_upvalue\t\t{:04d}\n", slot);
+            ++offset;
+            break;
+        }
+        case OpCode::Set_upvalue:{
+            uint8_t slot{code[++offset]};
+            fmt::print("set_upvalue\t\t{:04d}\n", slot);
+            ++offset;
+            break;
+        }
     }
 }
 
@@ -178,4 +201,3 @@ void Chunk::disasInstruction(OpCode instruction, long&& offset) const {
     std::size_t ofst = offset;
     disasInstruction(instruction, ofst);
 }
-

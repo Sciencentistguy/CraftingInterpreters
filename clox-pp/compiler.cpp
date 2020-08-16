@@ -7,6 +7,7 @@
 #include "exception.h"
 #include "lexer.h"
 #include "token.h"
+#include "upvalue.h"
 
 CompilerDriver::Compiler::Compiler(FunctionType type) : function{}, functionType{type} {
     if (type == FunctionType::Script) {
@@ -308,12 +309,15 @@ void CompilerDriver::variable(bool canAssign) {
 }
 
 void CompilerDriver::namedVariable(const Token& name, bool canAssign) {
-    int arg{resolveLocal(name)};
+    int arg{resolveLocal(*currentCompiler, name)};
     OpCode getOp;
     OpCode setOp;
     if (arg != -1) {
         getOp = OpCode::Get_local;
         setOp = OpCode::Set_local;
+    } else if ((arg = resolveUpvalue(*currentCompiler, name)) != -1) {
+        getOp = OpCode::Get_upvalue;
+        setOp = OpCode::Set_upvalue;
     } else {
         arg = identifierConstant(name);
         getOp = OpCode::Get_global;
@@ -372,9 +376,9 @@ void CompilerDriver::addLocal(const Token& name) {
     l.depth = -1;
 }
 
-int CompilerDriver::resolveLocal(const Token& name) {
-    for (int i = currentCompiler->localCount - 1; i >= 0; --i) {
-        const LocalVariable& local = currentCompiler->locals[i];
+int CompilerDriver::resolveLocal(const Compiler& compiler, const Token& name) {
+    for (int i = compiler.localCount - 1; i >= 0; --i) {
+        const LocalVariable& local = compiler.locals[i];
         if (name == local.name) {
             if (local.depth == -1) {
                 errorAtPrevious("Cannot read local variable in its own initializer.");
@@ -544,8 +548,14 @@ void CompilerDriver::function(FunctionType type) {
 
     const auto& f = endCompiler();
     endScope();
-    parentCompiler();
-    emitBytes(static_cast<uint8_t>(OpCode::Constant), makeConstant(f));
+    auto comp = parentCompiler();
+
+    emitBytes(static_cast<uint8_t>(OpCode::Closure), makeConstant(f));
+    for (int i = 0; i < f.upvalueCount; ++i) {
+        const auto& tmp = comp->upvalues[i];
+        emitByte(tmp.isLocal ? 1 : 0);
+        emitByte(tmp.index);
+    }
 }
 
 void CompilerDriver::newCompiler(FunctionType type) {
@@ -557,8 +567,10 @@ void CompilerDriver::newCompiler(FunctionType type) {
     currentCompiler = std::move(newCompiler);
 }
 
-void CompilerDriver::parentCompiler() {
-    currentCompiler = std::move(currentCompiler->parent);
+std::unique_ptr<CompilerDriver::Compiler> CompilerDriver::parentCompiler() {
+    auto ret = std::move(currentCompiler);
+    currentCompiler = std::move(ret->parent);
+    return ret;
 }
 
 void CompilerDriver::call(bool canAssign) {
@@ -586,7 +598,6 @@ Function CompilerDriver::endCompiler() {
         const auto& fname{currentCompiler->function.getName()};
         currentChunk().disassemble(fname.empty() ? "<main>" : fname);
     }
-
     return currentCompiler->function;
 }
 
@@ -601,4 +612,39 @@ void CompilerDriver::returnStatement() {
         consume(TokenType::Semicolon, "Expected semicolon after return value.");
         emitByte(OpCode::Return);
     }
+}
+
+int CompilerDriver::resolveUpvalue(Compiler& compiler, const Token& name) {
+    if (!compiler.parent) {
+        return -1;
+    }
+
+    int local = resolveLocal(*compiler.parent, name);
+    if (local != -1) {
+        return addUpvalue(compiler, local, true);
+    }
+
+    int upvalue = resolveUpvalue(*compiler.parent, name);
+    if (upvalue != -1) {
+        return addUpvalue(compiler, upvalue, false);
+    }
+    return -1;
+}
+
+int CompilerDriver::addUpvalue(Compiler& compiler, uint8_t index, bool isLocal) {
+    int upvalueCount = compiler.function.upvalueCount;
+
+    for (int i = 0; i < upvalueCount; ++i) {
+        Upvalue uv = compiler.upvalues[i];
+        if (uv.index == index && uv.isLocal == isLocal) {
+            return i;
+        }
+    }
+    if (upvalueCount == UINT8_MAX) {
+        errorAtPrevious("Too many closure variables in function.");
+    }
+
+    compiler.upvalues[upvalueCount].isLocal = isLocal;
+    compiler.upvalues[upvalueCount].index = index;
+    return compiler.function.upvalueCount++;
 }

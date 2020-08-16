@@ -1,14 +1,10 @@
 #pragma once
 
-#include <array>
-#include <stdexcept>
+#include <bits/exception.h>
 #include <string>
 
-#include "common.h"
-#include "callframe.h"
-#include "virtualmachine.h"
-
 class Token;
+class VirtualMachine;
 
 class CompilerException : public std::exception {
     std::string errorMsg;

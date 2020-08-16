@@ -9,7 +9,7 @@
 
 class CallFrame {
  public:
-    const Function* function;
+    const Closure* closure;
     std::vector<uint8_t>::const_iterator instruction_pointer;
     std::array<Value, STACK_MAX>::iterator slots;
 

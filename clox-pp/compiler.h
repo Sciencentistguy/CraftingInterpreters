@@ -11,6 +11,7 @@
 #include "opcode.h"
 #include "parser.h"
 #include "token.h"
+#include "upvalue.h"
 #include "value.h"
 
 constexpr int MAX_LOCALS{UINT8_MAX + 1};
@@ -25,6 +26,7 @@ class CompilerDriver {
     struct Compiler {
         std::unique_ptr<Compiler> parent{};
         std::array<LocalVariable, MAX_LOCALS> locals{};
+        std::array<Upvalue, UINT8_MAX> upvalues{};
         int localCount{};
         int scopeDepth{};
 
@@ -42,7 +44,7 @@ class CompilerDriver {
     const Chunk& currentChunk() const;
 
     void newCompiler(FunctionType type);
-    void parentCompiler();
+    std::unique_ptr<Compiler> parentCompiler();
 
     void advance();
     void consume(TokenType type, const char* message);
@@ -58,7 +60,9 @@ class CompilerDriver {
     void variable(bool canAssign);
     void namedVariable(const Token& name, bool canAssign);
     void addLocal(const Token& name);
-    int resolveLocal(const Token& name);
+    int resolveLocal(const Compiler& compiler, const Token& name);
+    int addUpvalue(Compiler& compiler, uint8_t index, bool isLocal);
+    int resolveUpvalue(Compiler& compiler, const Token& name);
     uint8_t argumentList();
     void markInitialized();
 

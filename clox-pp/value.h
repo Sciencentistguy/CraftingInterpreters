@@ -3,21 +3,21 @@
 #include <string>
 #include <variant>
 
+#include <fmt/core.h>
+
+#include "closure.h"
 #include "function.h"
+#include "upvalue.h"
 
 class Nil {};
 class Function;
+class Closure;
+class RuntimeUpvalue;
 
 using NativeFn = double (*)();
-using Value = std::variant<double, bool, Nil, std::string, Function, NativeFn>;
+using Value = std::variant<double, bool, Nil, std::string, Function, NativeFn, Closure, RuntimeUpvalue>;
 
 double clockNative();
-
-template<typename T>
-bool value_is(const Value& v);
-
-template<typename T>
-const T& value_extract(const Value& v);
 
 bool isFalsey(const Value& value);
 

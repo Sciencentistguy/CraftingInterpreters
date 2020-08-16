@@ -11,6 +11,8 @@ enum class OpCode {
     Get_global,
     Define_global,
     Set_global,
+    Get_upvalue,
+    Set_upvalue,
     Equal,
     Greater,
     Less,
@@ -25,5 +27,6 @@ enum class OpCode {
     Jump_if_false,
     Loop,
     Call,
+    Closure,
     Return,
 };

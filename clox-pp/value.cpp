@@ -1,121 +1,114 @@
 #include "value.h"
 
-#include <fmt/core.h>
 #include <chrono>
 
+#include <fmt/core.h>
+
+#include "closure.h"
 #include "exception.h"
 
-template<typename T>
-bool value_is(const Value& v) {
-    return std::holds_alternative<T>(v);
-}
-
-template<typename T>
-const T& value_extract(const Value& v) {
-    return std::get<T>(v);
-}
-
 bool isFalsey(const Value& value) {
-    return value_is<Nil>(value) || (value_is<bool>(value) && !value_extract<bool>(value));
+    return std::holds_alternative<Nil>(value) || (std::holds_alternative<bool>(value) && !std::get<bool>(value));
 }
 
 std::string value_to_string(const Value& v) {
-    if (value_is<bool>(v)) {
-        return value_extract<bool>(v) ? "true" : "false";
+    if (std::holds_alternative<bool>(v)) {
+        return std::get<bool>(v) ? "true" : "false";
     }
-    if (value_is<double>(v)) {
-        double d{value_extract<double>(v)};
-        if (d == static_cast<int>(d)) {
-            return fmt::format("{}", static_cast<int>(d));
-        } else {
-            return fmt::format("{}", d);
-        }
+    if (std::holds_alternative<double>(v)) {
+        return fmt::format("{:g}", std::get<double>(v));
     }
-    if (value_is<Nil>(v)) {
+    if (std::holds_alternative<Nil>(v)) {
         return "nil";
     }
-    if (value_is<std::string>(v)) {
-        return value_extract<std::string>(v);
+    if (std::holds_alternative<std::string>(v)) {
+        return std::get<std::string>(v);
     }
-    if (value_is<Function>(v)) {
-        const auto& fun{value_extract<Function>(v)};
+    if (std::holds_alternative<Function>(v)) {
+        const auto& fun{std::get<Function>(v)};
         if (fun.getName().empty()) {
             return fmt::format("<main>");
         }
         return fmt::format("<Fn {}>", fun.getName());
     }
+    if (std::holds_alternative<Closure>(v)) {
+        return fmt::format("<Closure {}>", std::get<Closure>(v).getFunction().name);
+    }
     if (std::holds_alternative<NativeFn>(v)) {
         return "<Fn clock>";
     }
-    return "This should be unreachable.";
+    if (std::holds_alternative<RuntimeUpvalue>(v)) {
+        return "upvalue (unreachable)";
+    }
+    throw std::runtime_error("Unhandled alternative in value_to_string.");
 }
 
 bool operator==(const Value& lhs, const Value& rhs) {
     if (lhs.index() != rhs.index())
         return false;
 
-    if (value_is<bool>(rhs)) {
-        return value_extract<bool>(lhs) == value_extract<bool>(rhs);
+    if (std::holds_alternative<bool>(rhs)) {
+        return std::get<bool>(lhs) == std::get<bool>(rhs);
     }
-    if (value_is<double>(lhs)) {
-        return value_extract<double>(lhs) == value_extract<double>(rhs);
+    if (std::holds_alternative<double>(lhs)) {
+        return std::get<double>(lhs) == std::get<double>(rhs);
     }
-    if (value_is<Nil>(lhs)) {
+    if (std::holds_alternative<Nil>(lhs)) {
         return false;
     }
-    if (value_is<std::string>(lhs)) {
-        return value_extract<std::string>(lhs) == value_extract<std::string>(rhs);
+    if (std::holds_alternative<std::string>(lhs)) {
+        return std::get<std::string>(lhs) == std::get<std::string>(rhs);
     }
     return false;
 }
 
 Value operator+(const Value& lhs, const Value& rhs) {
-    if (value_is<std::string>(lhs) && value_is<std::string>(rhs)) {
-        auto a = value_extract<std::string>(lhs);
-        auto b = value_extract<std::string>(rhs);
+    if (std::holds_alternative<std::string>(lhs) && std::holds_alternative<std::string>(rhs)) {
+        const auto& a = std::get<std::string>(lhs);
+        const auto& b = std::get<std::string>(rhs);
         return a + b;
     }
-    if (value_is<double>(lhs) && value_is<double>(rhs)) {
-        auto a = value_extract<double>(lhs);
-        auto b = value_extract<double>(rhs);
+    if (std::holds_alternative<double>(lhs) && std::holds_alternative<double>(rhs)) {
+        const auto& a = std::get<double>(lhs);
+        const auto& b = std::get<double>(rhs);
         return a + b;
     }
     throw RuntimeException("Operands to '+' must be either both numbers or both strings.");
 }
 
 double operator-(const Value& lhs, const Value& rhs) {
-    if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
+    if (!(std::holds_alternative<double>(lhs) && std::holds_alternative<double>(rhs))) {
         throw RuntimeException("Operands to '-' must be numbers.");
     }
-    auto a = value_extract<double>(lhs);
-    auto b = value_extract<double>(rhs);
+    const auto& a = std::get<double>(lhs);
+    const auto& b = std::get<double>(rhs);
     return a - b;
 }
 
 double operator*(const Value& lhs, const Value& rhs) {
-    if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
+    if (!(std::holds_alternative<double>(lhs) && std::holds_alternative<double>(rhs))) {
         throw RuntimeException("Operands to '*' must be numbers.");
     }
-    auto a = value_extract<double>(lhs);
-    auto b = value_extract<double>(rhs);
+    const auto& a = std::get<double>(lhs);
+    const auto& b = std::get<double>(rhs);
     return a * b;
 }
 
 double operator/(const Value& lhs, const Value& rhs) {
-    if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
+    if (!(std::holds_alternative<double>(lhs) && std::holds_alternative<double>(rhs))) {
         throw RuntimeException("Operands to '/' must be numbers.");
     }
-    auto a = value_extract<double>(lhs);
-    auto b = value_extract<double>(rhs);
+    const auto& a = std::get<double>(lhs);
+    const auto& b = std::get<double>(rhs);
     return a / b;
 }
 
 bool operator>(const Value& lhs, const Value& rhs) {
-    if (!(value_is<double>(lhs) && value_is<double>(rhs))) {
+    if (!(std::holds_alternative<double>(lhs) && std::holds_alternative<double>(rhs))) {
         throw RuntimeException("Operands to '>' must be numbers.");
     }
-    auto a = value_extract<double>(lhs);
-    auto b = value_extract<double>(rhs);
+    const auto& a = std::get<double>(lhs);
+    const auto& b = std::get<double>(rhs);
     return a > b;
 }
 
@@ -126,4 +119,3 @@ bool operator<(const Value& lhs, const Value& rhs) {
 double clockNative() {
     return static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count());
 }
-

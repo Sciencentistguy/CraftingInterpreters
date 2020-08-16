@@ -2,7 +2,7 @@
 
 #include "chunk.h"
 
-Function::Function() : arity{0}, chunk{std::make_shared<Chunk>()}, name{} {
+Function::Function() : arity{}, upvalueCount{}, chunk{std::make_shared<Chunk>()}, name{} {
 }
 
 int Function::getArity() const {

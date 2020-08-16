@@ -1,14 +1,18 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <string>
-#include <vector>
+#include <string_view>
+#include <unordered_map>
 
 #include "callframe.h"
-#include "chunk.h"
 #include "common.h"
 #include "compiler.h"
 #include "value.h"
+
+class Closure;
+
 class VirtualMachine {
     friend class RuntimeException;
     CompilerDriver compiler;
@@ -26,7 +30,9 @@ class VirtualMachine {
     Value& pop();
 
     void callValue(const Value& callee, uint8_t argCount);
-    void call(const Function& function, uint8_t argCount);
+    void call(const Closure& closure, uint8_t argCount);
+
+    RuntimeUpvalue captureUpvalue(Value* local);
 
  public:
     explicit VirtualMachine(const std::string& source);

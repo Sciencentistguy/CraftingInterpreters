@@ -3,7 +3,6 @@
 #include <variant>
 
 #include <fmt/core.h>
-#include <chrono>
 
 #include "common.h"
 #include "exception.h"
@@ -23,14 +22,15 @@ void VirtualMachine::run() {
                 }
             }
             fmt::print("\nInstruction: ");
-            auto offset{std::distance(frame->getChunk().code.cbegin(), frame->instruction_pointer)};
-            frame->getChunk().disasInstruction(instruction, offset - 1);
+            auto offset{std::distance(frame->closure->getFunction().getChunk().code.cbegin(), frame->instruction_pointer)};
+            fmt::print("{:04d}\t", offset-1);
+            frame->closure->getFunction().getChunk().disasInstruction(instruction, offset - 1);
             fmt::print("*/\n");
         }
 
         switch (static_cast<OpCode>(instruction)) {
             case OpCode::Return: {
-                auto result = pop();
+                const auto& result = pop();
                 --frameCount;
                 if (frameCount == 0) {
                     pop();
@@ -42,15 +42,15 @@ void VirtualMachine::run() {
                 break;
             }
             case OpCode::Constant: {
-                const Value& constant = frame->getChunk().constants[*frame->instruction_pointer++];
+                const Value& constant = frame->closure->getFunction().getChunk().constants[*frame->instruction_pointer++];
                 push(constant);
                 break;
             }
             case OpCode::Negate: {
-                if (!value_is<double>(peek(0))) {
+                if (!std::holds_alternative<double>(peek(0))) {
                     throw RuntimeException("Operand must be a number.");
                 }
-                stack.back() = -value_extract<double>(stack.back());
+                stack.back() = -std::get<double>(stack.back());
                 break;
             }
             case OpCode::Add: {
@@ -59,51 +59,44 @@ void VirtualMachine::run() {
                 push(a + b);
                 break;
             }
-
             case OpCode::Subtract: {
                 auto b{pop()};
                 auto a{pop()};
                 push(a - b);
                 break;
             }
-
             case OpCode::Multiply: {
                 auto b{pop()};
                 auto a{pop()};
                 push(a * b);
                 break;
             }
-
             case OpCode::Divide: {
                 auto b{pop()};
                 auto a{pop()};
                 push(a / b);
                 break;
             }
-
             case OpCode::Nil:
                 push(Nil());
                 break;
-
             case OpCode::False:
                 push(false);
                 break;
-
             case OpCode::True:
                 push(true);
                 break;
-
             case OpCode::Not: {
                 auto back{pop()};
                 push(isFalsey(back));
                 break;
             }
-
-            case OpCode::Equal: { auto b{pop()}; auto a{pop()};
+            case OpCode::Equal: {
+                auto b{pop()};
+                auto a{pop()};
                 push(a == b);
                 break;
             }
-
             case OpCode::Greater: {
                 auto b{pop()};
                 auto a{pop()};
@@ -117,24 +110,20 @@ void VirtualMachine::run() {
                 push(a < b);
                 break;
             }
-
             case OpCode::Print:
                 fmt::print("{}\n", value_to_string(pop()));
                 break;
-
             case OpCode::Pop:
                 pop();
                 break;
-
             case OpCode::Define_global: {
                 Value name = frame->getChunk().constants[*frame->instruction_pointer++];
-                globals[value_extract<std::string>(name)] = pop();
+                globals[std::get<std::string>(name)] = pop();
                 break;
             }
-
             case OpCode::Get_global: {
                 auto v{frame->getChunk().constants[*frame->instruction_pointer++]};
-                const auto& name = value_extract<std::string>(v);
+                const auto& name = std::get<std::string>(v);
                 auto it{globals.find(name)};
                 if (it == globals.end()) {  // not in map
                     using namespace std::string_literals;
@@ -143,9 +132,8 @@ void VirtualMachine::run() {
                 push(it->second);
                 break;
             }
-
             case OpCode::Set_global: {
-                const auto& name = value_extract<std::string>(frame->getChunk().constants[*frame->instruction_pointer++]);
+                const auto& name = std::get<std::string>(frame->getChunk().constants[*frame->instruction_pointer++]);
                 auto it{globals.find(name)};
                 if (it == globals.end()) {  // not in map
                     using namespace std::string_literals;
@@ -154,7 +142,6 @@ void VirtualMachine::run() {
                 globals[name] = peek(0);
                 break;
             }
-
             case OpCode::Get_local: {
                 uint8_t slot{*frame->instruction_pointer++};
                 push(frame->slots[slot]);
@@ -191,13 +178,40 @@ void VirtualMachine::run() {
                 frame = &frames[frameCount - 1];
                 break;
             }
+            case OpCode::Closure: {
+                const auto& function = std::get<Function>(frame->closure->getFunction().getChunk().constants[*frame->instruction_pointer++]);
+                Closure& closure = std::get<Closure>(*push(Closure(function)));
+                for (int i = 0; i < closure.getFunction().upvalueCount; ++i) {
+                    auto isLocal = static_cast<bool>(*frame->instruction_pointer++);
+                    auto index = *frame->instruction_pointer++;
+                    if (isLocal) {
+                        closure.upvalues[i] = captureUpvalue(frame->slots + index);
+                    } else {
+                        closure.upvalues[i] = frame->closure->upvalues[index];
+                    }
+                }
+                break;
+            }
+            case OpCode::Get_upvalue: {
+                auto slot{*frame->instruction_pointer++};
+                push(*frame->closure->upvalues[slot].getLocation());
+                break;
+            }
+            case OpCode::Set_upvalue: {
+                auto slot{*frame->instruction_pointer++};
+                *frame->closure->upvalues[slot].getLocation() = peek(0);
+            }
         }
     }
 }
 
 void VirtualMachine::interpret() {
     auto function = compiler.compile();
-    auto p = push(function);
+    push(function);
+
+    Closure closure{function};
+    pop();
+    auto p = push(std::move(closure));
     callValue(*p, 0);
     run();
 }
@@ -229,29 +243,31 @@ Value& VirtualMachine::pop() {
 void VirtualMachine::callValue(const Value& callee, uint8_t argCount) {
     if (std::holds_alternative<NativeFn>(callee)) {
         auto native = std::get<NativeFn>(callee);
-//        auto native = value_extract<NativeFn>(callee);
+        //        auto native = std::get<NativeFn>(callee);
         auto result = native();
         stack_top -= argCount + 1;
         push(result);
-    } else if (value_is<Function>(callee)) {
-        call(value_extract<Function>(callee), argCount);
+        //    } else if (std::holds_alternative<Function>(callee)) {
+        //        call(std::get<Function>(callee), argCount);
+    } else if (std::holds_alternative<Closure>(callee)) {
+        call(std::get<Closure>(callee), argCount);
     } else {
         throw RuntimeException("Can only call functions and classes.");
     }
 }
 
-void VirtualMachine::call(const Function& function, uint8_t argCount) {
-    if (argCount != function.arity) {
-        throw RuntimeException(fmt::format("Expected {} arguments but got {}.", function.arity, argCount));
+void VirtualMachine::call(const Closure& closure, uint8_t argCount) {
+    if (argCount != closure.getFunction().arity) {
+        throw RuntimeException(fmt::format("Expected {} arguments but got {}.", closure.getFunction().arity, argCount));
     }
     if (frameCount == FRAMES_MAX) {
         throw RuntimeException("Stack overflow (frame limit reached).");
     }
     CallFrame& frame = frames[frameCount++];
-    frame.function = &function;
-    frame.instruction_pointer = function.chunk->code.begin();
+    frame.closure = &closure;
+    frame.instruction_pointer = closure.getFunction().chunk->code.begin();
     frame.slots = stack_top - argCount - 1;
-//    fmt::print("{}\n", value_to_string(function));
+    //    fmt::print("{}\n", value_to_string(function));
 }
 
 void VirtualMachine::defineNative(std::string_view name, NativeFn function) {
@@ -262,3 +278,6 @@ void VirtualMachine::defineNative(std::string_view name, NativeFn function) {
     pop();
 }
 
+RuntimeUpvalue VirtualMachine::captureUpvalue(Value* local) {
+    return RuntimeUpvalue(local);
+}

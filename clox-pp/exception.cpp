@@ -1,8 +1,11 @@
 #include "exception.h"
 
+#include <cstdint>
+
 #include <fmt/core.h>
 
 #include "token.h"
+#include "virtualmachine.h"
 
 CompilerException::CompilerException(const char* errorMsg) : errorMsg{errorMsg} {
 }
@@ -32,7 +35,7 @@ CompilerException::CompilerException(const char* errorMsg, const Token& token) {
 RuntimeException::RuntimeException(const std::string& errorMsg, const VirtualMachine& vm) {
     for (int i = vm.frameCount; i >= 0; --i) {
         const auto& frame = vm.frames[i];
-        const auto& function = *frame.function;
+        const auto& function = frame.closure->getFunction();
         std::size_t instruction = frame.instruction_pointer - function.chunk->code.begin() - 1;
         stackTrace +=
             fmt::format("[line {}] in {}\n", function.chunk->lines[instruction], function.name.empty() ? "script" : fmt::format("{}()", function.name));
