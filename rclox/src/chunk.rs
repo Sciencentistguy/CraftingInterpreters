@@ -1,16 +1,33 @@
 use crate::value::Value;
 
 pub enum OpCode {
-    Constant,
     Return,
+    Constant,
+    Negate,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 
 impl OpCode {
     pub fn fromu8(x: u8) -> Result<Self, Box<dyn std::error::Error>> {
         match x {
-            0 => Ok(OpCode::Constant),
-            1 => Ok(OpCode::Return),
+            0 => Ok(OpCode::Return),
+            1 => Ok(OpCode::Constant),
+            2 => Ok(OpCode::Negate),
+            3 => Ok(OpCode::Add),
+            4 => Ok(OpCode::Subtract),
+            5 => Ok(OpCode::Multiply),
+            6 => Ok(OpCode::Divide),
             _ => Err(format!("Attemted to convert invalid number '{}' to OpCode", x).into()),
+        }
+    }
+
+    pub fn arity(&self) -> usize {
+        match self {
+            OpCode::Constant => 1,
+            _ => 0,
         }
     }
 }
