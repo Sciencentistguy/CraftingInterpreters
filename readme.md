@@ -13,13 +13,24 @@ I used C++ instead of Java, because Java is a bad language.
 My implementation of this is in `/cpplox`
 
 ## clox
+
 The second section is a bytecode-based VM interpreter, called `clox`
+
+### C++
 
 I used C++ again, instead of C.
 
 This is in `/clox-pp`.
 
 This is incomplete, and will probably never be finished.
+
+### Rust
+
+I used Rust instead of C.
+
+This is in `/rclox`
+
+This is WIP.
 
 ---
 
