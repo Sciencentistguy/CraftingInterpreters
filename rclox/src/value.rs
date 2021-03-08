@@ -1,9 +1,11 @@
-use std::fmt::Display;
+use std::rc::Rc;
+use std::{fmt::Display, ops::Add};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Number(f64),
     Bool(bool),
+    String(Rc<String>),
     Nil,
     //Value(&str),
 }
@@ -13,6 +15,7 @@ impl Display for Value {
         match self {
             Value::Number(x) => write!(f, "{}", x),
             Value::Bool(x) => write!(f, "{}", x),
+            Value::String(x) => write!(f, "{}", x),
             Value::Nil => write!(f, "nil"),
         }
     }
@@ -31,6 +34,10 @@ impl Value {
         matches!(self, Value::Nil)
     }
 
+    pub fn is_string(&self) -> bool {
+        matches!(self, Value::String(_))
+    }
+
     pub fn as_number(&self) -> Option<f64> {
         if let Value::Number(x) = self {
             Some(*x)
@@ -39,6 +46,7 @@ impl Value {
         }
     }
 
+    #[allow(clippy::match_like_matches_macro)] // Readability
     pub fn coersce_bool(&self) -> bool {
         match self {
             Self::Nil | Self::Bool(false) => false,
@@ -53,6 +61,9 @@ impl std::ops::Add for Value {
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+            (Value::String(a), Value::String(b)) => {
+                Value::String(Rc::new((*a).clone() + b.as_str()))
+            }
             _ => panic!("Cannot add two Values that are not both numbers"),
         }
     }
@@ -96,6 +107,7 @@ impl PartialEq for Value {
         match (self, other) {
             (Value::Number(a), Value::Number(b)) => a == b,
             (Value::Bool(a), Value::Bool(b)) => a == b,
+            (Value::String(a), Value::String(b)) => **a == **b,
             (Value::Nil, Value::Nil) => true,
             _ => false,
         }

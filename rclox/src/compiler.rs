@@ -68,6 +68,7 @@ enum ParseFn {
     Binary,
     Number,
     Literal,
+    String,
 
     None,
 }
@@ -103,7 +104,7 @@ impl<'source> Parser<'source> {
         std::mem::swap(&mut self.previous, &mut self.current);
         self.current = match self.lexer.lex_token() {
             Ok(x) => x,
-            Err(e) => return Err(self.error_at_current(e.to_string().as_str())),
+            Err(e) => return Err(format!("<Lexer> Error {}", e).into()),
         };
         Ok(())
     }
@@ -202,6 +203,12 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
+    fn string(&mut self) -> Result<()> {
+        self.emit_constant(Value::String(std::rc::Rc::new(
+            self.previous.string.trim_matches('"').to_string(),
+        )))
+    }
+
     fn dispatch_parse_fn(&mut self, parse_fn: ParseFn) -> Result<()> {
         match parse_fn {
             ParseFn::Grouping => self.grouping(),
@@ -209,6 +216,7 @@ impl<'source> Parser<'source> {
             ParseFn::Binary => self.binary(),
             ParseFn::Number => self.number(),
             ParseFn::Literal => self.literal(),
+            ParseFn::String => self.string(),
             ParseFn::None => unreachable!(),
         }
     }
@@ -357,7 +365,7 @@ fn get_rule(kind: TokenType) -> ParseRule {
             precedence: Precedence::None,
         },
         TokenType::String => ParseRule {
-            prefix: ParseFn::None,
+            prefix: ParseFn::String,
             infix: ParseFn::None,
             precedence: Precedence::None,
         },

@@ -69,7 +69,12 @@ impl VM {
                     OpCode::Constant => {
                         let constant = {
                             let index = self.read_byte() as usize;
-                            self.chunk.constants[index]
+                            match self.chunk.constants[index] {
+                                Value::String(ref x) => Value::String(x.clone()),
+                                Value::Number(x) => Value::Number(x),
+                                Value::Bool(x) => Value::Bool(x),
+                                Value::Nil => Value::Nil,
+                            }
                         };
                         self.push(constant);
                     }
@@ -86,8 +91,12 @@ impl VM {
                     OpCode::Add => {
                         let b = self.pop();
                         let a = self.pop();
-                        if !(a.is_number() && b.is_number()) {
-                            return Err(self.runtime_error("Operands to + must be number"));
+                        match (&a, &b) {
+                            (Value::Number(_), Value::Number(_)) => {}
+                            (Value::String(_), Value::String(_)) => {}
+                            _ => {
+                                return Err(self.runtime_error("Operands to + must be either both numbers or both strings"));
+                            }
                         }
                         self.push(a + b);
                     }
