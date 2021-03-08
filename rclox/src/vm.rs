@@ -1,6 +1,7 @@
-use crate::chunk::Chunk;
 use crate::chunk::OpCode;
 use crate::value::Value;
+use crate::{chunk::Chunk, compiler::Compiler};
+use crate::Result;
 
 pub struct VM {
     chunk: Chunk,
@@ -17,10 +18,14 @@ impl VM {
         }
     }
 
-    pub fn interpret(&mut self, chunk: Chunk) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn interpret(&mut self, source: &str) -> Result<()> {
+        let mut chunk = Chunk::new();
+        let mut compiler = Compiler::new(source);
+        compiler.compile(&mut chunk)?;
         self.chunk = chunk;
         self.program_counter = 0;
-        self.run()
+        self.run()?;
+        Ok(())
     }
 
     fn read_byte(&mut self) -> u8 {
@@ -40,7 +45,7 @@ impl VM {
             .expect("Attempted to pop from an empty stack")
     }
 
-    fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn run(&mut self) -> Result<()> {
         loop {
             println!("Stack:\t{:?}", self.stack);
             crate::debug::disassemble_instruction(&self.chunk, self.program_counter, false);
@@ -80,7 +85,7 @@ impl VM {
                         let a = self.pop();
                         self.push(a * b);
                     }
-                    OpCode::Divide=> {
+                    OpCode::Divide => {
                         let b = self.pop();
                         let a = self.pop();
                         self.push(a / b);

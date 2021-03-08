@@ -1,4 +1,5 @@
 use crate::value::Value;
+use std::convert::TryInto;
 
 pub enum OpCode {
     Return,
@@ -47,13 +48,16 @@ impl Chunk {
         }
     }
 
+    #[inline]
     pub fn write_byte(&mut self, byte: u8, line: usize) {
         self.code.push(byte);
         self.lines.push(line);
     }
 
-    pub fn add_constant(&mut self, constant: Value) -> usize {
+    pub fn add_constant(&mut self, constant: Value) -> u8 {
         self.constants.push(constant);
-        self.constants.len() - 1
+        (self.constants.len() - 1)
+            .try_into()
+            .expect("Too many constants in one chunk.")
     }
 }
