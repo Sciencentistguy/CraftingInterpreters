@@ -5,6 +5,7 @@ mod chunk;
 mod compiler;
 mod debug;
 mod lexer;
+mod opcode;
 mod value;
 mod vm;
 
@@ -33,20 +34,29 @@ fn repl() -> Result<()> {
         std::io::stdout().lock().flush()?;
         let line: String = read!("{}\n");
 
-        interpret(line)?;
+        if line.is_empty() {
+            return Ok(());
+        }
+
+        match interpret(line.as_str()) {
+            Ok(_) => {}
+            Err(e) => {
+                println!("{}", e)
+            }
+        };
     }
 }
 
 fn run_file<P: AsRef<Path>>(path: P) -> Result<()> {
     let source = std::fs::read_to_string(path)?;
-    interpret(source)?;
+    interpret(source.as_str())?;
 
     Ok(())
 }
 
-fn interpret(source: String) -> Result<()> {
+fn interpret(source: &str) -> Result<()> {
     let mut vm = VM::new();
-    vm.interpret(source.as_str())?;
+    vm.interpret(source)?;
 
     Ok(())
 

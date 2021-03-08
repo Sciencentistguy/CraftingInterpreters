@@ -1,12 +1,12 @@
 use crate::chunk::Chunk;
-use crate::chunk::OpCode;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
 use crate::lexer::TokenType;
+use crate::opcode::OpCode;
 use crate::value::Value;
 use crate::Result;
 
-#[derive(PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
 enum Precedence {
     Assignment = 0, // =
     Or = 1,         // OR
@@ -67,6 +67,7 @@ enum ParseFn {
     Unary,
     Binary,
     Number,
+    Literal,
 
     None,
 }
@@ -153,6 +154,7 @@ impl<'source> Parser<'source> {
         self.parse_precedence(Precedence::Unary)?;
 
         match kind {
+            TokenType::Bang => self.emit_byte(OpCode::Not as u8),
             TokenType::Minus => self.emit_byte(OpCode::Negate as u8),
             _ => unreachable!(),
         }
@@ -166,6 +168,21 @@ impl<'source> Parser<'source> {
         self.parse_precedence(rule.precedence.one_higher())?;
 
         match operator_kind {
+            TokenType::BangEqual => {
+                self.emit_byte(OpCode::Equal as u8);
+                self.emit_byte(OpCode::Not as u8);
+            }
+            TokenType::EqualEqual => self.emit_byte(OpCode::Equal as u8),
+            TokenType::Greater => self.emit_byte(OpCode::Greater as u8),
+            TokenType::GreaterEqual => {
+                self.emit_byte(OpCode::Less as u8);
+                self.emit_byte(OpCode::Not as u8);
+            }
+            TokenType::Less => self.emit_byte(OpCode::Less as u8),
+            TokenType::LessEqual => {
+                self.emit_byte(OpCode::Greater as u8);
+                self.emit_byte(OpCode::Not as u8);
+            }
             TokenType::Plus => self.emit_byte(OpCode::Add as u8),
             TokenType::Minus => self.emit_byte(OpCode::Subtract as u8),
             TokenType::Star => self.emit_byte(OpCode::Multiply as u8),
@@ -175,12 +192,23 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
+    fn literal(&mut self) -> Result<()> {
+        match self.previous.kind {
+            TokenType::False => self.emit_byte(OpCode::False as u8),
+            TokenType::True => self.emit_byte(OpCode::True as u8),
+            TokenType::Nil => self.emit_byte(OpCode::Nil as u8),
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+
     fn dispatch_parse_fn(&mut self, parse_fn: ParseFn) -> Result<()> {
         match parse_fn {
             ParseFn::Grouping => self.grouping(),
             ParseFn::Unary => self.unary(),
             ParseFn::Binary => self.binary(),
             ParseFn::Number => self.number(),
+            ParseFn::Literal => self.literal(),
             ParseFn::None => unreachable!(),
         }
     }
@@ -284,13 +312,13 @@ fn get_rule(kind: TokenType) -> ParseRule {
             precedence: Precedence::Factor,
         },
         TokenType::Bang => ParseRule {
-            prefix: ParseFn::None,
+            prefix: ParseFn::Unary,
             infix: ParseFn::None,
             precedence: Precedence::None,
         },
         TokenType::BangEqual => ParseRule {
             prefix: ParseFn::None,
-            infix: ParseFn::None,
+            infix: ParseFn::Binary,
             precedence: Precedence::None,
         },
         TokenType::Equal => ParseRule {
@@ -300,28 +328,28 @@ fn get_rule(kind: TokenType) -> ParseRule {
         },
         TokenType::EqualEqual => ParseRule {
             prefix: ParseFn::None,
-            infix: ParseFn::None,
-            precedence: Precedence::None,
+            infix: ParseFn::Binary,
+            precedence: Precedence::Equality,
         },
         TokenType::Greater => ParseRule {
             prefix: ParseFn::None,
-            infix: ParseFn::None,
-            precedence: Precedence::None,
+            infix: ParseFn::Binary,
+            precedence: Precedence::Comparison,
         },
         TokenType::GreaterEqual => ParseRule {
             prefix: ParseFn::None,
-            infix: ParseFn::None,
-            precedence: Precedence::None,
+            infix: ParseFn::Binary,
+            precedence: Precedence::Comparison,
         },
         TokenType::Less => ParseRule {
             prefix: ParseFn::None,
-            infix: ParseFn::None,
-            precedence: Precedence::None,
+            infix: ParseFn::Binary,
+            precedence: Precedence::Comparison,
         },
         TokenType::LessEqual => ParseRule {
             prefix: ParseFn::None,
-            infix: ParseFn::None,
-            precedence: Precedence::None,
+            infix: ParseFn::Binary,
+            precedence: Precedence::Comparison,
         },
         TokenType::Identifier => ParseRule {
             prefix: ParseFn::None,
@@ -354,7 +382,7 @@ fn get_rule(kind: TokenType) -> ParseRule {
             precedence: Precedence::None,
         },
         TokenType::False => ParseRule {
-            prefix: ParseFn::None,
+            prefix: ParseFn::Literal,
             infix: ParseFn::None,
             precedence: Precedence::None,
         },
@@ -374,7 +402,7 @@ fn get_rule(kind: TokenType) -> ParseRule {
             precedence: Precedence::None,
         },
         TokenType::Nil => ParseRule {
-            prefix: ParseFn::None,
+            prefix: ParseFn::Literal,
             infix: ParseFn::None,
             precedence: Precedence::None,
         },
@@ -404,7 +432,7 @@ fn get_rule(kind: TokenType) -> ParseRule {
             precedence: Precedence::None,
         },
         TokenType::True => ParseRule {
-            prefix: ParseFn::None,
+            prefix: ParseFn::Literal,
             infix: ParseFn::None,
             precedence: Precedence::None,
         },
@@ -428,7 +456,7 @@ fn get_rule(kind: TokenType) -> ParseRule {
 }
 
 fn error_at(token: &Token, message: &str) -> Box<dyn std::error::Error> {
-    let mut out = format!("[line {}] Error ", token.line);
+    let mut out = format!("<Compiler> [Line {}] Error ", token.line);
     if token.kind == TokenType::Eof {
         out.push_str("at end");
     } else {

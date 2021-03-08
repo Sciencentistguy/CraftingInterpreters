@@ -1,5 +1,5 @@
 use crate::chunk::Chunk;
-use crate::chunk::OpCode;
+use crate::opcode::OpCode;
 
 pub fn disassemble_chunk(chunk: &Chunk, module_name: &str) {
     println!("== {} ==", module_name);
@@ -50,24 +50,52 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
             println!("Constant\t{:04}\t'{}'", constant, chunk.constants[constant]);
             offset + 2
         }
-        OpCode::Negate => {
+        Negate => {
             println!("Negate");
             offset + 1
         }
-        OpCode::Add => {
+        Add => {
             println!("Add");
             offset + 1
         }
-        OpCode::Subtract => {
+        Subtract => {
             println!("Subtract");
             offset + 1
         }
-        OpCode::Multiply => {
+        Multiply => {
             println!("Multiply");
             offset + 1
         }
-        OpCode::Divide => {
+        Divide => {
             println!("Divide");
+            offset + 1
+        }
+        Nil => {
+            println!("Nil");
+            offset + 1
+        }
+        True => {
+            println!("True");
+            offset + 1
+        }
+        False => {
+            println!("False");
+            offset + 1
+        }
+        Not => {
+            println!("Not");
+            offset + 1
+        }
+        Equal => {
+            println!("Equal");
+            offset + 1
+        }
+        Greater => {
+            println!("Greater");
+            offset + 1
+        }
+        Less => {
+            println!("Less");
             offset + 1
         }
     }

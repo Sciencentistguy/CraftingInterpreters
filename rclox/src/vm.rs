@@ -1,6 +1,6 @@
 use crate::chunk::Chunk;
-use crate::chunk::OpCode;
 use crate::compiler::Compiler;
+use crate::opcode::OpCode;
 use crate::value::Value;
 use crate::Result;
 
@@ -46,6 +46,14 @@ impl VM {
             .expect("Attempted to pop from an empty stack")
     }
 
+    fn runtime_error(&self, message: &str) -> Box<dyn std::error::Error> {
+        format!(
+            "<Runtime> [Line {}] Error: {}",
+            self.chunk.lines[self.program_counter], message
+        )
+        .into()
+    }
+
     fn run(&mut self) -> Result<()> {
         loop {
             println!("Stack:\t{:?}", self.stack);
@@ -61,35 +69,83 @@ impl VM {
                     OpCode::Constant => {
                         let constant = {
                             let index = self.read_byte() as usize;
-                            self.chunk.constants[index].clone()
+                            self.chunk.constants[index]
                         };
                         self.push(constant);
                     }
                     OpCode::Negate => {
                         let val = match self.pop() {
                             Value::Number(x) => Value::Number(-x),
+                            _ => {
+                                return Err(self
+                                    .runtime_error("Operand to unary negation must be a number."))
+                            }
                         };
                         self.push(val);
                     }
                     OpCode::Add => {
                         let b = self.pop();
                         let a = self.pop();
+                        if !(a.is_number() && b.is_number()) {
+                            return Err(self.runtime_error("Operands to + must be number"));
+                        }
                         self.push(a + b);
                     }
                     OpCode::Subtract => {
                         let b = self.pop();
                         let a = self.pop();
+                        if !(a.is_number() && b.is_number()) {
+                            return Err(self.runtime_error("Operands to - must be number"));
+                        }
                         self.push(a - b);
                     }
                     OpCode::Multiply => {
                         let b = self.pop();
                         let a = self.pop();
+                        if !(a.is_number() && b.is_number()) {
+                            return Err(self.runtime_error("Operands to * must be number"));
+                        }
                         self.push(a * b);
                     }
                     OpCode::Divide => {
                         let b = self.pop();
                         let a = self.pop();
+                        if !(a.is_number() && b.is_number()) {
+                            return Err(self.runtime_error("Operands to / must be number"));
+                        }
                         self.push(a / b);
+                    }
+                    OpCode::Nil => self.push(Value::Nil),
+                    OpCode::True => self.push(Value::Bool(true)),
+                    OpCode::False => self.push(Value::Bool(false)),
+                    OpCode::Not => {
+                        let v = self.pop();
+                        self.push(Value::Bool(!v.coersce_bool()))
+                    }
+                    OpCode::Equal => {
+                        let b = self.pop();
+                        let a = self.pop();
+                        self.push(Value::Bool(a == b));
+                    }
+                    OpCode::Greater => {
+                        let b = self.pop();
+                        let a = self.pop();
+                        if !(a.is_number() && b.is_number()) {
+                            return Err(
+                                self.runtime_error("Operands to comparisons must be number")
+                            );
+                        }
+                        self.push(Value::Bool(a > b))
+                    }
+                    OpCode::Less => {
+                        let b = self.pop();
+                        let a = self.pop();
+                        if !(a.is_number() && b.is_number()) {
+                            return Err(
+                                self.runtime_error("Operands to comparisons must be number")
+                            );
+                        }
+                        self.push(Value::Bool(a < b))
                     }
                 },
                 Err(_) => {
