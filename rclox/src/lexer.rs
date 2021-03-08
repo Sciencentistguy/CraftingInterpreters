@@ -87,28 +87,6 @@ impl<'a> Lexer<'a> {
             line: 0,
         }
     }
-    pub fn lex(&mut self) {
-        //let mut line = -1;
-        loop {
-            let token = match self.lex_token() {
-                Ok(x) => x,
-                Err(x) => {
-                    println!("Error: {}", x);
-                    break;
-                }
-            };
-            println!(
-                "{:04}\t{:02} '{}' ({:?})",
-                token.line,
-                token.string.len(),
-                token.string,
-                token.kind,
-            );
-            if token.kind == TokenType::Eof {
-                break;
-            }
-        }
-    }
 
     pub fn lex_token(&mut self) -> Result<Token> {
         if self.is_at_end() {
@@ -122,8 +100,8 @@ impl<'a> Lexer<'a> {
         use TokenType::*;
 
         match c {
-            '(' => return Ok(self.make_token(LeftParen)),
-            ')' => return Ok(self.make_token(RightParen)),
+            '(' => Ok(self.make_token(LeftParen)),
+            ')' => Ok(self.make_token(RightParen)),
             '{' => Ok(self.make_token(LeftBrace)),
             '}' => Ok(self.make_token(RightBrace)),
             ';' => Ok(self.make_token(Semicolon)),

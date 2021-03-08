@@ -1,5 +1,8 @@
-use crate::value::Value;
 use std::convert::TryInto;
+use std::num::TryFromIntError;
+
+use crate::value::Value;
+use crate::Result;
 
 pub enum OpCode {
     Return,
@@ -12,7 +15,7 @@ pub enum OpCode {
 }
 
 impl OpCode {
-    pub fn fromu8(x: u8) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn fromu8(x: u8) -> Result<Self> {
         match x {
             0 => Ok(OpCode::Return),
             1 => Ok(OpCode::Constant),
@@ -54,10 +57,10 @@ impl Chunk {
         self.lines.push(line);
     }
 
-    pub fn add_constant(&mut self, constant: Value) -> u8 {
+    pub fn add_constant(&mut self, constant: Value) -> Result<u8> {
         self.constants.push(constant);
         (self.constants.len() - 1)
             .try_into()
-            .expect("Too many constants in one chunk.")
+            .map_err(|x: TryFromIntError| x.into())
     }
 }

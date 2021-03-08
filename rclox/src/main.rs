@@ -1,3 +1,6 @@
+use std::io::Write;
+use std::path::Path;
+
 mod chunk;
 mod compiler;
 mod debug;
@@ -5,14 +8,11 @@ mod lexer;
 mod value;
 mod vm;
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 use vm::VM;
 
-use std::io::Write;
-use std::path::Path;
-
 use text_io::read;
+
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> Result<()> {
     if std::env::args().len() == 1 {
@@ -20,10 +20,10 @@ fn main() -> Result<()> {
     } else if std::env::args().len() == 2 {
         let file = std::env::args()
             .nth(1)
-            .ok_or::<Box<dyn std::error::Error>>("Usage: rclox [file]".into())?;
+            .ok_or_else(|| "Usage: rclox [file]".to_string())?;
         run_file(file)
     } else {
-        return Err("Usage: rclox [file]".into());
+        Err("Usage: rclox [file]".into())
     }
 }
 

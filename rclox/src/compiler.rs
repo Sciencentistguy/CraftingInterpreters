@@ -1,8 +1,10 @@
-use crate::{
-    chunk::Chunk,
-    lexer::{Lexer, Token, TokenType},
-};
-use crate::{chunk::OpCode, value::Value, Result};
+use crate::chunk::Chunk;
+use crate::chunk::OpCode;
+use crate::lexer::Lexer;
+use crate::lexer::Token;
+use crate::lexer::TokenType;
+use crate::value::Value;
+use crate::Result;
 
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
 enum Precedence {
@@ -77,7 +79,6 @@ struct ParseRule {
 
 pub struct Compiler<'source> {
     source: &'source str,
-    lexer: Lexer<'source>,
 }
 
 struct Parser<'source> {
@@ -138,12 +139,7 @@ impl<'source> Parser<'source> {
     }
 
     fn make_constant(&mut self, value: Value) -> Result<u8> {
-        let constant = self.chunk.add_constant(value);
-        if constant > u8::MAX {
-            Err(self.error_at_previous("Too many constants in one chunk."))
-        } else {
-            Ok(constant)
-        }
+        self.chunk.add_constant(value)
     }
 
     fn grouping(&mut self) -> Result<()> {
@@ -215,11 +211,9 @@ impl<'source> Parser<'source> {
 
 impl<'source> Compiler<'source> {
     pub fn new(source: &'source str) -> Self {
-        Compiler {
-            source,
-            lexer: Lexer::new(source),
-        }
+        Compiler { source }
     }
+
     pub fn compile(&mut self, chunk: &mut Chunk) -> Result<()> {
         let mut lexer = Lexer::new(self.source);
         let mut parser = Parser::new(&mut lexer, chunk);
