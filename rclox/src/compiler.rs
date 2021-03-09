@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::chunk::Chunk;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
@@ -69,6 +71,7 @@ enum ParseFn {
     Number,
     Literal,
     String,
+    Variable,
 
     None,
 }
@@ -140,6 +143,7 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
+    #[inline]
     fn make_constant(&mut self, value: Value) -> Result<u8> {
         self.chunk.add_constant(value)
     }
@@ -204,7 +208,7 @@ impl<'source> Parser<'source> {
     }
 
     fn string(&mut self) -> Result<()> {
-        self.emit_constant(Value::String(std::rc::Rc::new(
+        self.emit_constant(Value::String(Rc::new(
             self.previous.string.trim_matches('"').to_string(),
         )))
     }
@@ -217,6 +221,7 @@ impl<'source> Parser<'source> {
             ParseFn::Number => self.number(),
             ParseFn::Literal => self.literal(),
             ParseFn::String => self.string(),
+            ParseFn::Variable => self.variable(),
             ParseFn::None => unreachable!(),
         }
     }
@@ -243,6 +248,92 @@ impl<'source> Parser<'source> {
     fn error_at_previous(&self, message: &str) -> Box<dyn std::error::Error> {
         error_at(&self.previous, message)
     }
+
+    pub fn declaration(&mut self) -> Result<()> {
+        if self.matches(TokenType::Var)? {
+            self.variable_declaration()
+        } else {
+            self.statement()
+        }
+    }
+
+    fn statement(&mut self) -> Result<()> {
+        if self.matches(TokenType::Print)? {
+            self.print_statement()
+        } else {
+            self.expression_statement()
+        }
+    }
+
+    pub fn matches(&mut self, kind: TokenType) -> Result<bool> {
+        if !self.check(kind) {
+            Ok(false)
+        } else {
+            self.advance()?;
+            Ok(true)
+        }
+    }
+
+    #[inline]
+    fn check(&self, kind: TokenType) -> bool {
+        self.current.kind == kind
+    }
+
+    fn print_statement(&mut self) -> Result<()> {
+        self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after value.")?;
+        self.emit_byte(OpCode::Print as u8);
+        Ok(())
+    }
+
+    fn expression_statement(&mut self) -> Result<()> {
+        self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after expression.")?;
+        self.emit_byte(OpCode::Pop as u8);
+        Ok(())
+    }
+
+    fn parse_variable(&mut self, message: &str) -> Result<u8> {
+        self.consume(TokenType::Identifier, message)?;
+        let name = self.previous.string.to_string();
+        self.identifier_constant(name)
+    }
+
+    fn identifier_constant(&mut self, name: String) -> Result<u8> {
+        self.make_constant(Value::String(Rc::new(name)))
+    }
+
+    fn variable_declaration(&mut self) -> Result<()> {
+        let global = self.parse_variable("Expected a varaible name.")?;
+        if self.matches(TokenType::Equal)? {
+            self.expression()?;
+        } else {
+            self.emit_byte(OpCode::Nil as u8);
+        }
+        self.consume(
+            TokenType::Semicolon,
+            "Expected ';' after variable declaration.",
+        )?;
+        self.define_variable(global);
+        Ok(())
+    }
+
+    fn define_variable(&mut self, global: u8) {
+        self.emit_byte(OpCode::DefineGlobal as u8);
+        self.emit_byte(global);
+    }
+
+    fn variable(&mut self) -> Result<()> {
+        let name = self.previous.string.to_string();
+        self.named_variable(name)
+    }
+
+    fn named_variable(&mut self, name: String) -> Result<()> {
+        let arg = self.identifier_constant(name)?;
+        self.emit_byte(OpCode::GetGlobal as u8);
+        self.emit_byte(arg);
+        Ok(())
+    }
 }
 
 impl<'source> Compiler<'source> {
@@ -251,13 +342,16 @@ impl<'source> Compiler<'source> {
     }
 
     pub fn compile(&mut self, chunk: &mut Chunk) -> Result<()> {
+        println!("Starting compilation");
         let mut lexer = Lexer::new(self.source);
         let mut parser = Parser::new(&mut lexer, chunk);
         parser.advance()?;
-        parser.expression()?;
-        parser.consume(TokenType::Eof, "Expected end of expression")?;
+        while !parser.matches(TokenType::Eof)? {
+            parser.declaration()?;
+        }
         parser.emit_byte(OpCode::Return as u8); // endCompiler()
         crate::debug::disassemble_chunk(chunk, "code");
+        println!("Finished compilation");
         Ok(())
     }
 }
@@ -360,7 +454,7 @@ fn get_rule(kind: TokenType) -> ParseRule {
             precedence: Precedence::Comparison,
         },
         TokenType::Identifier => ParseRule {
-            prefix: ParseFn::None,
+            prefix: ParseFn::Variable,
             infix: ParseFn::None,
             precedence: Precedence::None,
         },

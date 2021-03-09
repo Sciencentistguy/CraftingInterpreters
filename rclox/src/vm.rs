@@ -1,3 +1,5 @@
+use std::{collections::HashMap, rc::Rc};
+
 use crate::chunk::Chunk;
 use crate::compiler::Compiler;
 use crate::opcode::OpCode;
@@ -8,6 +10,7 @@ pub struct VM {
     chunk: Chunk,
     program_counter: usize,
     stack: Vec<Value>,
+    globals_table: HashMap<Rc<String>, Value>,
 }
 
 impl VM {
@@ -16,6 +19,7 @@ impl VM {
             chunk: Chunk::new(),
             program_counter: 0,
             stack: Vec::with_capacity(256),
+            globals_table: HashMap::new(),
         }
     }
 
@@ -46,6 +50,11 @@ impl VM {
             .expect("Attempted to pop from an empty stack")
     }
 
+    #[inline]
+    fn peek(&self, index: usize) -> &Value {
+        &self.stack[self.stack.len() - index]
+    }
+
     fn runtime_error(&self, message: &str) -> Box<dyn std::error::Error> {
         format!(
             "<Runtime> [Line {}] Error: {}",
@@ -63,7 +72,7 @@ impl VM {
             match OpCode::fromu8(instruction) {
                 Ok(x) => match x {
                     OpCode::Return => {
-                        println!("{}", self.pop());
+                        // Exit interpreter
                         return Ok(());
                     }
                     OpCode::Constant => {
@@ -92,13 +101,14 @@ impl VM {
                         let b = self.pop();
                         let a = self.pop();
                         match (&a, &b) {
-                            (Value::Number(_), Value::Number(_)) => {}
-                            (Value::String(_), Value::String(_)) => {}
+                            (Value::Number(_), Value::Number(_))
+                            | (Value::String(_), Value::String(_)) => self.push(a + b),
                             _ => {
-                                return Err(self.runtime_error("Operands to + must be either both numbers or both strings"));
+                                return Err(self.runtime_error(
+                                    "Operands to + must be either both numbers or both strings",
+                                ))
                             }
                         }
-                        self.push(a + b);
                     }
                     OpCode::Subtract => {
                         let b = self.pop();
@@ -155,6 +165,49 @@ impl VM {
                             );
                         }
                         self.push(Value::Bool(a < b))
+                    }
+                    OpCode::Print => {
+                        let a = self.pop();
+                        println!("{}", a);
+                    }
+                    OpCode::Pop => {
+                        self.pop();
+                    }
+                    OpCode::DefineGlobal => {
+                        let name = {
+                            let index = self.read_byte() as usize;
+                            match self.chunk.constants[index] {
+                                Value::String(ref x) => x.clone(),
+                                _ => unreachable!(
+                                    "Attempted to define global with a name that is not a String."
+                                ),
+                            }
+                        };
+                        let a = self.pop();
+                        self.globals_table.insert(name, a);
+                    }
+                    OpCode::GetGlobal => {
+                        let name = {
+                            let index = self.read_byte() as usize;
+                            match self.chunk.constants[index] {
+                                Value::String(ref x) => x.clone(),
+                                _ => unreachable!(
+                                    "Attempted to define global with a name that is not a String."
+                                ),
+                            }
+                        };
+                        let value = self.globals_table.get(&name).map(|v| match v {
+                            Value::String(s) => Value::String(s.clone()),
+                            _ => v.clone(),
+                        });
+                        match value {
+                            Some(x) => self.push(x),
+                            None => {
+                                return Err(self.runtime_error(
+                                    format!("Undefined variable '{}'", name).as_str(),
+                                ))
+                            }
+                        }
                     }
                 },
                 Err(_) => {

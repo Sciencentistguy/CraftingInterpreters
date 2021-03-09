@@ -1,5 +1,5 @@
+use std::fmt::Display;
 use std::rc::Rc;
-use std::{fmt::Display, ops::Add};
 
 #[derive(Debug, Clone)]
 pub enum Value {

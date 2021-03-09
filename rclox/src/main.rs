@@ -29,6 +29,7 @@ fn main() -> Result<()> {
 }
 
 fn repl() -> Result<()> {
+    let mut vm = VM::new();
     loop {
         print!("> ");
         std::io::stdout().lock().flush()?;
@@ -38,7 +39,7 @@ fn repl() -> Result<()> {
             return Ok(());
         }
 
-        match interpret(line.as_str()) {
+        match vm.interpret(line.as_str()) {
             Ok(_) => {}
             Err(e) => {
                 println!("{}", e)
@@ -49,16 +50,12 @@ fn repl() -> Result<()> {
 
 fn run_file<P: AsRef<Path>>(path: P) -> Result<()> {
     let source = std::fs::read_to_string(path)?;
-    interpret(source.as_str())?;
-
-    Ok(())
-}
-
-fn interpret(source: &str) -> Result<()> {
     let mut vm = VM::new();
-    vm.interpret(source)?;
-
+    match vm.interpret(source.as_str()) {
+        Ok(_) => {}
+        Err(e) => {
+            println!("{}", e)
+        }
+    };
     Ok(())
-
-    //let mut compiler = Compiler::new(tokens);
 }

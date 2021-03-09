@@ -98,5 +98,29 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
             println!("Less");
             offset + 1
         }
+        Print => {
+            println!("Print");
+            offset + 1
+        }
+        Pop => {
+            println!("Pop");
+            offset + 1
+        }
+        DefineGlobal => {
+            let constant = chunk.code[offset + 1] as usize;
+            println!(
+                "DefineGlobal\t{:04}\t'{}'",
+                constant, chunk.constants[constant]
+            );
+            offset + 2
+        }
+        GetGlobal => {
+            let constant = chunk.code[offset + 1] as usize;
+            println!(
+                "GetGlobal\t{:04}\t'{}'",
+                constant, chunk.constants[constant]
+            );
+            offset + 2
+        }
     }
 }

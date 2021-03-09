@@ -16,6 +16,10 @@ pub enum OpCode {
     Equal = 11,
     Greater = 12,
     Less = 13,
+    Print = 14,
+    Pop = 15,
+    DefineGlobal = 16,
+    GetGlobal = 17,
 }
 
 impl OpCode {
@@ -35,6 +39,10 @@ impl OpCode {
             11 => Ok(Self::Equal),
             12 => Ok(Self::Greater),
             13 => Ok(Self::Less),
+            14 => Ok(Self::Print),
+            15 => Ok(Self::Pop),
+            16 => Ok(Self::DefineGlobal),
+            17 => Ok(Self::GetGlobal),
             _ => Err(format!("Attemted to convert invalid number '{}' to OpCode", x).into()),
         }
     }
@@ -46,4 +54,3 @@ impl OpCode {
         }
     }
 }
-
