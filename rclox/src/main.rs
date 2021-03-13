@@ -51,7 +51,7 @@ fn repl() -> Result<()> {
 fn run_file<P: AsRef<Path>>(path: P) -> Result<()> {
     let source = std::fs::read_to_string(path)?;
     let mut vm = VM::new();
-    match vm.interpret(source.as_str()) {
+    match vm.interpret(source.trim()) {
         Ok(_) => {}
         Err(e) => {
             println!("{}", e)

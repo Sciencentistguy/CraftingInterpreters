@@ -1,7 +1,8 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::chunk::Chunk;
-use crate::compiler::Compiler;
+use crate::compiler::CompilerDriver;
 use crate::opcode::OpCode;
 use crate::value::Value;
 use crate::Result;
@@ -25,14 +26,15 @@ impl VM {
 
     pub fn interpret(&mut self, source: &str) -> Result<()> {
         let mut chunk = Chunk::new();
-        let mut compiler = Compiler::new(source);
-        compiler.compile(&mut chunk)?;
+        let mut compiler_driver = CompilerDriver::new(source);
+        compiler_driver.compile(&mut chunk)?;
         self.chunk = chunk;
         self.program_counter = 0;
         self.run()?;
         Ok(())
     }
 
+    #[inline]
     fn read_byte(&mut self) -> u8 {
         self.program_counter += 1;
         self.chunk.code[self.program_counter - 1]
@@ -179,7 +181,7 @@ impl VM {
                             match self.chunk.constants[index] {
                                 Value::String(ref x) => x.clone(),
                                 _ => unreachable!(
-                                    "Attempted to define global with a name that is not a String."
+                                    "Attempted to define a  global with a name that is not a String."
                                 ),
                             }
                         };
@@ -192,7 +194,7 @@ impl VM {
                             match self.chunk.constants[index] {
                                 Value::String(ref x) => x.clone(),
                                 _ => unreachable!(
-                                    "Attempted to define global with a name that is not a String."
+                                    "Attempted to get a global with a name that is not a String."
                                 ),
                             }
                         };
@@ -208,6 +210,32 @@ impl VM {
                                 ))
                             }
                         }
+                    }
+                    OpCode::SetGlobal => {
+                        let name = {
+                            let index = self.read_byte() as usize;
+                            match self.chunk.constants[index] {
+                                Value::String(ref x) => x.clone(),
+                                _ => unreachable!(
+                                    "Attempted to set a global with a name that is not a String."
+                                ),
+                            }
+                        };
+                        if self.globals_table.get(&name).is_none() {
+                            return Err(
+                                self.runtime_error(format!("Undefined variable {}", name).as_str())
+                            );
+                        }
+                        *self.globals_table.get_mut(&name).unwrap() = self.pop();
+                    }
+                    OpCode::GetLocal => {
+                        let slot = self.read_byte();
+                        let val = self.stack[slot as usize].clone();
+                        self.push(val);
+                    }
+                    OpCode::SetLocal => {
+                        let slot = self.read_byte();
+                        *self.stack.get_mut(slot as usize).unwrap() = self.peek(0).clone();
                     }
                 },
                 Err(_) => {

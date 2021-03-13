@@ -82,8 +82,38 @@ struct ParseRule {
     precedence: Precedence,
 }
 
-pub struct Compiler<'source> {
+struct Local {
+    name: Rc<String>,
+    depth: usize,
+}
+
+struct Compiler {
+    locals: Vec<Local>,
+    local_count: usize,
+    scope_depth: usize,
+    parent: Option<Box<Self>>,
+}
+
+impl Compiler {
+    fn new() -> Self {
+        Compiler {
+            locals: Vec::with_capacity(u8::MAX as usize),
+            local_count: 0,
+            scope_depth: 0,
+            parent: None,
+        }
+    }
+
+    fn fork(parent: Box<Self>) -> Self {
+        let mut out = Compiler::new();
+        out.parent = Some(parent);
+        out
+    }
+}
+
+pub struct CompilerDriver<'source> {
     source: &'source str,
+    compiler: Box<Compiler>,
 }
 
 struct Parser<'source> {
@@ -91,15 +121,21 @@ struct Parser<'source> {
     current: Token,
     previous: Token,
     chunk: &'source mut Chunk,
+    compiler: &'source mut Compiler,
 }
 
 impl<'source> Parser<'source> {
-    fn new(lexer: &'source mut Lexer<'source>, chunk: &'source mut Chunk) -> Self {
+    fn new(
+        lexer: &'source mut Lexer<'source>,
+        chunk: &'source mut Chunk,
+        compiler: &'source mut Compiler,
+    ) -> Self {
         Self {
             lexer,
             current: Token::null(),
             previous: Token::null(),
             chunk,
+            compiler,
         }
     }
 
@@ -138,13 +174,13 @@ impl<'source> Parser<'source> {
 
     fn emit_constant(&mut self, value: Value) -> Result<()> {
         self.emit_byte(OpCode::Constant as u8);
-        let c = self.make_constant(value)?;
-        self.emit_byte(c);
+        let c = self.make_constant(value);
+        self.emit_byte(c as u8);
         Ok(())
     }
 
     #[inline]
-    fn make_constant(&mut self, value: Value) -> Result<u8> {
+    fn make_constant(&mut self, value: Value) -> i32 {
         self.chunk.add_constant(value)
     }
 
@@ -213,7 +249,7 @@ impl<'source> Parser<'source> {
         )))
     }
 
-    fn dispatch_parse_fn(&mut self, parse_fn: ParseFn) -> Result<()> {
+    fn dispatch_parse_fn(&mut self, parse_fn: ParseFn, can_assign: bool) -> Result<()> {
         match parse_fn {
             ParseFn::Grouping => self.grouping(),
             ParseFn::Unary => self.unary(),
@@ -221,7 +257,7 @@ impl<'source> Parser<'source> {
             ParseFn::Number => self.number(),
             ParseFn::Literal => self.literal(),
             ParseFn::String => self.string(),
-            ParseFn::Variable => self.variable(),
+            ParseFn::Variable => self.variable(can_assign),
             ParseFn::None => unreachable!(),
         }
     }
@@ -232,11 +268,17 @@ impl<'source> Parser<'source> {
         if prefix_rule == ParseFn::None {
             return Err(self.error_at_previous("Expected expression."));
         }
-        self.dispatch_parse_fn(prefix_rule)?;
+
+        let can_assign = precedence <= Precedence::Assignment;
+        self.dispatch_parse_fn(prefix_rule, can_assign)?;
+
         while precedence <= get_rule(self.current.kind).precedence {
             self.advance()?;
             let infix_rule = get_rule(self.previous.kind).infix;
-            self.dispatch_parse_fn(infix_rule)?;
+            self.dispatch_parse_fn(infix_rule, can_assign)?;
+        }
+        if can_assign && self.matches(TokenType::Equal)? {
+            return Err(self.error_at_previous("Invalid assignment target"));
         }
         Ok(())
     }
@@ -260,8 +302,37 @@ impl<'source> Parser<'source> {
     fn statement(&mut self) -> Result<()> {
         if self.matches(TokenType::Print)? {
             self.print_statement()
+        } else if self.matches(TokenType::LeftBrace)? {
+            self.begin_scope();
+            self.block()?;
+            self.end_scope();
+            Ok(())
         } else {
             self.expression_statement()
+        }
+    }
+
+    fn block(&mut self) -> Result<()> {
+        while !self.check(TokenType::RightBrace) && !self.check(TokenType::Eof) {
+            self.declaration()?;
+        }
+        self.consume(TokenType::RightBrace, "Expected '}' after block.")
+    }
+
+    #[inline]
+    fn begin_scope(&mut self) {
+        self.compiler.scope_depth += 1;
+    }
+
+    #[inline]
+    fn end_scope(&mut self) {
+        self.compiler.scope_depth -= 1;
+        while self.compiler.local_count > 0
+            && self.compiler.locals[self.compiler.local_count - 1].depth as usize
+                > self.compiler.scope_depth
+        {
+            self.emit_byte(OpCode::Pop as u8);
+            self.compiler.local_count -= 1;
         }
     }
 
@@ -295,11 +366,15 @@ impl<'source> Parser<'source> {
 
     fn parse_variable(&mut self, message: &str) -> Result<u8> {
         self.consume(TokenType::Identifier, message)?;
+        self.declare_variable()?;
+        if self.compiler.scope_depth > 0 {
+            return Ok(0);
+        }
         let name = self.previous.string.to_string();
-        self.identifier_constant(name)
+        Ok(self.identifier_constant(name) as u8)
     }
 
-    fn identifier_constant(&mut self, name: String) -> Result<u8> {
+    fn identifier_constant(&mut self, name: String) -> i32 {
         self.make_constant(Value::String(Rc::new(name)))
     }
 
@@ -319,32 +394,107 @@ impl<'source> Parser<'source> {
     }
 
     fn define_variable(&mut self, global: u8) {
+        if self.compiler.scope_depth > 0 {
+            self.mark_initialised();
+            return;
+        }
         self.emit_byte(OpCode::DefineGlobal as u8);
         self.emit_byte(global);
     }
 
-    fn variable(&mut self) -> Result<()> {
-        let name = self.previous.string.to_string();
-        self.named_variable(name)
+    fn mark_initialised(&mut self) {
+        if self.compiler.local_count == 0 {
+            panic!("No local declared, yet attempting to mark intialised")
+        }
+        self.compiler.locals[self.compiler.local_count - 1].depth = self.compiler.scope_depth;
     }
 
-    fn named_variable(&mut self, name: String) -> Result<()> {
-        let arg = self.identifier_constant(name)?;
-        self.emit_byte(OpCode::GetGlobal as u8);
-        self.emit_byte(arg);
+    fn declare_variable(&mut self) -> Result<()> {
+        if self.compiler.scope_depth == 0 {
+            return Ok(());
+        }
+        let name = self.previous.string.clone();
+        for local in self.compiler.locals.iter().rev() {
+            if local.depth != usize::MAX && local.depth < self.compiler.scope_depth {
+                // local.depth != -1 is always true, unsigned type
+                break;
+            }
+            if *local.name == name {
+                return Err(format!(
+                    "There is already a variable with name {} in this scope",
+                    name
+                )
+                .into());
+            }
+        }
+        self.add_local(name.as_str())
+    }
+
+    fn add_local(&mut self, name: &str) -> Result<()> {
+        let depth = self.compiler.scope_depth;
+        self.compiler.locals.push(Local {
+            name: Rc::new(name.to_string()),
+            depth: usize::MAX,
+        });
+        self.compiler.local_count += 1;
         Ok(())
+    }
+
+    fn variable(&mut self, can_assign: bool) -> Result<()> {
+        let name = self.previous.string.to_string();
+        self.named_variable(name, can_assign)
+    }
+
+    fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
+        let get_op: OpCode;
+        let set_op: OpCode;
+        let mut arg = self.resolve_local(self.compiler, name.as_str())?;
+        if arg != -1 {
+            get_op = OpCode::GetLocal;
+            set_op = OpCode::SetLocal;
+        } else {
+            arg = self.identifier_constant(name);
+            get_op = OpCode::GetGlobal;
+            set_op = OpCode::SetGlobal;
+        }
+
+        if can_assign && self.matches(TokenType::Equal)? {
+            self.expression()?;
+            self.emit_byte(set_op as u8);
+            self.emit_byte(arg as u8);
+        } else {
+            self.emit_byte(get_op as u8);
+            self.emit_byte(arg as u8);
+        }
+        Ok(())
+    }
+
+    fn resolve_local(&self, compiler: &Compiler, name: &str) -> Result<i32> {
+        for (i, local) in compiler.locals.iter().enumerate().rev() {
+            if name == *local.name {
+                if local.depth == usize::MAX {
+                    return Err(self
+                        .error_at_previous("Cannot read local variable in its own initialiser."));
+                }
+                return Ok(i as i32);
+            }
+        }
+        Ok(-1)
     }
 }
 
-impl<'source> Compiler<'source> {
+impl<'source> CompilerDriver<'source> {
     pub fn new(source: &'source str) -> Self {
-        Compiler { source }
+        CompilerDriver {
+            source,
+            compiler: Box::new(Compiler::new()),
+        }
     }
 
     pub fn compile(&mut self, chunk: &mut Chunk) -> Result<()> {
         println!("Starting compilation");
         let mut lexer = Lexer::new(self.source);
-        let mut parser = Parser::new(&mut lexer, chunk);
+        let mut parser = Parser::new(&mut lexer, chunk, &mut self.compiler);
         parser.advance()?;
         while !parser.matches(TokenType::Eof)? {
             parser.declaration()?;

@@ -122,5 +122,23 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
             );
             offset + 2
         }
+        SetGlobal => {
+            let constant = chunk.code[offset + 1] as usize;
+            println!(
+                "SetGlobal\t{:04}\t'{}'",
+                constant, chunk.constants[constant]
+            );
+            offset + 2
+        }
+        GetLocal => {
+            let slot = chunk.code[offset + 1];
+            println!("GetLocal\t{:04}", slot);
+            offset + 2
+        }
+        SetLocal => {
+            let slot = chunk.code[offset + 1];
+            println!("SetLocal\t{:04}", slot);
+            offset + 2
+        }
     }
 }

@@ -21,6 +21,7 @@ impl Display for Value {
     }
 }
 
+#[allow(dead_code)]
 impl Value {
     pub fn is_number(&self) -> bool {
         matches!(self, Value::Number(_))

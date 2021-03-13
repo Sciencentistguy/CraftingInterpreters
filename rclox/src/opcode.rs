@@ -20,6 +20,9 @@ pub enum OpCode {
     Pop = 15,
     DefineGlobal = 16,
     GetGlobal = 17,
+    SetGlobal = 18,
+    GetLocal = 19,
+    SetLocal = 20,
 }
 
 impl OpCode {
@@ -43,6 +46,9 @@ impl OpCode {
             15 => Ok(Self::Pop),
             16 => Ok(Self::DefineGlobal),
             17 => Ok(Self::GetGlobal),
+            18 => Ok(Self::SetGlobal),
+            19 => Ok(Self::GetLocal),
+            20 => Ok(Self::SetLocal),
             _ => Err(format!("Attemted to convert invalid number '{}' to OpCode", x).into()),
         }
     }
