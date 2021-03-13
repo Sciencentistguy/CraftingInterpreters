@@ -84,7 +84,7 @@ struct ParseRule {
 
 struct Local {
     name: Rc<String>,
-    depth: usize,
+    depth: Option<usize>,
 }
 
 struct Compiler {
@@ -328,7 +328,9 @@ impl<'source> Parser<'source> {
     fn end_scope(&mut self) {
         self.compiler.scope_depth -= 1;
         while self.compiler.local_count > 0
-            && self.compiler.locals[self.compiler.local_count - 1].depth as usize
+            && self.compiler.locals[self.compiler.local_count - 1]
+                .depth
+                .unwrap() as usize
                 > self.compiler.scope_depth
         {
             self.emit_byte(OpCode::Pop as u8);
@@ -406,7 +408,7 @@ impl<'source> Parser<'source> {
         if self.compiler.local_count == 0 {
             panic!("No local declared, yet attempting to mark intialised")
         }
-        self.compiler.locals[self.compiler.local_count - 1].depth = self.compiler.scope_depth;
+        self.compiler.locals[self.compiler.local_count - 1].depth = Some(self.compiler.scope_depth);
     }
 
     fn declare_variable(&mut self) -> Result<()> {
@@ -415,16 +417,20 @@ impl<'source> Parser<'source> {
         }
         let name = self.previous.string.clone();
         for local in self.compiler.locals.iter().rev() {
-            if local.depth != usize::MAX && local.depth < self.compiler.scope_depth {
+            if local.depth.is_some() && local.depth.unwrap() < self.compiler.scope_depth {
                 // local.depth != -1 is always true, unsigned type
                 break;
             }
             if *local.name == name {
-                return Err(format!(
-                    "There is already a variable with name {} in this scope",
-                    name
-                )
-                .into());
+                return Err(self
+                    .error_at_previous(
+                        format!(
+                            "There is already a variable with name {} in this scope",
+                            name
+                        )
+                        .as_str(),
+                    )
+                    .into());
             }
         }
         self.add_local(name.as_str())
@@ -434,7 +440,7 @@ impl<'source> Parser<'source> {
         let depth = self.compiler.scope_depth;
         self.compiler.locals.push(Local {
             name: Rc::new(name.to_string()),
-            depth: usize::MAX,
+            depth: None,
         });
         self.compiler.local_count += 1;
         Ok(())
@@ -472,7 +478,7 @@ impl<'source> Parser<'source> {
     fn resolve_local(&self, compiler: &Compiler, name: &str) -> Result<i32> {
         for (i, local) in compiler.locals.iter().enumerate().rev() {
             if name == *local.name {
-                if local.depth == usize::MAX {
+                if local.depth.is_none() {
                     return Err(self
                         .error_at_previous("Cannot read local variable in its own initialiser."));
                 }
@@ -710,11 +716,10 @@ fn get_rule(kind: TokenType) -> ParseRule {
 fn error_at(token: &Token, message: &str) -> Box<dyn std::error::Error> {
     let mut out = format!("<Compiler> [Line {}] Error ", token.line);
     if token.kind == TokenType::Eof {
-        out.push_str("at end");
+        out.push_str("at end: ");
     } else {
-        out.push_str(format!("at '{}'", token.string).as_str());
+        out.push_str(format!("at '{}': ", token.string).as_str());
     }
-    out.push(':');
     out.push_str(message);
     out.into()
 }
