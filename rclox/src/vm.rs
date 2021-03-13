@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::ops::IndexMut;
 
 use crate::chunk::Chunk;
 use crate::compiler::CompilerDriver;
@@ -235,7 +236,7 @@ impl VM {
                     }
                     OpCode::SetLocal => {
                         let slot = self.read_byte();
-                        *self.stack.get_mut(slot as usize).unwrap() = self.peek(0).clone();
+                        self.stack[slot as usize] = self.peek(0).clone();
                     }
                 },
                 Err(_) => {

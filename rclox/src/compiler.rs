@@ -46,15 +46,15 @@ impl Precedence {
     fn one_higher(&self) -> Self {
         use Precedence::*;
         match self {
-            Assignment => Or, // =
-            Or => And,        // OR
-            And => Equality,  // AND
+            Assignment => Or,
+            Or => And,
+            And => Equality,
             Equality => Comparison,
-            Comparison => Term, // < > <= >=
-            Term => Factor,     // + -
-            Factor => Unary,    // * /
-            Unary => Call,      // ! -
-            Call => Primary,    // . ()
+            Comparison => Term,
+            Term => Factor,
+            Factor => Unary,
+            Unary => Call,
+            Call => Primary,
             Primary => {
                 panic!("Primary is the highest precedence, cannot use Precedence::one_higher()")
             }
@@ -422,22 +422,20 @@ impl<'source> Parser<'source> {
                 break;
             }
             if *local.name == name {
-                return Err(self
-                    .error_at_previous(
-                        format!(
-                            "There is already a variable with name {} in this scope",
-                            name
-                        )
-                        .as_str(),
+                return Err(self.error_at_previous(
+                    format!(
+                        "There is already a variable with name {} in this scope",
+                        name
                     )
-                    .into());
+                    .as_str(),
+                ));
             }
         }
         self.add_local(name.as_str())
     }
 
     fn add_local(&mut self, name: &str) -> Result<()> {
-        let depth = self.compiler.scope_depth;
+        let _depth = self.compiler.scope_depth;
         self.compiler.locals.push(Local {
             name: Rc::new(name.to_string()),
             depth: None,
