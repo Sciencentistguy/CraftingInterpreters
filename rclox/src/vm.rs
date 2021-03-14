@@ -227,7 +227,7 @@ impl VM {
                                 self.runtime_error(format!("Undefined variable {}", name).as_str())
                             );
                         }
-                        *self.globals_table.get_mut(&name).unwrap() = self.pop();
+                        *self.globals_table.get_mut(&name).unwrap() = self.peek(0).clone();
                     }
                     OpCode::GetLocal => {
                         let slot = self.read_byte();
