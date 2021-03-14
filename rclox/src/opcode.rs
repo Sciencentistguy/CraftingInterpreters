@@ -23,6 +23,9 @@ pub enum OpCode {
     SetGlobal = 18,
     GetLocal = 19,
     SetLocal = 20,
+    JumpIfFalse = 21,
+    Jump = 22,
+    Loop = 23,
 }
 
 impl OpCode {
@@ -49,6 +52,9 @@ impl OpCode {
             18 => Ok(Self::SetGlobal),
             19 => Ok(Self::GetLocal),
             20 => Ok(Self::SetLocal),
+            21 => Ok(Self::JumpIfFalse),
+            22 => Ok(Self::Jump),
+            23 => Ok(Self::Loop),
             _ => Err(format!("Attemted to convert invalid number '{}' to OpCode", x).into()),
         }
     }

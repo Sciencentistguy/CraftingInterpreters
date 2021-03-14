@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::ops::IndexMut;
+use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::compiler::CompilerDriver;
@@ -55,7 +55,16 @@ impl VM {
 
     #[inline]
     fn peek(&self, index: usize) -> &Value {
-        &self.stack[self.stack.len() - index]
+        if index == 0 {
+            return self.stack.last().unwrap();
+        }
+        let idx = self.stack.len() - index;
+        println!(
+            "Peeking index {} of stack of size {}.",
+            idx,
+            self.stack.len()
+        );
+        &self.stack[idx]
     }
 
     fn runtime_error(&self, message: &str) -> Box<dyn std::error::Error> {
@@ -237,6 +246,20 @@ impl VM {
                     OpCode::SetLocal => {
                         let slot = self.read_byte();
                         self.stack[slot as usize] = self.peek(0).clone();
+                    }
+                    OpCode::JumpIfFalse => {
+                        let offset = (self.read_byte() as usize) << 8 | self.read_byte() as usize;
+                        if !self.peek(0).coersce_bool() {
+                            self.program_counter += offset;
+                        }
+                    }
+                    OpCode::Jump => {
+                        let offset = (self.read_byte() as usize) << 8 | self.read_byte() as usize;
+                        self.program_counter += offset;
+                    }
+                    OpCode::Loop => {
+                        let offset = (self.read_byte() as usize) << 8 | self.read_byte() as usize;
+                        self.program_counter -= offset;
                     }
                 },
                 Err(_) => {

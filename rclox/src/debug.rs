@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use crate::chunk::Chunk;
 use crate::opcode::OpCode;
 
@@ -139,6 +141,21 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
             let slot = chunk.code[offset + 1];
             println!("SetLocal\t{:04}", slot);
             offset + 2
+        }
+        JumpIfFalse => {
+            let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
+            println!("JumpIfFalse\t{:04} -> {:04}", offset, offset + 3 + jump);
+            offset + 3
+        }
+        Jump => {
+            let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
+            println!("Jump\t{:04} -> {:04}", offset, offset + 3 + jump);
+            offset + 3
+        }
+        Loop => {
+            let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
+            println!("Jump\t{:04} -> {:04}", offset, offset + 3 - jump);
+            offset + 3
         }
     }
 }
