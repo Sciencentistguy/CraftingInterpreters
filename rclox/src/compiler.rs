@@ -1,4 +1,4 @@
-use std::{process::exit, rc::Rc};
+use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::lexer::Lexer;
@@ -160,8 +160,9 @@ impl<'source> Parser<'source> {
     }
 
     #[inline]
-    fn emit_byte(&mut self, byte: u8) {
-        self.chunk.write_byte(byte, self.previous.line);
+    fn emit_instruction(&mut self, instruction: OpCode) {
+        self.chunk
+            .write_instruction(instruction, self.previous.line);
     }
 
     fn expression(&mut self) -> Result<()> {
@@ -175,14 +176,14 @@ impl<'source> Parser<'source> {
     }
 
     fn emit_constant(&mut self, value: Value) -> Result<()> {
-        self.emit_byte(OpCode::Constant as u8);
         let c = self.make_constant(value);
-        self.emit_byte(c as u8);
+        //self.emit_instruction(c as u8);
+        self.emit_instruction(OpCode::Constant(c));
         Ok(())
     }
 
     #[inline]
-    fn make_constant(&mut self, value: Value) -> i32 {
+    fn make_constant(&mut self, value: Value) -> usize {
         self.chunk.add_constant(value)
     }
 
@@ -197,8 +198,8 @@ impl<'source> Parser<'source> {
         self.parse_precedence(Precedence::Unary)?;
 
         match kind {
-            TokenType::Bang => self.emit_byte(OpCode::Not as u8),
-            TokenType::Minus => self.emit_byte(OpCode::Negate as u8),
+            TokenType::Bang => self.emit_instruction(OpCode::Not),
+            TokenType::Minus => self.emit_instruction(OpCode::Negate),
             _ => unreachable!(),
         }
         Ok(())
@@ -212,24 +213,24 @@ impl<'source> Parser<'source> {
 
         match operator_kind {
             TokenType::BangEqual => {
-                self.emit_byte(OpCode::Equal as u8);
-                self.emit_byte(OpCode::Not as u8);
+                self.emit_instruction(OpCode::Equal);
+                self.emit_instruction(OpCode::Not);
             }
-            TokenType::EqualEqual => self.emit_byte(OpCode::Equal as u8),
-            TokenType::Greater => self.emit_byte(OpCode::Greater as u8),
+            TokenType::EqualEqual => self.emit_instruction(OpCode::Equal),
+            TokenType::Greater => self.emit_instruction(OpCode::Greater),
             TokenType::GreaterEqual => {
-                self.emit_byte(OpCode::Less as u8);
-                self.emit_byte(OpCode::Not as u8);
+                self.emit_instruction(OpCode::Less);
+                self.emit_instruction(OpCode::Not);
             }
-            TokenType::Less => self.emit_byte(OpCode::Less as u8),
+            TokenType::Less => self.emit_instruction(OpCode::Less),
             TokenType::LessEqual => {
-                self.emit_byte(OpCode::Greater as u8);
-                self.emit_byte(OpCode::Not as u8);
+                self.emit_instruction(OpCode::Greater);
+                self.emit_instruction(OpCode::Not);
             }
-            TokenType::Plus => self.emit_byte(OpCode::Add as u8),
-            TokenType::Minus => self.emit_byte(OpCode::Subtract as u8),
-            TokenType::Star => self.emit_byte(OpCode::Multiply as u8),
-            TokenType::Slash => self.emit_byte(OpCode::Divide as u8),
+            TokenType::Plus => self.emit_instruction(OpCode::Add),
+            TokenType::Minus => self.emit_instruction(OpCode::Subtract),
+            TokenType::Star => self.emit_instruction(OpCode::Multiply),
+            TokenType::Slash => self.emit_instruction(OpCode::Divide),
             _ => unreachable!(),
         };
         Ok(())
@@ -237,9 +238,9 @@ impl<'source> Parser<'source> {
 
     fn literal(&mut self) -> Result<()> {
         match self.previous.kind {
-            TokenType::False => self.emit_byte(OpCode::False as u8),
-            TokenType::True => self.emit_byte(OpCode::True as u8),
-            TokenType::Nil => self.emit_byte(OpCode::Nil as u8),
+            TokenType::False => self.emit_instruction(OpCode::False),
+            TokenType::True => self.emit_instruction(OpCode::True),
+            TokenType::Nil => self.emit_instruction(OpCode::Nil),
             _ => unreachable!(),
         }
         Ok(())
@@ -327,13 +328,13 @@ impl<'source> Parser<'source> {
         self.expression()?;
         self.consume(TokenType::RightParen, "Expected ')' after condition.")?;
 
-        let then_jump = self.emit_jump(OpCode::JumpIfFalse);
-        self.emit_byte(OpCode::Pop as u8);
+        let then_jump = self.emit_jump(OpCode::JumpIfFalse(0));
+        self.emit_instruction(OpCode::Pop);
         self.statement()?;
-        let else_jump = self.emit_jump(OpCode::Jump);
+        let else_jump = self.emit_jump(OpCode::Jump(0));
 
         self.patch_jump(then_jump)?;
-        self.emit_byte(OpCode::Pop as u8);
+        self.emit_instruction(OpCode::Pop);
 
         if self.match_token(TokenType::Else)? {
             self.statement()?;
@@ -350,15 +351,15 @@ impl<'source> Parser<'source> {
         self.expression()?;
         self.consume(TokenType::RightParen, "Expected ')' after condition.")?;
 
-        let exit_jump = self.emit_jump(OpCode::JumpIfFalse);
+        let exit_jump = self.emit_jump(OpCode::JumpIfFalse(0));
 
-        self.emit_byte(OpCode::Pop as u8);
+        self.emit_instruction(OpCode::Pop);
         self.statement()?;
 
         self.emit_loop(loop_start)?;
 
         self.patch_jump(exit_jump)?;
-        self.emit_byte(OpCode::Pop as u8);
+        self.emit_instruction(OpCode::Pop);
         Ok(())
     }
 
@@ -385,19 +386,19 @@ impl<'source> Parser<'source> {
         if !self.match_token(TokenType::Semicolon)? {
             self.expression()?;
             self.consume(TokenType::Semicolon, "Expected ';' after loop condition.")?;
-            
-            exit_jump = Some(self.emit_jump(OpCode::JumpIfFalse));
-            self.emit_byte(OpCode::Pop as u8);
+
+            exit_jump = Some(self.emit_jump(OpCode::JumpIfFalse(0)));
+            self.emit_instruction(OpCode::Pop);
         }
 
         // self.consume(TokenType::Semicolon, "Expected ';'.")?;
 
         // Increment
         if !self.match_token(TokenType::RightParen)? {
-            let body_jump = self.emit_jump(OpCode::Jump);
+            let body_jump = self.emit_jump(OpCode::Jump(0));
             let increment_start = self.chunk.code.len();
             self.expression()?;
-            self.emit_byte(OpCode::Pop as u8);
+            self.emit_instruction(OpCode::Pop);
             self.consume(TokenType::RightParen, "Expected ')' after 'for' clauses.")?;
 
             self.emit_loop(loop_start)?;
@@ -410,7 +411,7 @@ impl<'source> Parser<'source> {
 
         if let Some(exit_jump) = exit_jump {
             self.patch_jump(exit_jump)?;
-            self.emit_byte(OpCode::Pop as u8);
+            self.emit_instruction(OpCode::Pop);
         }
 
         self.end_scope();
@@ -419,33 +420,45 @@ impl<'source> Parser<'source> {
     }
 
     fn emit_loop(&mut self, loop_start: usize) -> Result<()> {
-        self.emit_byte(OpCode::Loop as u8);
-        let offset = self.chunk.code.len() - loop_start + 2;
+        let offset = self.chunk.code.len() - loop_start + 1;
 
-        if offset > u16::MAX as usize {
-            return Err(self.error_at_previous("Loop body too large."));
-        }
+        self.emit_instruction(OpCode::Loop(offset));
+        //if offset > u16::MAX as usize {
+        //return Err(self.error_at_previous("Loop body too large."));
+        //}
 
-        self.emit_byte((offset >> 8) as u8 & 0xff);
-        self.emit_byte(offset as u8 & 0xff);
+        //self.emit_instruction((offset >> 8) as u8 & 0xff);
+        //self.emit_instruction(offset as u8 & 0xff);
 
         Ok(())
     }
 
+    /// Returns the index of the instruction emmited
     fn emit_jump(&mut self, instruction: OpCode) -> usize {
-        self.emit_byte(instruction as u8);
-        self.emit_byte(0xff);
-        self.emit_byte(0xff);
-        self.chunk.code.len() - 2
+        match instruction {
+            OpCode::JumpIfFalse(_) => {self.emit_instruction(OpCode::JumpIfFalse(usize::MAX)); self.chunk.code.len() - 1},
+            OpCode::Jump(_) => {self.emit_instruction(OpCode::Jump(usize::MAX)); self.chunk.code.len() - 1},
+            _ => unreachable!("Invalid jump instruction"),
+        }
     }
 
+    /// Takes the index of the instruction to patch
     fn patch_jump(&mut self, offset: usize) -> Result<()> {
-        let jump = self.chunk.code.len() - offset - 2;
-        if jump > u16::MAX as usize {
-            return Err(self.error_at_previous("Jump is too far."));
+        let distance = self.chunk.code.len() - offset;
+
+        match self.chunk.code[offset] {
+            OpCode::Jump(ref mut x) => {
+                assert!(*x == usize::MAX);
+                *x = distance - 1; // FIXME this *shouldn't* be needed, but ¯\_(ツ)_/¯
+            }
+            OpCode::JumpIfFalse(ref mut x) => {
+                assert!(*x == usize::MAX);
+                *x = distance;
+            }
+            _ => {
+                unreachable!("Cannot patch a non-jump instruction '{:?}'", self.chunk.code[offset]);
+            }
         }
-        self.chunk.code[offset] = ((jump >> 8) & 0xff) as u8;
-        self.chunk.code[offset + 1] = (jump & 0xff) as u8;
         Ok(())
     }
 
@@ -470,7 +483,7 @@ impl<'source> Parser<'source> {
                 .unwrap() as usize
                 > self.compiler.scope_depth
         {
-            self.emit_byte(OpCode::Pop as u8);
+            self.emit_instruction(OpCode::Pop);
             self.compiler.local_count -= 1;
         }
     }
@@ -493,28 +506,28 @@ impl<'source> Parser<'source> {
     fn print_statement(&mut self) -> Result<()> {
         self.expression()?;
         self.consume(TokenType::Semicolon, "Expected ';' after value.")?;
-        self.emit_byte(OpCode::Print as u8);
+        self.emit_instruction(OpCode::Print);
         Ok(())
     }
 
     fn expression_statement(&mut self) -> Result<()> {
         self.expression()?;
         self.consume(TokenType::Semicolon, "Expected ';' after expression.")?;
-        self.emit_byte(OpCode::Pop as u8);
+        self.emit_instruction(OpCode::Pop);
         Ok(())
     }
 
-    fn parse_variable(&mut self, message: &str) -> Result<u8> {
+    fn parse_variable(&mut self, message: &str) -> Result<usize> {
         self.consume(TokenType::Identifier, message)?;
         self.declare_variable()?;
         if self.compiler.scope_depth > 0 {
             return Ok(0);
         }
         let name = self.previous.string.to_string();
-        Ok(self.identifier_constant(name) as u8)
+        Ok(self.identifier_constant(name))
     }
 
-    fn identifier_constant(&mut self, name: String) -> i32 {
+    fn identifier_constant(&mut self, name: String) -> usize {
         self.make_constant(Value::String(Rc::new(name)))
     }
 
@@ -523,7 +536,7 @@ impl<'source> Parser<'source> {
         if self.match_token(TokenType::Equal)? {
             self.expression()?;
         } else {
-            self.emit_byte(OpCode::Nil as u8);
+            self.emit_instruction(OpCode::Nil);
         }
         self.consume(
             TokenType::Semicolon,
@@ -533,13 +546,13 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
-    fn define_variable(&mut self, global: u8) {
+    fn define_variable(&mut self, global: usize) {
         if self.compiler.scope_depth > 0 {
             self.mark_initialised();
             return;
         }
-        self.emit_byte(OpCode::DefineGlobal as u8);
-        self.emit_byte(global);
+        self.emit_instruction(OpCode::DefineGlobal(global));
+        //self.emit_instruction(global);
     }
 
     fn mark_initialised(&mut self) {
@@ -588,56 +601,55 @@ impl<'source> Parser<'source> {
     }
 
     fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
-        let get_op: OpCode;
-        let set_op: OpCode;
-        let mut arg = self.resolve_local(self.compiler, name.as_str())?;
-        if arg != -1 {
-            get_op = OpCode::GetLocal;
-            set_op = OpCode::SetLocal;
-        } else {
-            arg = self.identifier_constant(name);
-            get_op = OpCode::GetGlobal;
-            set_op = OpCode::SetGlobal;
-        }
-
-        if can_assign && self.match_token(TokenType::Equal)? {
-            self.expression()?;
-            self.emit_byte(set_op as u8);
-            self.emit_byte(arg as u8);
-        } else {
-            self.emit_byte(get_op as u8);
-            self.emit_byte(arg as u8);
+        let arg = self.resolve_local(self.compiler, name.as_str())?;
+        let assignable = can_assign && self.match_token(TokenType::Equal)?;
+        match arg {
+            Some(x) if assignable => {
+                self.expression()?;
+                self.emit_instruction(OpCode::SetLocal(x))
+            }
+            Some(x) if !assignable => self.emit_instruction(OpCode::GetLocal(x)),
+            None if assignable => {
+                self.expression()?;
+                let x = self.identifier_constant(name);
+                self.emit_instruction(OpCode::SetGlobal(x))
+            }
+            None if !assignable => {
+                let x = self.identifier_constant(name);
+                self.emit_instruction(OpCode::GetGlobal(x))
+            }
+            _ => unreachable!(),
         }
         Ok(())
     }
 
-    fn resolve_local(&self, compiler: &Compiler, name: &str) -> Result<i32> {
+    fn resolve_local(&self, compiler: &Compiler, name: &str) -> Result<Option<usize>> {
         for (i, local) in compiler.locals.iter().enumerate().rev() {
             if name == *local.name {
                 if local.depth.is_none() {
                     return Err(self
                         .error_at_previous("Cannot read local variable in its own initialiser."));
                 }
-                return Ok(i as i32);
+                return Ok(Some(i));
             }
         }
-        Ok(-1)
+        Ok(None)
     }
 
     fn and(&mut self) -> Result<()> {
-        let end_jump = self.emit_jump(OpCode::JumpIfFalse);
-        self.emit_byte(OpCode::Pop as u8);
+        let end_jump = self.emit_jump(OpCode::JumpIfFalse(0));
+        self.emit_instruction(OpCode::Pop);
         self.parse_precedence(Precedence::And)?;
         self.patch_jump(end_jump)
     }
 
     fn or(&mut self) -> Result<()> {
-        let else_jump = self.emit_jump(OpCode::JumpIfFalse);
+        let else_jump = self.emit_jump(OpCode::JumpIfFalse(0));
 
-        let end_jump = self.emit_jump(OpCode::Jump);
+        let end_jump = self.emit_jump(OpCode::Jump(0));
 
         self.patch_jump(else_jump)?;
-        self.emit_byte(OpCode::Pop as u8);
+        self.emit_instruction(OpCode::Pop);
 
         self.parse_precedence(Precedence::Or)?;
         self.patch_jump(end_jump)
@@ -660,7 +672,7 @@ impl<'source> CompilerDriver<'source> {
         while !parser.match_token(TokenType::Eof)? {
             parser.declaration()?;
         }
-        parser.emit_byte(OpCode::Return as u8); // endCompiler()
+        parser.emit_instruction(OpCode::Return); // endCompiler()
         crate::debug::disassemble_chunk(chunk, "code");
         println!("Finished compilation");
         Ok(())

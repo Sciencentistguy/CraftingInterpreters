@@ -17,21 +17,11 @@ pub fn disassemble_chunk(chunk: &Chunk, module_name: &str) {
 pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool) -> usize {
     print!("{:04}\t", offset);
 
-    let instruction = chunk.code[offset];
-    let instruction = if let Ok(x) = OpCode::fromu8(instruction) {
-        x
-    } else {
-        println!("Unknown opcode {}", instruction);
-        return offset + 1;
-    };
+    let instruction = &chunk.code[offset];
 
     if grouped_mode && offset > 0 && (chunk.lines[offset] == chunk.lines[offset - 1]) {
-        if chunk.lines[offset]
-            == *chunk
-                .lines
-                .get(offset + instruction.arity() + 1)
-                .unwrap_or(&usize::MAX)
-        {
+        let next_line = chunk.lines.get(offset + 1);
+        if next_line.is_some() && chunk.lines[offset] == *next_line.unwrap() {
             print!("├───\t");
         } else {
             print!("└───\t");
@@ -47,10 +37,10 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
             println!("Return");
             offset + 1
         }
-        Constant => {
-            let constant = chunk.code[offset + 1] as usize;
-            println!("Constant\t{:04}\t'{}'", constant, chunk.constants[constant]);
-            offset + 2
+        Constant(constant) => {
+            //let constant = chunk.code[offset + 1] as usize;
+            println!("Constant\t{:04}\t'{}'", constant, chunk.constants[*constant]);
+            offset + 1
         }
         Negate => {
             println!("Negate");
@@ -108,54 +98,54 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
             println!("Pop");
             offset + 1
         }
-        DefineGlobal => {
-            let constant = chunk.code[offset + 1] as usize;
+        DefineGlobal(constant) => {
+            //let constant = chunk.code[offset + 1] as usize;
             println!(
                 "DefineGlobal\t{:04}\t'{}'",
-                constant, chunk.constants[constant]
+                constant, chunk.constants[*constant]
             );
-            offset + 2
+            offset + 1
         }
-        GetGlobal => {
-            let constant = chunk.code[offset + 1] as usize;
+        GetGlobal(constant) => {
+            //let constant = chunk.code[offset + 1] as usize;
             println!(
                 "GetGlobal\t{:04}\t'{}'",
-                constant, chunk.constants[constant]
+                constant, chunk.constants[*constant]
             );
-            offset + 2
+            offset + 1
         }
-        SetGlobal => {
-            let constant = chunk.code[offset + 1] as usize;
+        SetGlobal(constant) => {
+            //let constant = chunk.code[offset + 1] as usize;
             println!(
                 "SetGlobal\t{:04}\t'{}'",
-                constant, chunk.constants[constant]
+                constant, chunk.constants[*constant]
             );
-            offset + 2
+            offset + 1
         }
-        GetLocal => {
-            let slot = chunk.code[offset + 1];
+        GetLocal(slot) => {
+            //let slot = chunk.code[offset + 1];
             println!("GetLocal\t{:04}", slot);
-            offset + 2
+            offset + 1
         }
-        SetLocal => {
-            let slot = chunk.code[offset + 1];
+        SetLocal(slot) => {
+            //let slot = chunk.code[offset + 1];
             println!("SetLocal\t{:04}", slot);
-            offset + 2
+            offset + 1
         }
-        JumpIfFalse => {
-            let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
-            println!("JumpIfFalse\t{:04} -> {:04}", offset, offset + 3 + jump);
-            offset + 3
+        JumpIfFalse(jump) => {
+            //let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
+            println!("JumpIfFalse\t{:04} -> {:04}", offset, offset + jump);
+            offset + 1
         }
-        Jump => {
-            let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
-            println!("Jump\t{:04} -> {:04}", offset, offset + 3 + jump);
-            offset + 3
+        Jump(jump) => {
+            //let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
+            println!("Jump\t\t{:04} -> {:04}", offset, offset + jump);
+            offset + 1
         }
-        Loop => {
-            let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
-            println!("Jump\t{:04} -> {:04}", offset, offset + 3 - jump);
-            offset + 3
+        Loop(jump) => {
+            //let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
+            println!("Loop\t\t{:04} -> {:04}", offset, offset.wrapping_sub(*jump));
+            offset + 1
         }
     }
 }
