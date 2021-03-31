@@ -1,7 +1,7 @@
 use crate::Result;
 
-pub struct Lexer<'a> {
-    source: &'a [u8],
+pub struct Lexer<'source_code> {
+    source: &'source_code [u8],
     start: usize,
     current: usize,
     line: usize,
@@ -55,31 +55,31 @@ pub enum TokenType {
     Null,
 }
 
-pub struct Token {
+pub struct Token<'source_code> {
     pub kind: TokenType,
-    pub string: String,
+    pub string: &'source_code str,
     pub line: usize,
 }
 
-impl Token {
+impl<'source_code> Token<'source_code> {
     pub fn eof() -> Self {
         Self {
             kind: TokenType::Eof,
-            string: "".into(),
+            string: "",
             line: 0,
         }
     }
     pub fn null() -> Self {
         Self {
             kind: TokenType::Null,
-            string: "".into(),
+            string: "",
             line: 0,
         }
     }
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(source: &'a str) -> Self {
+impl<'source_code> Lexer<'source_code> {
+    pub fn new(source: &'source_code str) -> Self {
         Lexer {
             source: source.as_bytes(),
             start: 0,
@@ -88,7 +88,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn lex_token(&mut self) -> Result<Token> {
+    pub fn lex_token(&'_ mut self) -> Result<Token<'source_code>> {
         if self.is_at_end() {
             return Ok(Token::eof());
         };
@@ -276,12 +276,11 @@ impl<'a> Lexer<'a> {
         self.source[self.current - 1].into()
     }
 
-    fn make_token(&self, kind: TokenType) -> Token {
+    fn make_token(&'_ self, kind: TokenType) -> Token<'source_code> {
         Token {
             kind,
             string: std::str::from_utf8(&self.source[self.start..self.current])
-                .expect("Invalid byte slice")
-                .to_string(),
+                .expect("Invalid byte slice encontered while creating token"),
             line: self.line,
         }
     }

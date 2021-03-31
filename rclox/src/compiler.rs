@@ -121,8 +121,8 @@ pub struct CompilerDriver<'source> {
 
 struct Parser<'source> {
     lexer: &'source mut Lexer<'source>,
-    current: Token,
-    previous: Token,
+    current: Token<'source>,
+    previous: Token<'source>,
     chunk: &'source mut Chunk,
     compiler: &'source mut Compiler,
 }
@@ -563,7 +563,7 @@ impl<'source> Parser<'source> {
         if self.compiler.scope_depth == 0 {
             return Ok(());
         }
-        let name = self.previous.string.clone();
+        let name = self.previous.string;
         for local in self.compiler.locals.iter().rev() {
             if local.depth.is_some() && local.depth.unwrap() < self.compiler.scope_depth {
                 // local.depth != -1 is always true, unsigned type
@@ -579,7 +579,7 @@ impl<'source> Parser<'source> {
                 ));
             }
         }
-        self.add_local(name.as_str())
+        self.add_local(name)
     }
 
     fn add_local(&mut self, name: &str) -> Result<()> {
