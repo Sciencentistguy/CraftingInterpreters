@@ -182,35 +182,25 @@ impl<'a> Lexer<'a> {
             'a' => self.check_keyword(1, 2, "nd", And),
             'c' => self.check_keyword(1, 4, "lass", Class),
             'e' => self.check_keyword(1, 3, "lse", Else),
-            'f' => {
-                if self.current - self.start > 1 {
-                    match char::from(self.source[self.start + 1]) {
-                        'a' => self.check_keyword(2, 3, "lse", False),
-                        'o' => self.check_keyword(2, 1, "r", For),
-                        'u' => self.check_keyword(2, 1, "n", Fun),
-                        _ => Identifier,
-                    }
-                } else {
-                    Identifier
-                }
-            }
+            'f' if self.current - self.start > 1 => match char::from(self.source[self.start + 1]) {
+                'a' => self.check_keyword(2, 3, "lse", False),
+                'o' => self.check_keyword(2, 1, "r", For),
+                'u' => self.check_keyword(2, 1, "n", Fun),
+                _ => Identifier,
+            },
+            'f' => Identifier,
             'i' => self.check_keyword(1, 1, "f", If),
             'n' => self.check_keyword(1, 2, "il", Nil),
             'o' => self.check_keyword(1, 1, "r", Or),
             'p' => self.check_keyword(1, 4, "rint", Print),
             'r' => self.check_keyword(1, 5, "eturn", Return),
             's' => self.check_keyword(1, 4, "uper", Super),
-            't' => {
-                if self.current - self.start > 1 {
-                    match char::from(self.source[self.start + 1]) {
-                        'h' => self.check_keyword(2, 2, "is", This),
-                        'r' => self.check_keyword(2, 2, "ue", True),
-                        _ => Identifier,
-                    }
-                } else {
-                    Identifier
-                }
-            }
+            't' if self.current - self.start > 1 => match char::from(self.source[self.start + 1]) {
+                'h' => self.check_keyword(2, 2, "is", This),
+                'r' => self.check_keyword(2, 2, "ue", True),
+                _ => Identifier,
+            },
+            't' => Identifier,
             'v' => self.check_keyword(1, 2, "ar", Var),
             'w' => self.check_keyword(1, 4, "hile", While),
             _ => Identifier,

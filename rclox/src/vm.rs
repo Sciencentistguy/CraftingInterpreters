@@ -55,7 +55,7 @@ impl VM {
     #[inline]
     fn peek(&self, index: usize) -> &Value {
         if index == 0 {
-            return self.stack.last().unwrap();
+            return self.stack.last().expect("Attempted to peek an empty stack");
         }
         let idx = self.stack.len() - index;
         println!(
@@ -81,8 +81,10 @@ impl VM {
 
             //let instruction = self.read_instruction();
 
-            self.program_counter += 1;
-            let instruction = &self.chunk.code[self.program_counter - 1];
+            let instruction = &self.chunk.code[self.program_counter];
+            // This has to be wrapping because loop instructions can wrap to usize::MAX. See the
+            // comment on OpCode::Loop.
+            self.program_counter = self.program_counter.wrapping_add(1);
 
             match instruction {
                 OpCode::Return => {
@@ -254,9 +256,12 @@ impl VM {
                     self.program_counter += offset;
                 }
                 OpCode::Loop(offset) => {
-                    //let offset = (self.read_byte() as usize) << 8 | self.read_byte() as usize;
-                    assert!(offset < &self.program_counter, "Invalid loop");
-                    self.program_counter -= offset;
+                    // We have to allow wrapping here because to jump to index 0 the program
+                    // counter has to be -1. As it is a usize, -1 is represented with usize::MAX.
+                    // In the C version this is a pointer to an instruction, and is just allowed to
+                    // point to an invalid location in the interim before it is incremented before
+                    // the next iteration of run();
+                    self.program_counter = self.program_counter.wrapping_sub(*offset);
                 }
             }
         }

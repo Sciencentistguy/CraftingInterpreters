@@ -7,9 +7,8 @@ pub fn disassemble_chunk(chunk: &Chunk, module_name: &str) {
     println!("== {} ==", module_name);
     println!("Index\tLine\tOpcode\t");
     println!("---");
-    let mut offset = 0;
-    while offset < chunk.code.len() {
-        offset = disassemble_instruction(&chunk, offset, true);
+    for offset in 0..chunk.code.len() {
+        disassemble_instruction(chunk, offset, true);
     }
     println!("---");
 }
@@ -144,7 +143,7 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
         }
         Loop(jump) => {
             //let jump = ((chunk.code[offset + 1] as usize) << 8) | chunk.code[offset + 2] as usize;
-            println!("Loop\t\t{:04} -> {:04}", offset, offset.wrapping_sub(*jump));
+            println!("Loop\t\t{:04} -> {:04}", offset, offset.wrapping_sub(*jump ).wrapping_add(1));
             offset + 1
         }
     }

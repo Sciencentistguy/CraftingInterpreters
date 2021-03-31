@@ -9,16 +9,17 @@ use crate::value::Value;
 use crate::Result;
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
+#[rustfmt::skip]
 enum Precedence {
     Assignment = 0, // =
-    Or = 1,         // OR
-    And = 2,        // AND
-    Equality = 3,   // == !=
+    Or = 1, // OR
+    And = 2, // AND
+    Equality = 3, // == !=
     Comparison = 4, // < > <= >=
-    Term = 5,       // + -
-    Factor = 6,     // * /
-    Unary = 7,      // ! -
-    Call = 8,       // . ()
+    Term = 5, // + -
+    Factor = 6, // * /
+    Unary = 7, // ! -
+    Call = 8, // . ()
     Primary = 9,
 
     None = -1,
@@ -333,13 +334,13 @@ impl<'source> Parser<'source> {
         self.statement()?;
         let else_jump = self.emit_jump(OpCode::Jump(0));
 
-        self.patch_jump(then_jump)?;
+        self.patch_jump(then_jump);
         self.emit_instruction(OpCode::Pop);
 
         if self.match_token(TokenType::Else)? {
             self.statement()?;
         }
-        self.patch_jump(else_jump)?;
+        self.patch_jump(else_jump);
 
         Ok(())
     }
@@ -356,9 +357,9 @@ impl<'source> Parser<'source> {
         self.emit_instruction(OpCode::Pop);
         self.statement()?;
 
-        self.emit_loop(loop_start)?;
+        self.emit_loop(loop_start);
 
-        self.patch_jump(exit_jump)?;
+        self.patch_jump(exit_jump);
         self.emit_instruction(OpCode::Pop);
         Ok(())
     }
@@ -401,16 +402,16 @@ impl<'source> Parser<'source> {
             self.emit_instruction(OpCode::Pop);
             self.consume(TokenType::RightParen, "Expected ')' after 'for' clauses.")?;
 
-            self.emit_loop(loop_start)?;
+            self.emit_loop(loop_start);
             loop_start = increment_start;
-            self.patch_jump(body_jump)?;
+            self.patch_jump(body_jump);
         }
 
         self.statement()?;
-        self.emit_loop(loop_start)?;
+        self.emit_loop(loop_start);
 
         if let Some(exit_jump) = exit_jump {
-            self.patch_jump(exit_jump)?;
+            self.patch_jump(exit_jump);
             self.emit_instruction(OpCode::Pop);
         }
 
@@ -419,47 +420,43 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
-    fn emit_loop(&mut self, loop_start: usize) -> Result<()> {
+    fn emit_loop(&mut self, loop_start: usize) {
         let offset = self.chunk.code.len() - loop_start + 1;
 
         self.emit_instruction(OpCode::Loop(offset));
-        //if offset > u16::MAX as usize {
-        //return Err(self.error_at_previous("Loop body too large."));
-        //}
-
-        //self.emit_instruction((offset >> 8) as u8 & 0xff);
-        //self.emit_instruction(offset as u8 & 0xff);
-
-        Ok(())
     }
 
     /// Returns the index of the instruction emmited
     fn emit_jump(&mut self, instruction: OpCode) -> usize {
         match instruction {
-            OpCode::JumpIfFalse(_) => {self.emit_instruction(OpCode::JumpIfFalse(usize::MAX)); self.chunk.code.len() - 1},
-            OpCode::Jump(_) => {self.emit_instruction(OpCode::Jump(usize::MAX)); self.chunk.code.len() - 1},
+            OpCode::JumpIfFalse(_) => {
+                self.emit_instruction(OpCode::JumpIfFalse(usize::MAX));
+                self.chunk.code.len() - 2 // -2 because we have to set pc to the instruction before the one we want executed next
+            }
+            OpCode::Jump(_) => {
+                self.emit_instruction(OpCode::Jump(usize::MAX));
+                self.chunk.code.len() - 2 // -2 because we have to set pc to the instruction before the one we want executed next
+            }
             _ => unreachable!("Invalid jump instruction"),
         }
     }
 
     /// Takes the index of the instruction to patch
-    fn patch_jump(&mut self, offset: usize) -> Result<()> {
+    fn patch_jump(&mut self, offset: usize) {
         let distance = self.chunk.code.len() - offset;
 
         match self.chunk.code[offset] {
-            OpCode::Jump(ref mut x) => {
-                assert!(*x == usize::MAX);
-                *x = distance - 1; // FIXME this *shouldn't* be needed, but ¯\_(ツ)_/¯
-            }
-            OpCode::JumpIfFalse(ref mut x) => {
-                assert!(*x == usize::MAX);
+            OpCode::Jump(ref mut x) | OpCode::JumpIfFalse(ref mut x) => {
+                assert_eq!(*x, usize::MAX);
                 *x = distance;
             }
             _ => {
-                unreachable!("Cannot patch a non-jump instruction '{:?}'", self.chunk.code[offset]);
+                unreachable!(
+                    "Cannot patch a non-jump instruction '{:?}'",
+                    self.chunk.code[offset]
+                );
             }
         }
-        Ok(())
     }
 
     fn block(&mut self) -> Result<()> {
@@ -640,7 +637,8 @@ impl<'source> Parser<'source> {
         let end_jump = self.emit_jump(OpCode::JumpIfFalse(0));
         self.emit_instruction(OpCode::Pop);
         self.parse_precedence(Precedence::And)?;
-        self.patch_jump(end_jump)
+        self.patch_jump(end_jump);
+        Ok(())
     }
 
     fn or(&mut self) -> Result<()> {
@@ -648,11 +646,13 @@ impl<'source> Parser<'source> {
 
         let end_jump = self.emit_jump(OpCode::Jump(0));
 
-        self.patch_jump(else_jump)?;
+        self.patch_jump(else_jump);
         self.emit_instruction(OpCode::Pop);
 
         self.parse_precedence(Precedence::Or)?;
-        self.patch_jump(end_jump)
+        self.patch_jump(end_jump);
+
+        Ok(())
     }
 }
 
