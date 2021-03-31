@@ -445,7 +445,7 @@ impl<'source> Parser<'source> {
     fn patch_jump(&mut self, offset: usize) {
         let distance = self.chunk.code.len() - offset;
 
-        match self.chunk.code[offset] {
+        match self.chunk[offset].instruction {
             OpCode::Jump(ref mut x) | OpCode::JumpIfFalse(ref mut x) => {
                 assert_eq!(*x, usize::MAX);
                 *x = distance;

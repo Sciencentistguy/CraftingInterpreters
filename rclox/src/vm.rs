@@ -37,7 +37,7 @@ impl VM {
     #[inline]
     fn read_instruction(&mut self) -> &OpCode {
         self.program_counter += 1;
-        &self.chunk.code[self.program_counter - 1]
+        &self.chunk[self.program_counter - 1].instruction
     }
 
     #[inline]
@@ -69,7 +69,7 @@ impl VM {
     fn runtime_error(&self, message: &str) -> Box<dyn std::error::Error> {
         format!(
             "<Runtime> [Line {}] Error: {}",
-            self.chunk.lines[self.program_counter], message
+            self.chunk[self.program_counter].line, message
         )
         .into()
     }
@@ -81,7 +81,7 @@ impl VM {
 
             //let instruction = self.read_instruction();
 
-            let instruction = &self.chunk.code[self.program_counter];
+            let instruction = &self.chunk[self.program_counter].instruction;
             // This has to be wrapping because loop instructions can wrap to usize::MAX. See the
             // comment on OpCode::Loop.
             self.program_counter = self.program_counter.wrapping_add(1);
