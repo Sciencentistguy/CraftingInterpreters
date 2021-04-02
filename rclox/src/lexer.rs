@@ -156,7 +156,7 @@ impl<'source_code> Lexer<'source_code> {
                 while self.peek().is_digit(10) {
                     self.advance();
                 }
-                if self.peek() == '.' && self.peek_next().is_digit(10) {
+                if self.peek() == '.' && self.peek_next().map(|x| x.is_digit(10)).unwrap_or(false) {
                     self.advance();
                     while self.peek().is_digit(10) {
                         self.advance();
@@ -235,7 +235,7 @@ impl<'source_code> Lexer<'source_code> {
                     self.advance();
                 }
                 '/' => {
-                    if self.peek_next() == '/' {
+                    if self.peek_next() == Some('/') {
                         while self.peek() != '\n' && !self.is_at_end() {
                             self.advance();
                         }
@@ -260,8 +260,8 @@ impl<'source_code> Lexer<'source_code> {
         true
     }
 
-    fn peek_next(&self) -> char {
-        self.source[self.current + 1].into()
+    fn peek_next(&self) -> Option<char> {
+        self.source.get(self.current + 1).map(|&x| x.into())
     }
 
     fn peek(&self) -> char {
