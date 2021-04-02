@@ -24,14 +24,13 @@ impl VM {
         }
     }
 
-    pub fn interpret(&mut self, source: &str) -> Result<()> {
+    pub fn interpret(&mut self, source: &str) -> Result<Vec<String>> {
         let mut chunk = Chunk::new();
         let mut compiler_driver = CompilerDriver::new(source);
         compiler_driver.compile(&mut chunk)?;
         self.chunk = chunk;
         self.program_counter = 0;
-        self.run()?;
-        Ok(())
+        self.run()
     }
 
     #[inline]
@@ -74,7 +73,9 @@ impl VM {
         .into()
     }
 
-    fn run(&mut self) -> Result<()> {
+    fn run(&mut self) -> Result<Vec<String>> {
+        println!("Executing program...");
+        let mut printed = Vec::new();
         loop {
             println!("Stack:\t{:?}", self.stack);
             crate::debug::disassemble_instruction(&self.chunk, self.program_counter, false);
@@ -89,7 +90,7 @@ impl VM {
             match instruction {
                 OpCode::Return => {
                     // Exit interpreter
-                    return Ok(());
+                    return Ok(printed);
                 }
                 OpCode::Constant(index) => {
                     let constant = {
@@ -181,7 +182,9 @@ impl VM {
                 }
                 OpCode::Print => {
                     let a = self.pop();
-                    println!("{}", a);
+                    let string = format!("{}", a);
+                    println!("{}", string);
+                    printed.push(string);
                 }
                 OpCode::Pop => {
                     self.pop();
