@@ -672,9 +672,17 @@ impl<'source> CompilerDriver<'source> {
         while !parser.match_token(TokenType::Eof)? {
             parser.declaration()?;
         }
+        let last_line_num = parser.chunk.code.last().map(|x| x.line);
         parser.emit_instruction(OpCode::Return); // endCompiler()
+        chunk.code.last_mut().map(|x| {
+            x.line = if let Some(x) = last_line_num {
+                x + 1
+            } else {
+                0
+            }
+        });
         crate::debug::disassemble_chunk(chunk, "code");
-        println!("Finished compilation");
+        println!("Finished compilation.");
         Ok(())
     }
 }
