@@ -132,7 +132,7 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to - must be number"));
+                        return Err(self.runtime_error("Operands to - must be two numbers"));
                     }
                     self.push(a - b);
                 }
@@ -140,7 +140,7 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to * must be number"));
+                        return Err(self.runtime_error("Operands to * must be two numbers"));
                     }
                     self.push(a * b);
                 }
@@ -148,7 +148,7 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to / must be number"));
+                        return Err(self.runtime_error("Operands to / must be two numbers"));
                     }
                     self.push(a / b);
                 }
@@ -168,7 +168,7 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to comparisons must be number"));
+                        return Err(self.runtime_error("Operands to > must be two numbers"));
                     }
                     self.push(Value::Bool(a > b))
                 }
@@ -176,7 +176,7 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to comparisons must be number"));
+                        return Err(self.runtime_error("Operands to < must be two numbers"));
                     }
                     self.push(Value::Bool(a < b))
                 }
