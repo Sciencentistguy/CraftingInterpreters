@@ -89,12 +89,12 @@ impl<'source_code> Lexer<'source_code> {
     }
 
     pub fn lex_token(&'_ mut self) -> Result<Token<'source_code>> {
+        self.skip_whitespace();
+        self.start = self.current;
+
         if self.is_at_end() {
             return Ok(Token::eof());
         };
-
-        self.skip_whitespace();
-        self.start = self.current;
 
         let c = self.advance();
         use TokenType::*;
