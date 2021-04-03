@@ -432,11 +432,11 @@ impl<'source> Parser<'source> {
         match instruction {
             OpCode::JumpIfFalse(_) => {
                 self.emit_instruction(OpCode::JumpIfFalse(usize::MAX));
-                self.chunk.code.len() - 2 // -2 because we have to set pc to the instruction before the one we want executed next
+                self.chunk.code.len() - 1
             }
             OpCode::Jump(_) => {
                 self.emit_instruction(OpCode::Jump(usize::MAX));
-                self.chunk.code.len() - 2 // -2 because we have to set pc to the instruction before the one we want executed next
+                self.chunk.code.len() - 1
             }
             _ => unreachable!("Invalid jump instruction"),
         }
@@ -444,7 +444,7 @@ impl<'source> Parser<'source> {
 
     /// Takes the index of the instruction to patch
     fn patch_jump(&mut self, offset: usize) {
-        let distance = self.chunk.code.len() - offset;
+        let distance = self.chunk.code.len() - offset - 1; // We have to subtract 1 here because we want to set the pc to the instruction before the one we want executed next
 
         match self.chunk[offset].instruction {
             OpCode::Jump(ref mut x) | OpCode::JumpIfFalse(ref mut x) => {
