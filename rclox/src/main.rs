@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![warn(missing_debug_implementations, missing_copy_implementations)]
 
 use std::io::Write;
 use std::path::Path;

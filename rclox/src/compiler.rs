@@ -85,6 +85,7 @@ struct ParseRule {
     precedence: Precedence,
 }
 
+#[derive(Debug)]
 struct Local {
     name: Rc<String>,
     depth: Option<usize>,
@@ -482,6 +483,7 @@ impl<'source> Parser<'source> {
         {
             self.emit_instruction(OpCode::Pop);
             self.compiler.local_count -= 1;
+            self.compiler.locals.pop();
         }
     }
 
