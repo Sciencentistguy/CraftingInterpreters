@@ -3,6 +3,8 @@ use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::compiler::CompilerDriver;
+use crate::lexer::Token;
+use crate::lexer::TokenType;
 use crate::opcode::OpCode;
 use crate::value::Value;
 use crate::Result;
@@ -31,6 +33,22 @@ impl VM {
         self.chunk = chunk;
         self.program_counter = 0;
         self.run()
+    }
+
+    /// Produce a vector of tokens from a source str.
+    pub fn lex<'a>(&mut self, source: &'a str) -> Result<Vec<Token<'a>>> {
+        let mut lexer = crate::lexer::Lexer::new(source);
+
+        let mut out = Vec::new();
+        loop {
+            let tok = lexer.lex_token()?;
+            out.push(tok);
+            if out.last().unwrap().kind == TokenType::Eof {
+                break;
+            }
+        }
+
+        Ok(out)
     }
 
     #[inline]

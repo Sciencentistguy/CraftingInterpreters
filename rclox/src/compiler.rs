@@ -676,13 +676,9 @@ impl<'source> CompilerDriver<'source> {
         }
         let last_line_num = parser.chunk.code.last().map(|x| x.line);
         parser.emit_instruction(OpCode::Return); // endCompiler()
-        chunk.code.last_mut().map(|x| {
-            x.line = if let Some(x) = last_line_num {
-                x + 1
-            } else {
-                0
-            }
-        });
+        if let Some(x) = last_line_num {
+            chunk.code.last_mut().unwrap().line = x + 1;
+        }
         crate::debug::disassemble_chunk(chunk, "code");
         println!("Finished compilation.");
         Ok(())

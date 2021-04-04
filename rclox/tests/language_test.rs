@@ -792,3 +792,89 @@ print a;"#;
     assert_eq!(printed, &["inner", "outer"]);
     Ok(())
 }
+
+#[test]
+fn test_bool_equality() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"print true == true;
+print true == false;
+print false == true;
+print false == false;
+
+// Not equal to other types.
+print true == 1;
+print false == 0;
+print true == "true";
+print false == "false";
+print false == "";
+
+print true != true;
+print true != false;
+print false != true;
+print false != false;
+
+// Not equal to other types.
+print true != 1;
+print false != 0;
+print true != "true"; 
+print false != "false";
+print false != "";
+"#;
+    let printed = vm.interpret(PROGRAM)?;
+
+    let expected = &[
+        "true", "false", "false", "true", "false", "false", "false", "false", "false", "false",
+        "true", "true", "false", "true", "true", "true", "true", "true",
+    ];
+
+    assert_eq!(printed, expected);
+    Ok(())
+}
+
+#[test]
+fn test_bool_not() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"print !true;
+    print !false;
+    print !!true;"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["false", "true", "true"]);
+    Ok(())
+}
+
+#[test]
+fn test_expression_evaluate() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = "print (5 - (3 - 1)) + -1;";
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["2"]);
+    Ok(())
+}
+
+#[test]
+fn test_expression_lexer() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = "(5 - (3 - 1)) + -1";
+    let tokens = vm.lex(PROGRAM)?;
+    use rclox::lexer::Token;
+    use rclox::lexer::TokenType::*;
+    #[rustfmt::skip]
+    let expected = &[
+        Token {kind: LeftParen, string: "(", line: 0},
+        Token {kind: Number, string: "5", line: 0},
+        Token {kind: Minus, string: "-", line: 0},
+        Token {kind: LeftParen, string: "(", line: 0},
+        Token {kind: Number, string: "3", line: 0},
+        Token {kind: Minus, string: "-", line: 0},
+        Token {kind: Number, string: "1", line: 0},
+        Token {kind: RightParen, string: ")", line: 0},
+        Token {kind: RightParen, string: ")", line: 0},
+        Token {kind: Plus, string: "+", line: 0},
+        Token {kind: Minus, string: "-", line: 0},
+        Token {kind: Number, string: "1", line: 0},
+        Token {kind: Eof, string: "", line: 0},
+    ];
+    println!("{:#?}", tokens);
+    assert_eq!(tokens, expected);
+    Ok(())
+}

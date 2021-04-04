@@ -55,6 +55,7 @@ pub enum TokenType {
     Null,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Token<'source_code> {
     pub kind: TokenType,
     pub string: &'source_code str,
