@@ -355,6 +355,8 @@ fn test_operator_negate() -> Result<()> {
     Ok(())
 }
 
+//Variables
+
 #[test]
 fn test_variable_block() -> Result<()> {
     let mut vm = VM::new();
@@ -586,5 +588,207 @@ fn test_variable_local_in_initialiser() -> Result<()> {
         "<Compiler> [Line 2] Error at 'a': Cannot read local variable in its own initialiser.",
         "Attempting to read a local variable in its own initialiser is ill-formed and should fail."
     );
+    Ok(())
+}
+
+// Nil
+
+#[test]
+fn test_nil_literal() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"print nil;"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["nil"]);
+    Ok(())
+}
+
+// Comments
+
+#[test]
+fn test_comment_last_line() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"print "ok";
+    //comment"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["ok"]);
+    Ok(())
+}
+
+#[test]
+fn test_comment_only_line() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = "//comment\n";
+    let printed = vm.interpret(PROGRAM)?;
+    assert!(printed.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_comment_only() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = "//comment";
+    let printed = vm.interpret(PROGRAM)?;
+    assert!(printed.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_comment_unicode() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"// Unicode characters are allowed in comments.
+//
+// Latin 1 Supplement: £§¶ÜÞ
+// Latin Extended-A: ĐĦŋœ
+// Latin Extended-B: ƂƢƩǁ
+// Other stuff: ឃᢆ᯽₪ℜ↩⊗┺░
+// Emoji: ☃☺♣
+
+print "ok";"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["ok"]);
+    Ok(())
+}
+
+#[test]
+fn test_assignment_associativity() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"var a = "a";
+var b = "b";
+var c = "c";
+
+// Assignment is right-associative.
+a = b = c;
+print a;
+print b;
+print c;"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["c", "c", "c"]);
+    Ok(())
+}
+
+#[test]
+fn test_assignment_global() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"var a = "before";
+print a;
+
+a = "after";
+print a;
+
+print a = "arg";
+print a;"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["before", "after", "arg", "arg"]);
+    Ok(())
+}
+
+#[test]
+fn test_assignment_syntax() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"var a = "before";
+var c = a = "var";
+print a;
+print c;"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["var", "var"]);
+    Ok(())
+}
+
+#[test]
+fn test_assignment_local() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"{
+  var a = "before";
+  print a; // expect: before
+
+  a = "after";
+  print a; // expect: after
+
+  print a = "arg"; // expect: arg
+  print a; // expect: arg
+}"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["before", "after", "arg", "arg"]);
+    Ok(())
+}
+
+#[test]
+fn test_assignment_grouping() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"var a = "a";
+    (a) = "value";"#;
+    check_error_msg!(
+        vm.interpret(PROGRAM),
+        "<Compiler> [Line 1] Error at '=': Invalid assignment target",
+        "Assignemnt targets must be raw variable names, not groups."
+    );
+    Ok(())
+}
+
+#[test]
+fn test_assignment_infix_operator() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"var a = "a";
+    var b = "b";
+    a + b = "value";"#;
+    check_error_msg!(
+        vm.interpret(PROGRAM),
+        "<Compiler> [Line 2] Error at '=': Invalid assignment target",
+        "Assignemnt targets must be raw variable names, not expressions."
+    );
+    Ok(())
+}
+
+#[test]
+fn test_assignment_prefix_operator() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"var a = "a";
+    !a = "value";"#;
+    check_error_msg!(
+        vm.interpret(PROGRAM),
+        "<Compiler> [Line 1] Error at '=': Invalid assignment target",
+        "Assignemnt targets must be raw variable names, not expressions."
+    );
+    Ok(())
+}
+
+#[test]
+fn test_assignment_undefined_name() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"not_defined = "hello";"#;
+    check_error_msg!(
+        vm.interpret(PROGRAM),
+        "<Runtime> [Line 0] Error: Undefined variable not_defined",
+        "Assignemnt targets must be raw variable names, not expressions."
+    );
+    Ok(())
+}
+
+#[test]
+fn test_block_empty() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"{} // By itself.
+
+// In a statement.
+if (true) {}
+if (false) {} else {}
+
+print "ok";"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["ok"]);
+    Ok(())
+}
+
+#[test]
+fn test_block_scope() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = r#"var a = "outer";
+{
+  var a = "inner";
+  print a; //
+}
+print a;"#;
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["inner", "outer"]);
     Ok(())
 }
