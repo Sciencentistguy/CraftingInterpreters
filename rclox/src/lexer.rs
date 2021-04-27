@@ -169,57 +169,35 @@ impl<'source_code> Lexer<'source_code> {
                 while self.peek().is_alphanumeric() || self.peek() == '_' {
                     self.advance();
                 }
-                Ok(self.make_token(self.identifier_type()))
+                let mut tok = self.make_token(Identifier);
+                tok.kind = match tok.string {
+                    "and" => And,
+                    "class" => Class,
+                    "else" => Else,
+                    "false" => False,
+                    "for" => For,
+                    "fun" => Fun,
+                    "if" => If,
+                    "nil" => Nil,
+                    "or" => Or,
+                    "print" => Print,
+                    "return" => Return,
+                    "super" => Super,
+                    "this" => This,
+                    "true" => True,
+                    "var" => Var,
+                    "while" => While,
+
+                    _ => Identifier,
+                };
+                Ok(tok)
             }
 
             _ => return Err(format!("Unexpected Character '{}'", c).into()),
         }
     }
 
-    fn identifier_type(&self) -> TokenType {
-        use TokenType::*;
-        let c: char = self.source[self.start].into();
-        match c {
-            'a' => self.check_keyword(1, 2, "nd", And),
-            'c' => self.check_keyword(1, 4, "lass", Class),
-            'e' => self.check_keyword(1, 3, "lse", Else),
-            'f' if self.current - self.start > 1 => match char::from(self.source[self.start + 1]) {
-                'a' => self.check_keyword(2, 3, "lse", False),
-                'o' => self.check_keyword(2, 1, "r", For),
-                'u' => self.check_keyword(2, 1, "n", Fun),
-                _ => Identifier,
-            },
-            'f' => Identifier,
-            'i' => self.check_keyword(1, 1, "f", If),
-            'n' => self.check_keyword(1, 2, "il", Nil),
-            'o' => self.check_keyword(1, 1, "r", Or),
-            'p' => self.check_keyword(1, 4, "rint", Print),
-            'r' => self.check_keyword(1, 5, "eturn", Return),
-            's' => self.check_keyword(1, 4, "uper", Super),
-            't' if self.current - self.start > 1 => match char::from(self.source[self.start + 1]) {
-                'h' => self.check_keyword(2, 2, "is", This),
-                'r' => self.check_keyword(2, 2, "ue", True),
-                _ => Identifier,
-            },
-            't' => Identifier,
-            'v' => self.check_keyword(1, 2, "ar", Var),
-            'w' => self.check_keyword(1, 4, "hile", While),
-            _ => Identifier,
-        }
-    }
-
-    fn check_keyword(&self, start: usize, length: usize, rest: &str, kind: TokenType) -> TokenType {
-        if self.current - self.start == start + length
-            && (std::str::from_utf8(&self.source[self.start + start..self.start + start + length])
-                .unwrap()
-                == rest)
-        {
-            kind
-        } else {
-            TokenType::Identifier
-        }
-    }
-
+    #[inline]
     fn is_at_end(&self) -> bool {
         self.current == self.source.len()
     }
