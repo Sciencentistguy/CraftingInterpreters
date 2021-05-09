@@ -6,7 +6,8 @@ use crate::lexer::Token;
 use crate::lexer::TokenType;
 use crate::opcode::OpCode;
 use crate::value::Value;
-use crate::Result;
+
+use eyre::Result;
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
 #[rustfmt::skip]
@@ -121,7 +122,7 @@ pub struct CompilerDriver<'source> {
 }
 
 struct Parser<'source> {
-    lexer: &'source mut Lexer<'source>,
+    lexer: Lexer<'source>,
     current: Token<'source>,
     previous: Token<'source>,
     chunk: &'source mut Chunk,
@@ -130,7 +131,7 @@ struct Parser<'source> {
 
 impl<'source> Parser<'source> {
     fn new(
-        lexer: &'source mut Lexer<'source>,
+        lexer: Lexer<'source>,
         chunk: &'source mut Chunk,
         compiler: &'source mut Compiler,
     ) -> Self {
@@ -145,19 +146,16 @@ impl<'source> Parser<'source> {
 
     fn advance(&mut self) -> Result<()> {
         std::mem::swap(&mut self.previous, &mut self.current);
-        self.current = match self.lexer.lex_token() {
-            Ok(x) => x,
-            Err(e) => return Err(format!("<Lexer> Error {}", e).into()),
-        };
+        self.current = self.lexer.lex_token()?;
         Ok(())
     }
 
-    fn consume(&mut self, kind: TokenType, message: &str) -> Result<()> {
+    fn consume(&mut self, kind: TokenType, error_message: &'static str) -> Result<()> {
         if self.current.kind == kind {
             self.advance()?;
             Ok(())
         } else {
-            Err(self.error_at_current(message))
+            Err(self.error_at_current(error_message))
         }
     }
 
@@ -171,17 +169,16 @@ impl<'source> Parser<'source> {
         self.parse_precedence(Precedence::Assignment)
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn number(&mut self) -> Result<()> {
-        let value = self.previous.string.parse()?;
-        self.emit_constant(Value::Number(value))?;
+        let value = self.previous.string.parse().expect("Invalid number token");
+        self.emit_constant(Value::Number(value));
         Ok(())
     }
 
-    fn emit_constant(&mut self, value: Value) -> Result<()> {
+    fn emit_constant(&mut self, value: Value) {
         let c = self.make_constant(value);
-        //self.emit_instruction(c as u8);
         self.emit_instruction(OpCode::Constant(c));
-        Ok(())
     }
 
     #[inline]
@@ -238,6 +235,7 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn literal(&mut self) -> Result<()> {
         match self.previous.kind {
             TokenType::False => self.emit_instruction(OpCode::False),
@@ -248,10 +246,12 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn string(&mut self) -> Result<()> {
         self.emit_constant(Value::String(Rc::new(
             self.previous.string.trim_matches('"').to_string(),
-        )))
+        )));
+        Ok(())
     }
 
     fn dispatch_parse_fn(&mut self, parse_fn: ParseFn, can_assign: bool) -> Result<()> {
@@ -290,11 +290,11 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
-    fn error_at_current(&self, message: &str) -> Box<dyn std::error::Error> {
+    fn error_at_current(&self, message: &str) -> eyre::Report {
         error_at(&self.current, message)
     }
 
-    fn error_at_previous(&self, message: &str) -> Box<dyn std::error::Error> {
+    fn error_at_previous(&self, message: &str) -> eyre::Report {
         error_at(&self.previous, message)
     }
 
@@ -516,8 +516,8 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
-    fn parse_variable(&mut self, message: &str) -> Result<usize> {
-        self.consume(TokenType::Identifier, message)?;
+    fn parse_variable(&mut self, error_message: &'static str) -> Result<usize> {
+        self.consume(TokenType::Identifier, error_message)?;
         self.declare_variable()?;
         if self.compiler.scope_depth > 0 {
             return Ok(0);
@@ -567,9 +567,10 @@ impl<'source> Parser<'source> {
         }
         let name = self.previous.string;
         for local in self.compiler.locals.iter().rev() {
-            if local.depth.is_some() && local.depth.unwrap() < self.compiler.scope_depth {
-                // local.depth != -1 is always true, unsigned type
-                break;
+            if let Some(depth) = local.depth {
+                if depth < self.compiler.scope_depth {
+                    break;
+                }
             }
             if *local.name == name {
                 return Err(self.error_at_previous(
@@ -581,17 +582,17 @@ impl<'source> Parser<'source> {
                 ));
             }
         }
-        self.add_local(name)
+        self.add_local(name);
+        Ok(())
     }
 
-    fn add_local(&mut self, name: &str) -> Result<()> {
+    fn add_local(&mut self, name: &str) {
         let _depth = self.compiler.scope_depth;
         self.compiler.locals.push(Local {
             name: Rc::new(name.to_string()),
             depth: None,
         });
         self.compiler.local_count += 1;
-        Ok(())
     }
 
     fn variable(&mut self, can_assign: bool) -> Result<()> {
@@ -668,8 +669,8 @@ impl<'source> CompilerDriver<'source> {
 
     pub fn compile(&mut self, chunk: &mut Chunk) -> Result<()> {
         println!("Starting compilation");
-        let mut lexer = Lexer::new(self.source);
-        let mut parser = Parser::new(&mut lexer, chunk, &mut self.compiler);
+        let lexer = Lexer::new(self.source);
+        let mut parser = Parser::new(lexer, chunk, &mut self.compiler);
         parser.advance()?;
         while !parser.match_token(TokenType::Eof)? {
             parser.declaration()?;
@@ -886,13 +887,11 @@ fn get_rule(kind: TokenType) -> ParseRule {
     }
 }
 
-fn error_at(token: &Token, message: &str) -> Box<dyn std::error::Error> {
-    let mut out = format!("<Compiler> [Line {}] Error ", token.line);
-    if token.kind == TokenType::Eof {
-        out.push_str("at end: ");
-    } else {
-        out.push_str(format!("at '{}': ", token.string).as_str());
+fn error_at(token: &Token, message: &str) -> eyre::Report {
+    crate::error::RcloxError::Compiler {
+        string: token.string.to_owned(),
+        line: token.line,
+        message: message.to_owned(),
     }
-    out.push_str(message);
-    out.into()
+    .into()
 }

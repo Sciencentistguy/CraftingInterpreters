@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::chunk::Chunk;
 use crate::compiler::CompilerDriver;
 use crate::lexer::Token;
 use crate::lexer::TokenType;
 use crate::opcode::OpCode;
 use crate::value::Value;
-use crate::Result;
+use crate::{chunk::Chunk, error::RcloxError};
+
+use eyre::Result;
 
 pub struct VM {
     chunk: Chunk,
@@ -52,12 +53,6 @@ impl VM {
     }
 
     #[inline]
-    fn read_instruction(&mut self) -> &OpCode {
-        self.program_counter += 1;
-        &self.chunk[self.program_counter - 1].instruction
-    }
-
-    #[inline]
     fn push(&mut self, value: Value) {
         self.stack.push(value);
     }
@@ -83,11 +78,11 @@ impl VM {
         &self.stack[idx]
     }
 
-    fn runtime_error(&self, message: &str) -> Box<dyn std::error::Error> {
-        format!(
-            "<Runtime> [Line {}] Error: {}",
-            self.chunk[self.program_counter].line, message
-        )
+    fn runtime_error(&self, error_message: &str) -> eyre::Report {
+        RcloxError::Runtime {
+            message: error_message.to_string(),
+            line: self.chunk[self.program_counter].line,
+        }
         .into()
     }
 
@@ -97,8 +92,6 @@ impl VM {
         loop {
             println!("Stack:\t{:?}", self.stack);
             crate::debug::disassemble_instruction(&self.chunk, self.program_counter, false);
-
-            //let instruction = self.read_instruction();
 
             let instruction = &self.chunk[self.program_counter].instruction;
             // This has to be wrapping because loop instructions can wrap to usize::MAX. See the
@@ -273,7 +266,6 @@ impl VM {
                     }
                 }
                 OpCode::Jump(offset) => {
-                    //let offset = (self.read_byte() as usize) << 8 | self.read_byte() as usize;
                     self.program_counter += offset;
                 }
                 OpCode::Loop(offset) => {
@@ -286,5 +278,11 @@ impl VM {
                 }
             }
         }
+    }
+}
+
+impl Default for VM {
+    fn default() -> Self {
+        Self::new()
     }
 }

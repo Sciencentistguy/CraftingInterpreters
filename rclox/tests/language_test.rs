@@ -1,5 +1,6 @@
 use rclox::vm::VM;
-use rclox::Result;
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 /// Assert that the compiler not only errors, but produces the correct error.
 #[macro_export]

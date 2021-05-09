@@ -1,4 +1,6 @@
-use crate::Result;
+use crate::error::RcloxError;
+
+use eyre::Result;
 
 pub struct Lexer<'source_code> {
     source: &'source_code [u8],
@@ -148,7 +150,7 @@ impl<'source_code> Lexer<'source_code> {
                     self.advance();
                 }
                 if self.is_at_end() {
-                    return Err("Unterminated string.".into());
+                    return Err(RcloxError::Lexer("Unterminated string.".to_string()).into());
                 }
                 self.advance();
                 Ok(self.make_token(String))
@@ -193,7 +195,7 @@ impl<'source_code> Lexer<'source_code> {
                 Ok(tok)
             }
 
-            _ => return Err(format!("Unexpected Character '{}'", c).into()),
+            _ => return Err(RcloxError::Lexer(format!("Unexpected Character '{}'", c)).into()),
         }
     }
 

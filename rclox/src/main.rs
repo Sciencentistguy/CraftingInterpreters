@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 #![warn(missing_debug_implementations, missing_copy_implementations)]
 
 use std::io::Write;
@@ -7,6 +6,7 @@ use std::path::Path;
 mod chunk;
 mod compiler;
 mod debug;
+mod error;
 mod lexer;
 mod opcode;
 mod value;
@@ -16,7 +16,8 @@ use vm::VM;
 
 use text_io::read;
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+use eyre::eyre;
+use eyre::Result;
 
 fn main() -> Result<()> {
     if std::env::args().len() == 1 {
@@ -24,10 +25,10 @@ fn main() -> Result<()> {
     } else if std::env::args().len() == 2 {
         let file = std::env::args()
             .nth(1)
-            .ok_or_else(|| "Usage: rclox [file]".to_string())?;
+            .ok_or_else(|| eyre!("Usage: rclox [file]"))?;
         run_file(file)
     } else {
-        Err("Usage: rclox [file]".into())
+        Err(eyre!("Usage: rclox [file]"))
     }
 }
 
@@ -42,12 +43,9 @@ fn repl() -> Result<()> {
             return Ok(());
         }
 
-        match vm.interpret(line.as_str()) {
-            Ok(_) => {}
-            Err(e) => {
-                println!("{}", e)
-            }
-        };
+        if let Err(e) = vm.interpret(line.as_str()) {
+            println!("{}", e)
+        }
     }
 }
 

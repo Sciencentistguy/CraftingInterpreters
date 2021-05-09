@@ -51,3 +51,9 @@ impl Chunk {
         self.code.get(index)
     }
 }
+
+impl Default for Chunk {
+    fn default() -> Self {
+        Self::new()
+    }
+}
