@@ -1,0 +1,48 @@
+name:                hslox
+version:             0.1.0.0
+github:              "Sciencentistguy/CraftingInterpreters"
+license:             GPL-3
+author:              "Jamie Quigley"
+maintainer:          "jamie@quigley.xyz"
+copyright:           "2021 Jamie Quigley"
+
+extra-source-files:
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/Sciencentistguy/CraftingInterpreters#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- optparse-applicative
+
+library:
+  source-dirs: src
+
+executables:
+  hslox-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hslox
+
+tests:
+  hslox-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - hslox

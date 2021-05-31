@@ -1,0 +1,61 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.4.
+--
+-- see: https://github.com/sol/hpack
+
+name:           hslox
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/Sciencentistguy/CraftingInterpreters#readme>
+homepage:       https://github.com/Sciencentistguy/CraftingInterpreters#readme
+bug-reports:    https://github.com/Sciencentistguy/CraftingInterpreters/issues
+author:         Jamie Quigley
+maintainer:     jamie@quigley.xyz
+copyright:      2021 Jamie Quigley
+license:        GPL-3
+build-type:     Simple
+extra-source-files:
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/Sciencentistguy/CraftingInterpreters
+
+library
+  exposed-modules:
+      Lexer
+  other-modules:
+      Paths_hslox
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , optparse-applicative
+  default-language: Haskell2010
+
+executable hslox-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_hslox
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , hslox
+    , optparse-applicative
+  default-language: Haskell2010
+
+test-suite hslox-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_hslox
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , hslox
+    , optparse-applicative
+  default-language: Haskell2010

@@ -82,3 +82,5 @@ dkms.conf
 
 target/
 test.lox
+.stack-work/
+*~
