@@ -1,12 +1,12 @@
 use rclox::vm::VM;
 
-#[path ="macros.rs"]
+#[path = "macros.rs"]
 mod macros;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[test]
-fn test_print_number_literal() -> Result<()> {
+fn number_literal() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = "print 5;";
     let printed = vm.interpret(PROGRAM)?;
@@ -15,7 +15,7 @@ fn test_print_number_literal() -> Result<()> {
 }
 
 #[test]
-fn test_print_string_literal() -> Result<()> {
+fn string_literal() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"print "Hello World";"#;
     let printed = vm.interpret(PROGRAM)?;
@@ -24,7 +24,28 @@ fn test_print_string_literal() -> Result<()> {
 }
 
 #[test]
-fn test_print_no_arg() -> Result<()> {
+fn nil() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = "print nil;";
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["nil"]);
+    Ok(())
+}
+
+#[test]
+fn bool() -> Result<()> {
+    let mut vm = VM::new();
+    const PROGRAM: &str = "
+    print true; 
+    print false;
+    ";
+    let printed = vm.interpret(PROGRAM)?;
+    assert_eq!(printed, &["true", "false"]);
+    Ok(())
+}
+
+#[test]
+fn no_arg() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"print ;"#;
     check_error_msg!(
@@ -34,4 +55,3 @@ fn test_print_no_arg() -> Result<()> {
     );
     Ok(())
 }
-
