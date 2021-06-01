@@ -48,57 +48,61 @@ data TokenKind
 
 data Token = Token
   { string :: Maybe String,
-    kind :: TokenKind
+    kind :: TokenKind,
+    line :: Int
   }
   deriving (Show)
 
 type ErrorT = String
 
-lexString :: String -> [Either ErrorT Token]
-lexString [] = []
-lexString (x : xs) = case x of
-  x | isWhitespace x -> lexString xs
-  '(' -> Right (Token Nothing LeftParenT) : lexString xs
-  ')' -> Right (Token Nothing RightParenT) : lexString xs
-  '{' -> Right (Token Nothing LeftBraceT) : lexString xs
-  '}' -> Right (Token Nothing RightBraceT) : lexString xs
-  ';' -> Right (Token Nothing SemicolonT) : lexString xs
-  ',' -> Right (Token Nothing CommaT) : lexString xs
-  '.' -> Right (Token Nothing DotT) : lexString xs
-  '-' -> Right (Token Nothing MinusT) : lexString xs
-  '+' -> Right (Token Nothing PlusT) : lexString xs
+lexString :: String -> Int -> [Either ErrorT Token]
+lexString [] _ = []
+lexString (x : xs) line = case x of
+  ' ' -> lexString xs line
+  '\r' -> lexString xs line
+  '\t' -> lexString xs line
+  '\n' -> lexString xs (line + 1)
+  '(' -> Right (Token Nothing LeftParenT line) : lexString xs line
+  ')' -> Right (Token Nothing RightParenT line) : lexString xs line
+  '{' -> Right (Token Nothing LeftBraceT line) : lexString xs line
+  '}' -> Right (Token Nothing RightBraceT line) : lexString xs line
+  ';' -> Right (Token Nothing SemicolonT line) : lexString xs line
+  ',' -> Right (Token Nothing CommaT line) : lexString xs line
+  '.' -> Right (Token Nothing DotT line) : lexString xs line
+  '-' -> Right (Token Nothing MinusT line) : lexString xs line
+  '+' -> Right (Token Nothing PlusT line) : lexString xs line
   '/' ->
     if nextChar =!= '/'
-      then lexString $ dropWhile (/= '\n') xs
-      else Right (Token Nothing SlashT) : lexString xs
-  '*' -> Right (Token Nothing StarT) : lexString xs
+      then lexString (dropWhile (/= '\n') xs) line
+      else Right (Token Nothing SlashT line) : lexString xs line
+  '*' -> Right (Token Nothing StarT line) : lexString xs line
   '!' ->
     if nextChar =!= '='
-      then Right (Token Nothing BangEqualT) : lexString (tail xs)
-      else Right (Token Nothing BangT) : lexString xs
+      then Right (Token Nothing BangEqualT line) : lexString (tail xs) line
+      else Right (Token Nothing BangT line) : lexString xs line
   '=' ->
     if nextChar =!= '='
-      then Right (Token Nothing EqualEqualT) : lexString (tail xs)
-      else Right (Token Nothing EqualT) : lexString xs
+      then Right (Token Nothing EqualEqualT line) : lexString (tail xs) line
+      else Right (Token Nothing EqualT line) : lexString xs line
   '<' ->
     if nextChar =!= '='
-      then Right (Token Nothing LessEqualT) : lexString (tail xs)
-      else Right (Token Nothing LessT) : lexString xs
+      then Right (Token Nothing LessEqualT line) : lexString (tail xs) line
+      else Right (Token Nothing LessT line) : lexString xs line
   '>' ->
     if nextChar =!= '='
-      then Right (Token Nothing GreaterEqualT) : lexString (tail xs)
-      else Right (Token Nothing GreaterT) : lexString xs
+      then Right (Token Nothing GreaterEqualT line) : lexString (tail xs) line
+      else Right (Token Nothing GreaterT line) : lexString xs line
   '"' ->
     let contents = takeWhile (/= '"') xs
      in if contents == xs
           then [Left "Unterminated string"]
-          else Right (Token (Just contents) StringT) : lexString (drop (length contents + 1) xs)
+          else Right (Token (Just contents) StringT line) : lexString (drop (length contents + 1) xs) line
   x
     | isDigit x ->
       let contents = x : takeWhile (\x -> isDigit x || (x == '.')) xs
        in if last' contents =!= '.'
             then [Left "Number must not end in '.'"]
-            else Right (Token (Just contents) NumberT) : lexString (drop (length contents - 1) xs)
+            else Right (Token (Just contents) NumberT line) : lexString (drop (length contents - 1) xs) line
   x
     | isValidIdenChar x ->
       let contents = x : takeWhile isValidIdenChar xs
@@ -123,7 +127,7 @@ lexString (x : xs) = case x of
           xx = case keywordT of
             IdentifierT -> Just contents
             _ -> Nothing
-       in Right (Token xx keywordT) : lexString (drop (length contents -1) xs)
+       in Right (Token xx keywordT line) : lexString (drop (length contents -1) xs) line
   _ -> [Left $ "Unexpected character: '" ++ x : "'"]
   where
     nextChar = case xs of
@@ -136,11 +140,6 @@ lexString (x : xs) = case x of
     last' [] = Nothing
     last' xs = Just $ last xs
     isValidIdenChar x = isAlphaNum x || (x == '_')
-    isWhitespace ' ' = True
-    isWhitespace '\r' = True
-    isWhitespace '\t' = True
-    isWhitespace '\n' = True
-    isWhitespace _ = False
 
 collectedLex :: String -> Either ErrorT [Token]
-collectedLex s = sequenceA $ lexString s
+collectedLex s = sequenceA $ lexString s 0
