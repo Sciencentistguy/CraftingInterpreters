@@ -21,6 +21,9 @@ description:         Please see the README on GitHub at <https://github.com/Scie
 dependencies:
 - base >= 4.7 && < 5
 - optparse-applicative
+- megaparsec
+- text
+- parser-combinators
 
 library:
   source-dirs: src
