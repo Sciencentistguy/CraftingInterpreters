@@ -6,28 +6,31 @@ module Parser where
 
 import Control.Monad
 import Control.Monad.Combinators
-import Data.Functor.Identity
+import Data.Functor.Identity (Identity)
 import Data.List
 import Data.Maybe
-import Data.Text
-import Data.Void
+import Data.Text as T
+import Data.Void (Void)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Text.Megaparsec.Debug
 
-data Decl
-  = ClassDecl
+newtype LoxProgram = LoxProgram [Declaration]
+  deriving (Show)
+
+data Declaration
+  = ClassDeclaration
       { classDeclName :: Identifier,
-        classDeclParams :: [Identifier],
+        classDeclSuper :: Maybe Identifier,
         classDeclBody :: [Function]
       }
-  | FunctionDecl Function
-  | VariableDecl
+  | FunctionDeclaration Function
+  | VariableDeclaration
       { variableDeclName :: Identifier,
         variableDeclInitialiser :: Maybe Expression
       }
-  | StatementDecl Stmt
+  | StatementDeclaration Statement
   deriving (Eq, Show)
 
 newtype Identifier = Identifier Text
@@ -36,35 +39,36 @@ newtype Identifier = Identifier Text
 data Function = Function
   { functionName :: Identifier,
     functionParameters :: [Identifier],
-    functionBlock :: Block
+    functionBlock :: Statement
   }
   deriving (Eq, Show)
 
-data Stmt
-  = ExprStmt Expression
-  | ForStmt
+data Statement
+  = ExpressionStatement Expression
+  | ForStatement
       { forStmtInit :: Maybe LoopInitialiser,
         forStmtLoopCond :: Maybe Expression,
-        forStmtIncr :: Maybe Expression
+        forStmtIncr :: Maybe Expression,
+        forStmtContents :: Statement
       }
-  | IfStmt
+  | IfStatement
       { ifStmtCond :: Expression,
-        ifStmtContents :: Stmt,
-        ifStmtElse :: Maybe Stmt
+        ifStmtContents :: Statement,
+        ifStmtElse :: Maybe Statement
       }
-  | PrintStmt Expression
-  | ReturnStmt (Maybe Expression)
-  | WhileStmt
+  | PrintStatement Expression
+  | ReturnStatement (Maybe Expression)
+  | WhileStatement
       { whileStmtCond :: Expression,
-        whileStmtContents :: Stmt
+        whileStmtContents :: Statement
       }
-  | BlockStmt Block
+  | BlockStatement Block
   deriving (Eq, Show)
 
-data LoopInitialiser = LoopInitVarDecl Decl | LoopInitExpr Stmt
+data LoopInitialiser = LoopInitVarDeclaration Declaration | LoopInitExpr Statement
   deriving (Eq, Show)
 
-newtype Block = Block [Decl]
+newtype Block = Block [Declaration]
   deriving (Eq, Show)
 
 newtype Expression = Expression Assignment
@@ -133,21 +137,6 @@ data Primary
   | SuperDot Identifier
   deriving (Eq, Show)
 
-data Keyword
-  = KeywordAnd
-  | KeywordClass
-  | KeywordElse
-  | KeywordFor
-  | KeywordFun
-  | KeywordIf
-  | KeywordOr
-  | KeywordPrint
-  | KeywordReturn
-  | KeywordSuper
-  | KeywordVar
-  | KeywordWhile
-  deriving (Eq, Show)
-
 type Parser = Parsec Void Text
 
 consumeWhitespace :: Parser ()
@@ -156,7 +145,7 @@ consumeWhitespace = L.space space1 (L.skipLineComment "//") (L.skipBlockComment 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme consumeWhitespace
 
---symbol :: Parser a -> Parser a
+symbol :: Tokens Text -> Parser (Tokens Text)
 symbol = L.symbol consumeWhitespace
 
 pBoolLit :: Parser Primary
@@ -172,16 +161,16 @@ pNumberLit = lexeme do
   f <- try L.float <|> L.decimal
   return $ NumberLiteral f
 
-pIden :: Parser Identifier
-pIden = do
+identifier :: Parser Identifier
+identifier = do
   x <- letterChar <|> char '_'
   xs <- many (alphaNumChar <|> char '_')
   let wd = x : xs
-  Identifier . pack <$> check wd
+  Identifier . T.pack <$> check wd
   where
     check x =
       if x `elem` kwds
-        then fail $ "Keyword '" ++ show x ++ "' cannot be an identifier."
+        then fail $ "Keyword " ++ show x ++ " cannot be an identifier."
         else return x
     kwds =
       [ "and",
@@ -202,71 +191,65 @@ pIden = do
         "while"
       ]
 
-pKeyword :: Text -> Parser Text
-pKeyword keyword = lexeme $ string keyword <* notFollowedBy alphaNumChar
+keyword :: Text -> Parser Text
+keyword keyword = lexeme $ string keyword <* notFollowedBy alphaNumChar
 
 pStringLit :: Parser Primary
 pStringLit = lexeme do
   _ <- char '"'
   str <- manyTill L.charLiteral (char '"')
-  return $ StringLiteral $ pack str
+  return $ StringLiteral $ T.pack str
 
-pKeywordIden =
-  KeywordAnd <$ pKeyword "and"
-    <|> KeywordClass <$ pKeyword "class"
-    <|> KeywordElse <$ pKeyword "else"
-    <|> KeywordFor <$ pKeyword "false"
-    <|> KeywordFun <$ pKeyword "fun"
-    <|> KeywordIf <$ pKeyword "if"
-    <|> KeywordOr <$ pKeyword "or"
-    <|> KeywordPrint <$ pKeyword "print"
-
+pPrimary :: Parser Primary
 pPrimary =
   pBoolLit -- TrueLiteral, FalseLiteral
-    <|> NilLiteral <$ pKeyword "nil" -- NilLiteral
-    <|> ThisLiteral <$ pKeyword "this" -- ThisLiteral
+    <|> NilLiteral <$ keyword "nil" -- NilLiteral
+    <|> ThisLiteral <$ keyword "this" -- ThisLiteral
     <|> pNumberLit -- NumberLiteral
     <|> pStringLit -- StringLiteral
     <|> do
       -- SuperDot
       _ <- string "super"
       _ <- char '.'
-      SuperDot <$> pIden
+      SuperDot <$> identifier
     <|> do
       -- BracketedExpression
-      _ <- char '('
+      _ <- symbol "("
       e <- pExpression
-      _ <- char ')'
+      _ <- symbol ")"
       return $ BracketedExpression e
-    <|> IdenLiteral <$> pIden
+    <|> IdenLiteral <$> identifier
 
 pCall :: Parser Call
 pCall = do
   p <- pPrimary
   m <- optional do
     _ <- char '.'
-    pIden
+    identifier
   case m of
     Just iden -> return $ CallProp p iden
     Nothing -> do
-      openParen <- optional $ char '('
+      openParen <- optional $ symbol "("
       case openParen of
         Nothing -> return $ CallFun p Nothing
         Just _ -> do
           args <- pArguments
-          _ <- char ')'
+          _ <- symbol ")"
           return $ CallFun p if null' args then Nothing else Just args
   where
     null' (Arguments a) = Prelude.null a
 
 pArguments :: Parser Arguments
-pArguments = Arguments <$> sepBy pExpression (char ',')
+pArguments = Arguments <$> sepBy pExpression (symbol ",")
 
 pUnary :: Parser Unary
 pUnary = lexeme do
-  c <- optional $ char '!' <|> char '-'
+  c <-
+    optional $
+      symbol "!"
+        <|> symbol "-"
   case c of
-    Just c -> case c of
+    Just c -> case T.head c of
       '!' -> Unary NotOp <$> pUnary
       '-' -> Unary NegateOp <$> pUnary
       _ -> error "unreachable"
@@ -276,7 +259,9 @@ pFactor :: Parser Factor
 pFactor = do
   f <- pUnary
   x <- many do
-    c <- (DivideOp <$ char '/') <|> (MultiplyOp <$ char '*')
+    c <-
+      DivideOp <$ symbol "/"
+        <|> MultiplyOp <$ symbol "*"
     f <- pUnary
     return (c, f)
   return $ Factor f x
@@ -285,7 +270,9 @@ pTerm :: Parser Term
 pTerm = do
   f <- pFactor
   x <- many do
-    c <- (AddOp <$ char '+') <|> (SubtractOp <$ char '-')
+    c <-
+      AddOp <$ symbol "+"
+        <|> SubtractOp <$ symbol "-"
     f <- pFactor
     return (c, f)
   return $ Term f x
@@ -295,10 +282,10 @@ pComparison = do
   f <- pTerm
   x <- many do
     c <-
-      GreaterOp <$ char '>'
-        <|> GreaterEqOp <$ (char '>' >> char '=')
-        <|> LessOp <$ char '>'
-        <|> LessEqOp <$ (char '<' >> char '=')
+      GreaterOp <$ symbol ">"
+        <|> GreaterEqOp <$ symbol ">="
+        <|> LessOp <$ symbol "<"
+        <|> LessEqOp <$ symbol "<="
     f <- pTerm
     return (c, f)
   return $ Comparison f x
@@ -307,7 +294,7 @@ pEquality :: Parser Equality
 pEquality = do
   f <- pComparison
   x <- many do
-    c <- (EqualsOp <$ symbol "==") <|> (NotEqualsOp <$ symbol "!=")
+    c <- EqualsOp <$ symbol "==" <|> NotEqualsOp <$ symbol "!="
     f <- pComparison
     return (c, f)
   return $ Equality f x
@@ -316,7 +303,7 @@ pLogicAnd :: Parser LogicAnd
 pLogicAnd = do
   f <- pEquality
   x <- many do
-    c <- pKeyword "and"
+    _ <- keyword "and"
     pEquality
   return $ LogicAnd f x
 
@@ -324,7 +311,7 @@ pLogicOr :: Parser LogicOr
 pLogicOr = do
   f <- pLogicAnd
   x <- many do
-    c <- pKeyword "or"
+    _ <- keyword "or"
     pLogicAnd
   return $ LogicOr f x
 
@@ -335,11 +322,131 @@ pAssignment =
       c <- pCall
       _ <- char '.'
       return c
-    assignmentTarget <- pIden
-    _ <- char '='
+    assignmentTarget <- identifier
+    _ <- symbol "="
     assignmentExpr <- pAssignment
     return Assignment {..}
     <|> AssignmentLogicOr <$> pLogicOr
 
 pExpression :: Parser Expression
 pExpression = Expression <$> pAssignment
+
+pBlockStatement :: Parser Statement
+pBlockStatement = do
+  _ <- symbol "{"
+  decls <- many pDeclaration
+  _ <- symbol "}"
+  return $ BlockStatement $ Block decls
+
+pWhileStatement :: Parser Statement
+pWhileStatement = do
+  _ <- keyword "while"
+  _ <- symbol "("
+  whileStmtCond <- pExpression
+  whileStmtContents <- pStatement
+  return WhileStatement {..}
+
+pReturnStatement :: Parser Statement
+pReturnStatement = do
+  _ <- keyword "return"
+  e <- optional pExpression
+  _ <- symbol ";"
+  return $ ReturnStatement e
+
+pPrintStatement :: Parser Statement
+pPrintStatement = do
+  _ <- keyword "print"
+  e <- pExpression
+  _ <- symbol ";"
+  return $ PrintStatement e
+
+pIfStatement :: Parser Statement
+pIfStatement = do
+  _ <- keyword "if"
+  _ <- symbol "("
+  ifStmtCond <- pExpression
+  _ <- symbol ")"
+  ifStmtContents <- pStatement
+  ifStmtElse <- optional do
+    _ <- keyword "else"
+    pStatement
+  return IfStatement {..}
+
+pForStatement :: Parser Statement
+pForStatement = do
+  _ <- keyword "for"
+  _ <- symbol "("
+  forStmtInit <-
+    Just . LoopInitVarDeclaration <$> pVariableDecl
+      <|> Just . LoopInitExpr <$> pExpressionStatement
+      <|> Nothing <$ symbol ";"
+  forStmtLoopCond <- optional pExpression
+  _ <- symbol ";"
+  forStmtIncr <- optional pExpression
+  _ <- symbol ")"
+  forStmtContents <- pStatement
+  return ForStatement {..}
+
+pExpressionStatement :: Parser Statement
+pExpressionStatement = do
+  e <- pExpression
+  _ <- symbol ";"
+  return $ ExpressionStatement e
+
+pStatement :: Parser Statement
+pStatement =
+  pForStatement
+    <|> pIfStatement
+    <|> pPrintStatement
+    <|> pReturnStatement
+    <|> pWhileStatement
+    <|> pBlockStatement
+    <|> pExpressionStatement
+
+pVariableDecl :: Parser Declaration
+pVariableDecl = do
+  _ <- keyword "var"
+  variableDeclName <- identifier
+  variableDeclInitialiser <- optional do
+    _ <- symbol "="
+    pExpression
+  _ <- symbol ";"
+  return VariableDeclaration {..}
+
+pFunction :: Parser Function
+pFunction = do
+  functionName <- identifier
+  _ <- symbol "("
+  functionParameters <- sepBy1 identifier (symbol ",")
+  functionBlock <- pBlockStatement
+  return Function {..}
+
+pFunctionDeclaration :: Parser Declaration
+pFunctionDeclaration = do
+  _ <- keyword "fun"
+  FunctionDeclaration <$> pFunction
+
+pClassDeclaration :: Parser Declaration
+pClassDeclaration = do
+  _ <- keyword "class"
+  classDeclName <- identifier
+  classDeclSuper <- optional do
+    _ <- symbol "<"
+    identifier
+  _ <- symbol "{"
+  classDeclBody <- many pFunction
+  _ <- symbol "}"
+  return ClassDeclaration {..}
+
+pDeclaration :: Parser Declaration
+pDeclaration =
+  StatementDeclaration <$> pStatement
+    <|> pClassDeclaration
+    <|> pFunctionDeclaration
+    <|> pVariableDecl
+
+pLoxProgram :: Parser LoxProgram
+pLoxProgram = do
+  decls <- many pDeclaration
+  _ <- eof
+  return $ LoxProgram decls

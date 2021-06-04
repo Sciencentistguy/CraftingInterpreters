@@ -17,6 +17,7 @@ main = do
     Filename Nothing -> forever repl
     Filename (Just a) -> file a
 
+repl :: IO ()
 repl = do
   putStr ">>> "
   hFlush stdout
@@ -24,6 +25,7 @@ repl = do
   let toks = collectedLex line
   print toks
 
+file :: FilePath -> IO ()
 file name = do
   str <- readFile name
   let toks = collectedLex str

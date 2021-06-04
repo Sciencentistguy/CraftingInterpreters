@@ -149,7 +149,6 @@ lexString (x : xs) line = case x of
     nextChar = case xs of
       [] -> Nothing
       (x : _) -> Just x
-    isAtEnd = null xs
     last' [] = Nothing
     last' xs = Just $ last xs
     isValidIdenChar x = isAlphaNum x || (x == '_')
