@@ -240,9 +240,6 @@ pPrimary =
       return $ BracketedExpression e
     <|> IdenLiteral <$> pIden
 
-pExpression :: Parser Expression
-pExpression = undefined
-
 pCall :: Parser Call
 pCall = do
   p <- pPrimary
@@ -277,12 +274,12 @@ pUnary = lexeme do
 
 pFactor :: Parser Factor
 pFactor = do
-  u <- pUnary
+  f <- pUnary
   x <- many do
     c <- (DivideOp <$ char '/') <|> (MultiplyOp <$ char '*')
     f <- pUnary
     return (c, f)
-  return $ Factor u x
+  return $ Factor f x
 
 pTerm :: Parser Term
 pTerm = do
@@ -293,8 +290,56 @@ pTerm = do
     return (c, f)
   return $ Term f x
 
---data Call = CallFun Primary (Maybe Arguments) | CallProp Primary Identifier
---deriving (Eq, Show)
+pComparison :: Parser Comparison
+pComparison = do
+  f <- pTerm
+  x <- many do
+    c <-
+      GreaterOp <$ char '>'
+        <|> GreaterEqOp <$ (char '>' >> char '=')
+        <|> LessOp <$ char '>'
+        <|> LessEqOp <$ (char '<' >> char '=')
+    f <- pTerm
+    return (c, f)
+  return $ Comparison f x
 
---data Arguments = Arguments Expression [Expression]
---deriving (Eq, Show)
+pEquality :: Parser Equality
+pEquality = do
+  f <- pComparison
+  x <- many do
+    c <- (EqualsOp <$ symbol "==") <|> (NotEqualsOp <$ symbol "!=")
+    f <- pComparison
+    return (c, f)
+  return $ Equality f x
+
+pLogicAnd :: Parser LogicAnd
+pLogicAnd = do
+  f <- pEquality
+  x <- many do
+    c <- pKeyword "and"
+    pEquality
+  return $ LogicAnd f x
+
+pLogicOr :: Parser LogicOr
+pLogicOr = do
+  f <- pLogicAnd
+  x <- many do
+    c <- pKeyword "or"
+    pLogicAnd
+  return $ LogicOr f x
+
+pAssignment :: Parser Assignment
+pAssignment =
+  try do
+    assignmentCall <- optional do
+      c <- pCall
+      _ <- char '.'
+      return c
+    assignmentTarget <- pIden
+    _ <- char '='
+    assignmentExpr <- pAssignment
+    return Assignment {..}
+    <|> AssignmentLogicOr <$> pLogicOr
+
+pExpression :: Parser Expression
+pExpression = Expression <$> pAssignment
