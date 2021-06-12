@@ -27,7 +27,7 @@ cDecl decl = case decl of
 
 cStatement :: Statement -> [Instruction]
 cStatement stmt = case stmt of
-  ExpressionStatement expr -> cExpression expr
+  ExpressionStatement expr -> cExpression expr ++ [ReturnInstr]
   ForStatement {..} -> undefined
   IfStatement {..} -> undefined
   PrintStatement expr -> cExpression expr ++ [PrintInstr]

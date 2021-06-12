@@ -7,6 +7,7 @@ import Control.Monad
 import Data.Either
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
+import Interpreter
 import Options.Applicative
 import Parser
 import System.IO
@@ -32,9 +33,13 @@ repl = do
   case ast of
     Left err -> putStr $ errorBundlePretty err
     Right ast -> do
+      putStrLn "AST:"
       print ast
       let program = compile ast
+      putStrLn "\nInstructions:"
       print program
+      putStr "\nRunning:"
+      run program
 
 file :: FilePath -> IO ()
 file name = do
@@ -43,5 +48,10 @@ file name = do
   case ast of
     Left err -> putStr $ errorBundlePretty err
     Right ast -> do
+      putStrLn "AST:"
+      print ast
       let program = compile ast
+      putStrLn "\nInstructions:"
       print program
+      putStr "\nRunning:"
+      run program

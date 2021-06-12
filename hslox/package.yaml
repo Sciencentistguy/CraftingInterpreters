@@ -24,6 +24,8 @@ dependencies:
 - megaparsec
 - text
 - parser-combinators
+- Stack
+- mtl
 
 library:
   source-dirs: src

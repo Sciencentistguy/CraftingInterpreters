@@ -25,6 +25,7 @@ library
   exposed-modules:
       AST
       Compiler
+      Data.Stack.ST
       Instructions
       Interpreter
       Lexer
@@ -34,8 +35,10 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      Stack
+    , base >=4.7 && <5
     , megaparsec
+    , mtl
     , optparse-applicative
     , parser-combinators
     , text
@@ -49,9 +52,11 @@ executable hslox-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      Stack
+    , base >=4.7 && <5
     , hslox
     , megaparsec
+    , mtl
     , optparse-applicative
     , parser-combinators
     , text
@@ -66,9 +71,11 @@ test-suite hslox-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      Stack
+    , base >=4.7 && <5
     , hslox
     , megaparsec
+    , mtl
     , optparse-applicative
     , parser-combinators
     , text
