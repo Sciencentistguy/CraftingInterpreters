@@ -6,8 +6,7 @@ author:              "Jamie Quigley"
 maintainer:          "jamie@quigley.xyz"
 copyright:           "2021 Jamie Quigley"
 
-extra-source-files:
-- ChangeLog.md
+extra-source-files: []
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
