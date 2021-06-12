@@ -62,3 +62,14 @@ valueDiv a b = case a of
       NumberValue b -> Right $ NumberValue $ a / b
       _ -> Left "Operands to '/' must be numbers"
   _ -> Left "Operands to '/' must be numbers"
+
+valueNegate :: Value -> Either String Value
+valueNegate a = case a of
+  NumberValue a -> Right $ NumberValue $ - a
+  _ -> Left "Operand to unary '-' must be a number"
+
+valueToBool :: Value -> Bool
+valueToBool a = case a of
+  BooleanValue b -> b
+  NilValue -> False
+  _ -> True

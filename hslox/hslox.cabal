@@ -14,8 +14,6 @@ maintainer:     jamie@quigley.xyz
 copyright:      2021 Jamie Quigley
 license:        GPL-3
 build-type:     Simple
-extra-source-files:
-    ChangeLog.md
 
 source-repository head
   type: git

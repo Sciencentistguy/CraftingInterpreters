@@ -18,8 +18,11 @@ run instructions = do
 runInstr :: IORef (Stack Value) -> Instruction -> IO ()
 runInstr stackPtr instr = do
   readIORef stackPtr >>= print
+  putStrLn $ "Executing instruction '" ++ show instr ++ "'"
   case instr of
-    ReturnInstr -> void pop'
+    ReturnInstr -> do
+      _ <- pop'
+      readIORef stackPtr >>= print
     PrintInstr -> do
       a <- pop'
       print a
@@ -40,7 +43,21 @@ runInstr stackPtr instr = do
       a <- pop'
       b <- pop'
       push' $ handleError $ valueDiv a b
-    _ -> error "Unsupported instruction"
+    NegateInstr -> do
+      a <- pop'
+      push' $ handleError $ valueNegate a
+    NotInstr -> do
+      a <- pop'
+      push' $ BooleanValue $ not $valueToBool a
+    OrInstr -> do
+      a <- pop'
+      b <- pop'
+      push' $ BooleanValue $ valueToBool a || valueToBool b
+    AndInstr -> do
+      a <- pop'
+      b <- pop'
+      push' $ BooleanValue $ valueToBool a && valueToBool b
+    x -> error $ "Unsupported instruction " ++ show x
   where
     pop' = pop stackPtr
     push' = push stackPtr

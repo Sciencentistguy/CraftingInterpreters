@@ -39,7 +39,7 @@ pNumberLit = lexeme do
   return $ NumberLiteral f
 
 identifier :: Parser Identifier
-identifier = do
+identifier = lexeme $ do
   x <- letterChar <|> char '_'
   xs <- many (alphaNumChar <|> char '_')
   let wd = x : xs
@@ -317,10 +317,10 @@ pClassDeclaration = do
 
 pDeclaration :: Parser Declaration
 pDeclaration =
-  StatementDeclaration <$> pStatement
+  pVariableDecl
     <|> pClassDeclaration
     <|> pFunctionDeclaration
-    <|> pVariableDecl
+    <|> StatementDeclaration <$> pStatement
 
 pLoxProgram :: Parser LoxProgram
 pLoxProgram = do
