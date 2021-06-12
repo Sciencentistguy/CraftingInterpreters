@@ -69,10 +69,10 @@ data Assignment
   | AssignmentLogicOr LogicOr
   deriving (Eq, Show)
 
-data LogicOr = LogicOr LogicAnd [LogicAnd]
+newtype LogicOr = LogicOr [LogicAnd]
   deriving (Eq, Show)
 
-data LogicAnd = LogicAnd Equality [Equality]
+newtype LogicAnd = LogicAnd [Equality]
   deriving (Eq, Show)
 
 data Equality = Equality Comparison [(EqualityOperator, Comparison)]

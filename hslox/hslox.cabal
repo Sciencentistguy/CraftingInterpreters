@@ -24,6 +24,9 @@ source-repository head
 library
   exposed-modules:
       AST
+      Compiler
+      Instructions
+      Interpreter
       Lexer
       Parser
   other-modules:

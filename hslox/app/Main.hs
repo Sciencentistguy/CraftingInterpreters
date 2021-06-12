@@ -1,10 +1,16 @@
+{-# LANGUAGE BlockArguments #-}
+
 module Main where
 
+import Compiler
 import Control.Monad
+import Data.Either
 import Data.Semigroup ((<>))
-import Lexer
+import qualified Data.Text as T
 import Options.Applicative
+import Parser
 import System.IO
+import Text.Megaparsec
 
 newtype Filename = Filename (Maybe String)
 
@@ -22,11 +28,20 @@ repl = do
   putStr ">>> "
   hFlush stdout
   line <- getLine
-  let toks = collectedLex line
-  print toks
+  let ast = parse pLoxProgram "REPL" $ T.pack line
+  case ast of
+    Left err -> putStr $ errorBundlePretty err
+    Right ast -> do
+      print ast
+      let program = compile ast
+      print program
 
 file :: FilePath -> IO ()
 file name = do
   str <- readFile name
-  let toks = collectedLex str
-  print toks
+  let ast = parse pLoxProgram name $ T.pack str
+  case ast of
+    Left err -> putStr $ errorBundlePretty err
+    Right ast -> do
+      let program = compile ast
+      print program

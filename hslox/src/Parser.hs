@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Parser (pLoxProgram) where
+module Parser where
 
 import AST
 import Control.Monad
@@ -182,7 +182,7 @@ pLogicAnd = do
   x <- many do
     _ <- keyword "and"
     pEquality
-  return $ LogicAnd f x
+  return $ LogicAnd $ f : x
 
 pLogicOr :: Parser LogicOr
 pLogicOr = do
@@ -190,7 +190,7 @@ pLogicOr = do
   x <- many do
     _ <- keyword "or"
     pLogicAnd
-  return $ LogicOr f x
+  return $ LogicOr $ f : x
 
 pAssignment :: Parser Assignment
 pAssignment =
