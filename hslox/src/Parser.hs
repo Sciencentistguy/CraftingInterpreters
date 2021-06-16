@@ -26,7 +26,7 @@ symbol :: Tokens Text -> Parser (Tokens Text)
 symbol = L.symbol consumeWhitespace
 
 pBoolLit :: Parser Primary
-pBoolLit = do
+pBoolLit = label "boolean literal" $ lexeme do
   x <- string "true" <|> string "false"
   return
     if x == "true"
@@ -34,12 +34,12 @@ pBoolLit = do
       else FalseLiteral
 
 pNumberLit :: Parser Primary
-pNumberLit = lexeme do
+pNumberLit = label "number" $ lexeme do
   f <- try L.float <|> L.decimal
   return $ NumberLiteral f
 
 identifier :: Parser Identifier
-identifier = lexeme $ do
+identifier = label "identifier" $ lexeme do
   x <- letterChar <|> char '_'
   xs <- many (alphaNumChar <|> char '_')
   let wd = x : xs
@@ -72,7 +72,7 @@ keyword :: Text -> Parser Text
 keyword keyword = lexeme $ string keyword <* notFollowedBy alphaNumChar
 
 pStringLit :: Parser Primary
-pStringLit = lexeme do
+pStringLit = label "string" $ lexeme do
   _ <- char '"'
   str <- manyTill L.charLiteral (char '"')
   return $ StringLiteral $ T.pack str
@@ -80,7 +80,7 @@ pStringLit = lexeme do
 pPrimary :: Parser Primary
 pPrimary =
   pBoolLit -- TrueLiteral, FalseLiteral
-    <|> NilLiteral <$ keyword "nil" -- NilLiteral
+    <|> NilLiteral <$ (keyword "nil" <?> "nil literal") -- NilLiteral
     <|> ThisLiteral <$ keyword "this" -- ThisLiteral
     <|> pNumberLit -- NumberLiteral
     <|> pStringLit -- StringLiteral
@@ -122,15 +122,15 @@ pArguments = Arguments <$> sepBy pExpression (symbol ",")
 pUnary :: Parser Unary
 pUnary = lexeme do
   c <-
-    optional $
-      symbol "!"
-        <|> symbol "-"
+    (fmap . fmap) T.head $
+      optional $
+        symbol "!"
+          <|> symbol "-"
   case c of
-    Just c -> case T.head c of
-      '!' -> Unary NotOp <$> pUnary
-      '-' -> Unary NegateOp <$> pUnary
-      _ -> error "unreachable"
     Nothing -> UnaryCall <$> pCall
+    Just '!' -> Unary NotOp <$> pUnary
+    Just '-' -> Unary NegateOp <$> pUnary
+    Just _ -> error "unreachable"
 
 pFactor :: Parser Factor
 pFactor = do
@@ -193,12 +193,15 @@ pLogicOr = do
   return $ LogicOr $ f : x
 
 pAssignment :: Parser Assignment
+--FIXME 'a.b = c' should parse, but it does not. This is because pCall will consume the entire
+-- iden(.iden)*, so the "char '.'" in assignmentCall failes.
 pAssignment =
   try do
-    assignmentCall <- optional do
-      c <- pCall
-      _ <- char '.'
-      return c
+    assignmentCall <- optional $
+      try $ do
+        c <- pCall
+        _ <- char '.'
+        return c
     assignmentTarget <- identifier
     _ <- symbol "="
     assignmentExpr <- pAssignment
@@ -272,13 +275,14 @@ pExpressionStatement = do
 
 pStatement :: Parser Statement
 pStatement =
-  pForStatement
-    <|> pIfStatement
-    <|> pPrintStatement
-    <|> pReturnStatement
-    <|> pWhileStatement
-    <|> pBlockStatement
-    <|> pExpressionStatement
+  label "statement" $
+    pForStatement
+      <|> pIfStatement
+      <|> pPrintStatement
+      <|> pReturnStatement
+      <|> pWhileStatement
+      <|> pBlockStatement
+      <|> pExpressionStatement
 
 pVariableDecl :: Parser Declaration
 pVariableDecl = do
@@ -292,9 +296,10 @@ pVariableDecl = do
 
 pFunction :: Parser Function
 pFunction = do
-  functionName <- identifier
+  functionName <- identifier <?> "function name"
   _ <- symbol "("
-  functionParameters <- sepBy1 identifier (symbol ",")
+  functionParameters <- sepBy identifier (symbol ",")
+  _ <- symbol ")"
   functionBlock <- pBlockStatement
   return Function {..}
 
@@ -306,10 +311,10 @@ pFunctionDeclaration = do
 pClassDeclaration :: Parser Declaration
 pClassDeclaration = do
   _ <- keyword "class"
-  classDeclName <- identifier
+  classDeclName <- identifier <?> "class name"
   classDeclSuper <- optional do
     _ <- symbol "<"
-    identifier
+    identifier <?> "superclass name"
   _ <- symbol "{"
   classDeclBody <- many pFunction
   _ <- symbol "}"
@@ -325,5 +330,5 @@ pDeclaration =
 pLoxProgram :: Parser LoxProgram
 pLoxProgram = do
   decls <- many pDeclaration
-  _ <- eof
+  _ <- hidden eof
   return $ LoxProgram decls

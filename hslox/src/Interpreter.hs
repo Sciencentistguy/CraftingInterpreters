@@ -3,6 +3,7 @@
 module Interpreter where
 
 import AST
+import Control.Applicative
 import Control.Monad
 import Data.IORef
 import Data.Stack
@@ -45,7 +46,7 @@ runInstr stackPtr instr = do
       push' $ handleError $ valueDiv a b
     NegateInstr -> do
       a <- pop'
-      push' $ handleError $ valueNegate a
+      push' $ handleError $ errorMsg "Operand to unary '-' must be a number" $ NumberValue . negate <$> valueToNumber a
     NotInstr -> do
       a <- pop'
       push' $ BooleanValue $ not $valueToBool a
@@ -57,7 +58,26 @@ runInstr stackPtr instr = do
       a <- pop'
       b <- pop'
       push' $ BooleanValue $ valueToBool a && valueToBool b
-    x -> error $ "Unsupported instruction " ++ show x
+    EqInstr -> do
+      a <- pop'
+      b <- pop'
+      push' $ BooleanValue $ handleError $ valueEqual a b
+    GreaterInstr -> do
+      a <- pop'
+      b <- pop'
+      push' $ BooleanValue $ handleError $ valueGreater a b
+    GreaterEqInstr -> do
+      a <- pop'
+      b <- pop'
+      push' $ BooleanValue $ handleError $ liftA2 (||) (valueGreater a b) (valueEqual a b)
+    LessInstr -> do
+      a <- pop'
+      b <- pop'
+      push' $ BooleanValue $ handleError $ valueLess a b
+    LessEqInstr -> do
+      a <- pop'
+      b <- pop'
+      push' $ BooleanValue $ handleError $ liftA2 (||) (valueLess a b) (valueEqual a b)
   where
     pop' = pop stackPtr
     push' = push stackPtr
