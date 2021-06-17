@@ -38,7 +38,7 @@ repl = do
       let program = compile ast
       putStrLn "\nInstructions:"
       print program
-      putStr "\nRunning:"
+      putStrLn "\nRunning:"
       run program
 
 file :: FilePath -> IO ()

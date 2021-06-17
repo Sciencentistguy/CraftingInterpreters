@@ -23,7 +23,6 @@ library
   exposed-modules:
       AST
       Compiler
-      Data.Stack.ST
       Instructions
       Interpreter
       Lexer

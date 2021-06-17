@@ -41,7 +41,7 @@ cStatement stmt = case stmt of
   PrintStatement expr -> cExpression expr ++ [PrintInstr]
   ReturnStatement maybe_expr -> undefined
   WhileStatement {..} -> undefined
-  BlockStatement block -> undefined
+  BlockStatement (Block decls) -> concatMap cDecl decls
 
 cExpression :: Expression -> [Instruction]
 cExpression (Expression assign) = cAssignment assign

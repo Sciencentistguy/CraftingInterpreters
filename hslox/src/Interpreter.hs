@@ -18,17 +18,15 @@ run :: [Instruction] -> IO ()
 run instructions = do
   stackPtr <- newIORef stackNew
   variablesMapPtr <- newIORef HashMap.empty
-  readIORef stackPtr >>= print
-  putStrLn "Variables: "
-  readIORef variablesMapPtr >>= print
   mapM_ (runInstr stackPtr variablesMapPtr) instructions
+  readIORef stackPtr >>= print
+  printVariables variablesMapPtr
 
 runInstr :: IORef (Stack Value) -> IORef (HashMap StringType Value) -> Instruction -> IO ()
 runInstr stackPtr variablesMapPtr instr = do
-  putStrLn $ "Executing instruction '" ++ show instr ++ "'"
   readIORef stackPtr >>= print
-  putStrLn "Variables: "
   printVariables variablesMapPtr
+  putStrLn $ "Executing instruction '" ++ show instr ++ "'"
   case instr of
     ReturnInstr -> do
       void pop'
@@ -160,7 +158,11 @@ handleError either = case either of
 printVariables :: IORef (HashMap StringType Value) -> IO ()
 printVariables map = do
   map <- readIORef map
-  let pairs = HashMap.toList map
-  mapM_ printBinding pairs
+  if null map
+    then return ()
+    else do
+      putStrLn "Variables: "
+      let pairs = HashMap.toList map
+      mapM_ printBinding pairs
   where
-    printBinding (k, v) = putStrLn $ "\t'" ++ T.unpack k ++ "' = " ++ show v ++ "."
+    printBinding (k, v) = putStrLn $ "  '" ++ T.unpack k ++ "' = " ++ show v ++ "."
