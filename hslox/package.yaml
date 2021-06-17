@@ -25,6 +25,8 @@ dependencies:
 - parser-combinators
 - Stack
 - mtl
+- unordered-containers
+- hashable
 
 library:
   source-dirs: src

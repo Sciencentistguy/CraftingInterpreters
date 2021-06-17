@@ -6,6 +6,7 @@ module Compiler
 where
 
 import AST
+import Data.Maybe
 import Data.Text (Text)
 import Instructions
 
@@ -16,14 +17,21 @@ cLoxProgram :: LoxProgram -> [Instruction]
 cLoxProgram (LoxProgram decls) = go decls []
   where
     go [] acc = acc
-    go (x : xs) acc = go xs (cDecl x ++ acc)
+    go (x : xs) acc = go xs $ acc ++ cDecl x
 
 cDecl :: Declaration -> [Instruction]
 cDecl decl = case decl of
   ClassDeclaration {..} -> undefined
   FunctionDeclaration func -> undefined
-  VariableDeclaration {..} -> undefined
+  VariableDeclaration {..} -> cVariableDecl variableDeclName variableDeclInitialiser
   StatementDeclaration stmt -> cStatement stmt
+
+cVariableDecl :: Identifier -> Maybe Expression -> [Instruction]
+cVariableDecl (Identifier name) expr =
+  let val = case expr of
+        Just a -> cExpression a
+        Nothing -> [ConstantInstr NilValue]
+   in val ++ [DefineGlobalInstr name]
 
 cStatement :: Statement -> [Instruction]
 cStatement stmt = case stmt of
@@ -40,8 +48,13 @@ cExpression (Expression assign) = cAssignment assign
 
 cAssignment :: Assignment -> [Instruction]
 cAssignment assign = case assign of
-  Assignment {..} -> undefined
+  Assignment _ (Identifier name) assignmentExpr ->
+    cAssignment assignmentExpr ++ [SetGlobalInstr name]
   AssignmentLogicOr logicor -> cLogicOr logicor
+
+--assignmentCall :: Maybe Call,
+--assignmentTarget :: Identifier,
+--assignmentExpr :: Assignment
 
 cLogicOr :: LogicOr -> [Instruction]
 cLogicOr (LogicOr (and : rest)) = cLogicAnd and ++ go rest []
@@ -118,6 +131,6 @@ cPrimary primary = case primary of
   ThisLiteral -> undefined
   NumberLiteral num -> [ConstantInstr $ NumberValue num]
   StringLiteral str -> [ConstantInstr $ StringValue str]
-  IdenLiteral iden -> undefined
+  IdenLiteral (Identifier iden) -> [GetGlobalInstr iden]
   BracketedExpression expr -> cExpression expr
   SuperDot iden -> undefined

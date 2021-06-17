@@ -5,7 +5,9 @@ module Instructions where
 import Data.Text (Text)
 import qualified Data.Text as T
 
-data Value = NumberValue Double | StringValue Text | NilValue | BooleanValue Bool
+type StringType = Text
+
+data Value = NumberValue Double | StringValue StringType | NilValue | BooleanValue Bool
 
 instance Show Value where
   show val = case val of
@@ -31,6 +33,9 @@ data Instruction
   | AndInstr
   | OrInstr
   | ReturnInstr
+  | DefineGlobalInstr StringType
+  | GetGlobalInstr StringType
+  | SetGlobalInstr StringType
   deriving (Show)
 
 errorMsg :: a -> Maybe b -> Either a b
@@ -40,6 +45,11 @@ errorMsg msg Nothing = Left msg
 valueToNumber :: Value -> Maybe Double
 valueToNumber v = case v of
   NumberValue a -> Just a
+  _ -> Nothing
+
+valueToString :: Value -> Maybe Text
+valueToString v = case v of
+  StringValue s -> Just s
   _ -> Nothing
 
 valueAdd :: Value -> Value -> Either String Value
