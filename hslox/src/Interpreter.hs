@@ -41,20 +41,20 @@ runInstr stackPtr variablesMapPtr instr = do
     ConstantInstr val -> do
       push stackPtr val
     AddInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ handleError $ valueAdd a b
     SubInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ handleError $ valueSub a b
     MultiplyInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ handleError $ valueMul a b
     DivideInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ handleError $ valueDiv a b
     NegateInstr -> do
       a <- pop'
@@ -66,32 +66,32 @@ runInstr stackPtr variablesMapPtr instr = do
       a <- pop'
       push' $ BooleanValue $ not $valueToBool a
     OrInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ BooleanValue $ valueToBool a || valueToBool b
     AndInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ BooleanValue $ valueToBool a && valueToBool b
     EqInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ BooleanValue $ handleError $ valueEqual a b
     GreaterInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ BooleanValue $ handleError $ valueGreater a b
     GreaterEqInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ BooleanValue $ handleError $ liftA2 (||) (valueGreater a b) (valueEqual a b)
     LessInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ BooleanValue $ handleError $ valueLess a b
     LessEqInstr -> do
-      a <- pop'
       b <- pop'
+      a <- pop'
       push' $ BooleanValue $ handleError $ liftA2 (||) (valueLess a b) (valueEqual a b)
     DefineGlobalInstr name -> do
       contains <- contains' name
