@@ -33,9 +33,11 @@ data Instruction
   | AndInstr
   | OrInstr
   | ReturnInstr
-  | DefineGlobalInstr StringType
-  | GetGlobalInstr StringType
-  | SetGlobalInstr StringType
+  | DefineVariableInstr StringType
+  | GetVariableInstr StringType
+  | SetVariableInstr StringType
+  | BeginScopeInstr
+  | EndScopeInstr
   deriving (Show)
 
 errorMsg :: a -> Maybe b -> Either a b

@@ -31,7 +31,7 @@ cVariableDecl (Identifier name) expr =
   let val = case expr of
         Just a -> cExpression a
         Nothing -> [ConstantInstr NilValue]
-   in val ++ [DefineGlobalInstr name]
+   in val ++ [DefineVariableInstr name]
 
 cStatement :: Statement -> [Instruction]
 cStatement stmt = case stmt of
@@ -41,7 +41,7 @@ cStatement stmt = case stmt of
   PrintStatement expr -> cExpression expr ++ [PrintInstr]
   ReturnStatement maybe_expr -> undefined
   WhileStatement {..} -> undefined
-  BlockStatement (Block decls) -> concatMap cDecl decls
+  BlockStatement (Block decls) -> [BeginScopeInstr] ++ concatMap cDecl decls ++ [EndScopeInstr]
 
 cExpression :: Expression -> [Instruction]
 cExpression (Expression assign) = cAssignment assign
@@ -49,7 +49,7 @@ cExpression (Expression assign) = cAssignment assign
 cAssignment :: Assignment -> [Instruction]
 cAssignment assign = case assign of
   Assignment _ (Identifier name) assignmentExpr ->
-    cAssignment assignmentExpr ++ [SetGlobalInstr name]
+    cAssignment assignmentExpr ++ [SetVariableInstr name]
   AssignmentLogicOr logicor -> cLogicOr logicor
 
 --assignmentCall :: Maybe Call,
@@ -131,6 +131,6 @@ cPrimary primary = case primary of
   ThisLiteral -> undefined
   NumberLiteral num -> [ConstantInstr $ NumberValue num]
   StringLiteral str -> [ConstantInstr $ StringValue str]
-  IdenLiteral (Identifier iden) -> [GetGlobalInstr iden]
+  IdenLiteral (Identifier iden) -> [GetVariableInstr iden]
   BracketedExpression expr -> cExpression expr
   SuperDot iden -> undefined

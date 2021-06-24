@@ -5,34 +5,50 @@ module Interpreter where
 import AST
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Loops
+import Data.Foldable
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Hashable (Hashable)
 import Data.IORef
 import Data.Stack
 import qualified Data.Text as T
+import Data.Vector (Vector, (!))
+import qualified Data.Vector as V
 import Debug.Trace
 import Instructions
+import Interpreter.Environment
 
-run :: [Instruction] -> IO ()
+run :: Vector Instruction -> IO ()
 run instructions = do
   stackPtr <- newIORef stackNew
-  variablesMapPtr <- newIORef HashMap.empty
-  mapM_ (runInstr stackPtr variablesMapPtr) instructions
+  programCounterPtr <- newIORef 0
+  environmentPtr <- newIORef emptyEnvironment
+  whileM_
+    do
+      pc <- readIORef programCounterPtr
+      return $ pc < length instructions
+    do
+      pc <- readIORef programCounterPtr
+      runInstr stackPtr programCounterPtr environmentPtr (instructions ! pc)
+      modifyIORef' programCounterPtr (+ 1)
   readIORef stackPtr >>= print
-  printVariables variablesMapPtr
+  do
+    s <- readIORef environmentPtr
+    printVariablesMap $ globals s
+    return ()
 
-runInstr :: IORef (Stack Value) -> IORef (HashMap StringType Value) -> Instruction -> IO ()
-runInstr stackPtr variablesMapPtr instr = do
+runInstr :: IORef (Stack Value) -> IORef Int -> IORef Environment -> Instruction -> IO ()
+runInstr stackPtr programCounterPtr environmentPtr instr = do
   readIORef stackPtr >>= print
-  printVariables variablesMapPtr
+  do
+    s <- readIORef environmentPtr
+    printVariablesMap $ globals s
+    return ()
   putStrLn $ "Executing instruction '" ++ show instr ++ "'"
   case instr of
     ReturnInstr -> do
       void pop'
-    --readIORef stackPtr >>= print
-    --putStrLn "Variables: "
-    --readIORef variablesMapPtr >>= print
     PrintInstr -> do
       a <- pop'
       print a
@@ -91,44 +107,59 @@ runInstr stackPtr variablesMapPtr instr = do
       b <- pop'
       a <- pop'
       push' $ BooleanValue $ handleError $ liftA2 (||) (valueLess a b) (valueEqual a b)
-    DefineGlobalInstr name -> do
-      contains <- contains' name
+    DefineVariableInstr name -> do
+      contains <- checkVaraibleExists name
       if contains
         then error $ "Variable with name '" ++ T.unpack name ++ "' already exists."
         else do
           a <- pop'
-          insert' name a
-    GetGlobalInstr name -> do
-      val <- retrieve' name
+          addVariable name a
+    GetVariableInstr name -> do
+      val <- getVariable name
       case val of
         Just v -> push' v
         Nothing -> error $ "Variable with name '" ++ T.unpack name ++ "' does not exist."
-    SetGlobalInstr name -> do
-      contains <- contains' name
+    SetVariableInstr name -> do
+      contains <- checkVaraibleExists name
       val <- peek'
       if not contains
         then error $ "Variable with name '" ++ T.unpack name ++ "' does not exist."
-        else insert' name val
+        else updateVariable name val
+    BeginScopeInstr -> do
+      modifyIORef' environmentPtr newScope
+    EndScopeInstr -> do
+      modifyIORef' environmentPtr popScope_
   where
     pop' = pop stackPtr
     push' = push stackPtr
     peek' = peek stackPtr
-    contains' = contains variablesMapPtr
-    insert' = insert variablesMapPtr
-    retrieve' = retrieve variablesMapPtr
 
-contains :: (Eq k, Hashable k) => IORef (HashMap k v) -> k -> IO Bool
-contains mapPtr key = do
-  map <- readIORef mapPtr
-  return $ HashMap.member key map
+    checkVaraibleExists key = do
+      env <- readIORef environmentPtr
+      let f = map $ HashMap.member key
+      return $ or $ liftEnv f env
 
-insert :: (Eq k, Hashable k) => IORef (HashMap k v) -> k -> v -> IO ()
-insert mapPtr key val = modifyIORef' mapPtr $ HashMap.insert key val
+    getVariable key = do
+      env <- readIORef environmentPtr
+      let f = map $ HashMap.lookup key
+      return (asum $ liftEnv f env)
 
-retrieve :: (Eq k, Hashable k) => IORef (HashMap k v) -> k -> IO (Maybe v)
-retrieve mapPtr key = do
-  map <- readIORef mapPtr
-  return $ HashMap.lookup key map
+    updateVariable key value = do
+      Environment ls <- readIORef environmentPtr
+      let (updatedMap, index) = go ls 0
+      let newEnv = Environment $ replaceInList ls index updatedMap
+      writeIORef environmentPtr newEnv
+      where
+        replaceInList xs n newElement = take n xs ++ [newElement] ++ drop (n + 1) xs
+        go [] _ = error "variable does not exist"
+        go (x : xs) idx =
+          if HashMap.member key x
+            then (HashMap.insert key value x, idx)
+            else go xs (idx + 1)
+
+    addVariable key value = modifyIORef'
+      environmentPtr
+      \(Environment (x : xs)) -> Environment $ HashMap.insert key value x : xs
 
 push :: IORef (Stack a) -> a -> IO ()
 push stackPtr val = modifyIORef' stackPtr $ \stack -> stackPush stack val
@@ -155,9 +186,8 @@ handleError either = case either of
   Left err -> error err
   Right a -> a
 
-printVariables :: IORef (HashMap StringType Value) -> IO ()
-printVariables map = do
-  map <- readIORef map
+printVariablesMap :: HashMap StringType Value -> IO ()
+printVariablesMap map =
   if null map
     then return ()
     else do

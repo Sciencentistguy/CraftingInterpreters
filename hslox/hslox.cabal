@@ -25,6 +25,7 @@ library
       Compiler
       Instructions
       Interpreter
+      Interpreter.Environment
       Lexer
       Parser
   other-modules:
@@ -36,11 +37,13 @@ library
     , base >=4.7 && <5
     , hashable
     , megaparsec
+    , monad-loops
     , mtl
     , optparse-applicative
     , parser-combinators
     , text
     , unordered-containers
+    , vector
   default-language: Haskell2010
 
 executable hslox-exe
@@ -56,11 +59,13 @@ executable hslox-exe
     , hashable
     , hslox
     , megaparsec
+    , monad-loops
     , mtl
     , optparse-applicative
     , parser-combinators
     , text
     , unordered-containers
+    , vector
   default-language: Haskell2010
 
 test-suite hslox-test
@@ -77,9 +82,11 @@ test-suite hslox-test
     , hashable
     , hslox
     , megaparsec
+    , monad-loops
     , mtl
     , optparse-applicative
     , parser-combinators
     , text
     , unordered-containers
+    , vector
   default-language: Haskell2010

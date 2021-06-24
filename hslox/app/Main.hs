@@ -7,6 +7,7 @@ import Control.Monad
 import Data.Either
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
+import Data.Vector (fromList)
 import Interpreter
 import Options.Applicative
 import Parser
@@ -35,7 +36,7 @@ repl = do
     Right ast -> do
       putStrLn "AST:"
       print ast
-      let program = compile ast
+      let program = fromList $ compile ast
       putStrLn "\nInstructions:"
       print program
       putStrLn "\nRunning:"
@@ -50,7 +51,7 @@ file name = do
     Right ast -> do
       putStrLn "AST:"
       print ast
-      let program = compile ast
+      let program = fromList $ compile ast
       putStrLn "\nInstructions:"
       print program
       putStr "\nRunning:"

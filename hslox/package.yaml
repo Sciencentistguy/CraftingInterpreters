@@ -27,6 +27,8 @@ dependencies:
 - mtl
 - unordered-containers
 - hashable
+- monad-loops
+- vector
 
 library:
   source-dirs: src
