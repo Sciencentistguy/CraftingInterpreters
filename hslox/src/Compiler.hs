@@ -22,9 +22,25 @@ cLoxProgram (LoxProgram decls) = go decls []
 cDecl :: Declaration -> [Instruction]
 cDecl decl = case decl of
   ClassDeclaration {..} -> undefined
-  FunctionDeclaration func -> undefined
+  FunctionDeclaration func -> cFunction func
   VariableDeclaration {..} -> cVariableDecl variableDeclName variableDeclInitialiser
   StatementDeclaration stmt -> cStatement stmt
+
+cFunction :: Function -> [Instruction]
+cFunction Function {..} =
+  let Identifier name = functionName
+      function = LoxFunction Nothing (length functionParameters) name
+      collectArgs = reverse $ map (\(Identifier x) -> DefineVariableInstr x) functionParameters
+      content = cStatement functionBlock
+   in [ ConstantInstr $ FunctionValue function,
+        DefineFunctionInstr,
+        DefineVariableInstr name
+      ]
+        ++ [JumpInstr $length collectArgs + length content + 3]
+        ++ [BeginScopeInstr]
+        ++ collectArgs
+        ++ content
+        ++ [ConstantInstr NilValue, ReturnInstr]
 
 cVariableDecl :: Identifier -> Maybe Expression -> [Instruction]
 cVariableDecl (Identifier name) expr =
@@ -35,7 +51,7 @@ cVariableDecl (Identifier name) expr =
 
 cStatement :: Statement -> [Instruction]
 cStatement stmt = case stmt of
-  ExpressionStatement expr -> cExpression expr ++ [ReturnInstr]
+  ExpressionStatement expr -> cExpression expr ++ [PopInstr]
   ForStatement {..} ->
     -- TODO possible optimisation: if condition is Nothing, then omit JumpIfFalseInstr entirely
     let init = case forStmtInit of
@@ -64,7 +80,12 @@ cStatement stmt = case stmt of
               let contents = cStatement else'
                in JumpInstr (length contents) : contents
   PrintStatement expr -> cExpression expr ++ [PrintInstr]
-  ReturnStatement maybe_expr -> undefined
+  ReturnStatement maybe_expr ->
+    maybe
+      [ConstantInstr NilValue]
+      cExpression
+      maybe_expr
+      ++ [ReturnInstr]
   WhileStatement {..} ->
     let contents = cStatement whileStmtContents
         output =
@@ -147,7 +168,7 @@ cCall :: Call -> [Instruction]
 cCall call = case call of
   CallFun primary args -> case args of
     Nothing -> cPrimary primary
-    Just args -> undefined
+    Just (Arguments args) -> cPrimary primary ++ concatMap cExpression args ++ [CallInstr]
   CallProp primary iden -> undefined
 
 cPrimary :: Primary -> [Instruction]

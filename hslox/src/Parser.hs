@@ -112,7 +112,7 @@ pCall = do
         Just _ -> do
           args <- pArguments
           _ <- symbol ")"
-          return $ CallFun p if null' args then Nothing else Just args
+          return $ CallFun p (Just args)
   where
     null' (Arguments a) = Prelude.null a
 

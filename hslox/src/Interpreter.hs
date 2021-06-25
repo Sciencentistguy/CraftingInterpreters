@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Interpreter where
 
@@ -12,6 +13,7 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Hashable (Hashable)
 import Data.IORef
+import Data.Maybe
 import Data.Stack
 import qualified Data.Text as T
 import Data.Vector (Vector, (!))
@@ -20,9 +22,25 @@ import Debug.Trace
 import Instructions
 import Interpreter.Environment
 
+data CallFrame = CallFrame
+  { cfStack :: Stack Value,
+    cfReturnAddr :: Int
+  }
+  deriving (Show)
+
+cfStackMap f (CallFrame stack a) = CallFrame (f stack) a
+
+cfReplaceStack (CallFrame _ a) stack = CallFrame stack a
+
+showCallStack callStack =
+  let CallFrame stack _ = fromJust $ stackPeek callStack
+   in print stack
+
+cfNew = CallFrame stackNew
+
 run :: Vector Instruction -> IO ()
 run instructions = do
-  stackPtr <- newIORef stackNew
+  callStackPtr <- newIORef $ stackPush stackNew $ cfNew (-1)
   programCounterPtr <- newIORef 0
   environmentPtr <- newIORef emptyEnvironment
   whileM_
@@ -31,28 +49,28 @@ run instructions = do
       return $ pc < length instructions
     do
       pc <- readIORef programCounterPtr
-      runInstr stackPtr programCounterPtr environmentPtr (instructions ! pc)
+      runInstr callStackPtr programCounterPtr environmentPtr (instructions ! pc)
       modifyIORef' programCounterPtr (+ 1)
-  readIORef stackPtr >>= print
+
+  readIORef callStackPtr >>= showCallStack
   do
     s <- readIORef environmentPtr
     printEnvironment s
 
-runInstr :: IORef (Stack Value) -> IORef Int -> IORef Environment -> Instruction -> IO ()
-runInstr stackPtr programCounterPtr environmentPtr instr = do
-  readIORef stackPtr >>= print
-  do
-    s <- readIORef environmentPtr
-    printEnvironment s
+runInstr :: IORef (Stack CallFrame) -> IORef Int -> IORef Environment -> Instruction -> IO ()
+runInstr callStackPtr programCounterPtr environmentPtr instr = do
+  readIORef callStackPtr >>= showCallStack
+  readIORef callStackPtr >>= print
+  readIORef environmentPtr >>= printEnvironment
   putStrLn $ "Executing instruction '" ++ show instr ++ "'"
   case instr of
-    ReturnInstr -> do
+    PopInstr -> do
       void pop'
     PrintInstr -> do
       a <- pop'
       print a
     ConstantInstr val -> do
-      push stackPtr val
+      push' val
     AddInstr -> do
       b <- pop'
       a <- pop'
@@ -132,10 +150,66 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
       void pop'
     JumpInstr distance -> do
       modifyIORef' programCounterPtr (+ distance)
+    DefineFunctionInstr -> do
+      pc <- readIORef programCounterPtr
+      LoxFunction {..} <-
+        fromMaybe
+          (internalError "Cannot call DefineFunctionInstr on not a function")
+          . valueToFunction
+          <$> pop'
+      let function' = LoxFunction (Just $ pc + 2) lfArity lfName
+      push' $ FunctionValue function'
+    CallInstr -> do
+      stack <- getLocalStack
+      let LoxFunction {..} = fromMaybe (internalError "Attempted to call when there is no function in the stack") do
+            let g = isJust . valueToFunction
+            v <- findFirst stack g
+            valueToFunction v
+      --fromMaybe (internalError "Attempted to call not a function") . valueToFunction <$> findFirst stack (isJust . valueToFunction)
+      let location = case lfLocation of
+            Nothing -> internalError "Incorrecntly initialised function"
+            Just a -> a
+      pc <- readIORef programCounterPtr
+      stack <- getLocalStack
+      let newFrame = CallFrame stack pc --cfNew pc
+      modifyIORef' callStackPtr $ \x -> stackPush x newFrame
+      writeIORef programCounterPtr location
+    ReturnInstr -> do
+      callStack <- readIORef callStackPtr
+      returnValue <- pop'
+      let (callStack', CallFrame _ location) = fromJust $ stackPop callStack
+      writeIORef programCounterPtr location
+      writeIORef callStackPtr callStack'
+      push' returnValue
+      modifyIORef' environmentPtr popScope_ -- leave function scope after returning
   where
-    pop' = pop stackPtr
-    push' = push stackPtr
-    peek' = peek stackPtr
+    pop' :: IO Value
+    pop' = do
+      callStack <- readIORef callStackPtr
+      let (callStack', frame@(CallFrame stack _)) = fromJust $ stackPop callStack
+      let (stack', value) = case stackPop stack of
+            Just a -> a
+            Nothing -> internalError "Attempted to pop from empty stack"
+      let frame' = cfReplaceStack frame stack'
+      let callStack'' = stackPush callStack' frame'
+      writeIORef callStackPtr callStack''
+      return value
+
+    push' :: Value -> IO ()
+    push' value = do
+      callStack <- readIORef callStackPtr
+      let (callStack', frame@(CallFrame stack _)) = fromJust $ stackPop callStack
+      let stack' = stackPush stack value
+      let frame' = cfReplaceStack frame stack'
+      let callStack'' = stackPush callStack' frame'
+      writeIORef callStackPtr callStack''
+
+    peek' :: IO Value
+    peek' = do
+      CallFrame stack _ <- fromJust . stackPeek <$> readIORef callStackPtr
+      return $ case stackPeek stack of
+        Nothing -> internalError "Attempted to peek empty stack"
+        Just a -> a
 
     checkVariableExists key = do
       env <- readIORef environmentPtr
@@ -168,6 +242,8 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
       environmentPtr
       \(Environment (x : xs)) -> Environment $ HashMap.insert key value x : xs
 
+    getLocalStack = cfStack . fromJust . stackPeek <$> readIORef callStackPtr
+
 push :: IORef (Stack a) -> a -> IO ()
 push stackPtr val = modifyIORef' stackPtr $ \stack -> stackPush stack val
 
@@ -195,3 +271,10 @@ handleError either = case either of
 
 internalError :: String -> a
 internalError msg = error $ "Internal: " ++ msg
+
+findFirst :: Stack a -> (a -> Bool) -> Maybe a
+findFirst stack p = do
+  (stack', val) <- stackPop stack
+  if p val
+    then return val
+    else findFirst stack' p

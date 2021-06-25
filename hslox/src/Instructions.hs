@@ -12,6 +12,14 @@ data Value
   | StringValue StringType
   | NilValue
   | BooleanValue Bool
+  | FunctionValue LoxFunction
+
+data LoxFunction = LoxFunction
+  { lfLocation :: Maybe Int,
+    lfArity :: Int,
+    lfName :: StringType
+  }
+  deriving (Show)
 
 instance Show Value where
   show val = case val of
@@ -19,6 +27,7 @@ instance Show Value where
     StringValue s -> T.unpack s
     NilValue -> "nil"
     BooleanValue b -> show b
+    FunctionValue f -> show f
 
 data Instruction
   = AddInstr
@@ -36,7 +45,7 @@ data Instruction
   | EqInstr
   | AndInstr
   | OrInstr
-  | ReturnInstr
+  | PopInstr
   | DefineVariableInstr StringType
   | GetVariableInstr StringType
   | SetVariableInstr StringType
@@ -44,6 +53,9 @@ data Instruction
   | EndScopeInstr
   | JumpIfFalseInstr Int
   | JumpInstr Int
+  | DefineFunctionInstr
+  | CallInstr
+  | ReturnInstr
   deriving (Show)
 
 errorMsg :: a -> Maybe b -> Either a b
@@ -61,10 +73,15 @@ valueToString v = case v of
   _ -> Nothing
 
 valueToBool :: Value -> Bool
-valueToBool a = case a of
+valueToBool v = case v of
   BooleanValue b -> b
   NilValue -> False
   _ -> True
+
+valueToFunction :: Value -> Maybe LoxFunction
+valueToFunction v = case v of
+  FunctionValue v -> Just v
+  _ -> Nothing
 
 valueAdd :: Value -> Value -> Either String Value
 valueAdd a b = errorMsg "Operands to '+' must be numbers" $
