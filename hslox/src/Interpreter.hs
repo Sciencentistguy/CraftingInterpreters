@@ -35,7 +35,7 @@ run instructions = do
   readIORef stackPtr >>= print
   do
     s <- readIORef environmentPtr
-    printVariablesMap $ globals s
+    printEnvironment s
     return ()
 
 runInstr :: IORef (Stack Value) -> IORef Int -> IORef Environment -> Instruction -> IO ()
@@ -43,7 +43,7 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
   readIORef stackPtr >>= print
   do
     s <- readIORef environmentPtr
-    printVariablesMap $ globals s
+    printEnvironment s
     return ()
   putStrLn $ "Executing instruction '" ++ show instr ++ "'"
   case instr of
@@ -108,9 +108,9 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
       a <- pop'
       push' $ BooleanValue $ handleError $ liftA2 (||) (valueLess a b) (valueEqual a b)
     DefineVariableInstr name -> do
-      contains <- checkVaraibleExists name
-      if contains
-        then error $ "Variable with name '" ++ T.unpack name ++ "' already exists."
+      exists <- checkVaraibleExistsInCurrentScope name
+      if exists
+        then error $ "Variable with name '" ++ T.unpack name ++ "' already exists in the current scope."
         else do
           a <- pop'
           addVariable name a
@@ -138,6 +138,10 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
       env <- readIORef environmentPtr
       let f = map $ HashMap.member key
       return $ or $ liftEnv f env
+
+    checkVaraibleExistsInCurrentScope key = do
+      env <- readIORef environmentPtr
+      return $ HashMap.member key $ liftEnv head env
 
     getVariable key = do
       env <- readIORef environmentPtr
@@ -185,14 +189,3 @@ handleError :: Either String a -> a
 handleError either = case either of
   Left err -> error err
   Right a -> a
-
-printVariablesMap :: HashMap StringType Value -> IO ()
-printVariablesMap map =
-  if null map
-    then return ()
-    else do
-      putStrLn "Variables: "
-      let pairs = HashMap.toList map
-      mapM_ printBinding pairs
-  where
-    printBinding (k, v) = putStrLn $ "  '" ++ T.unpack k ++ "' = " ++ show v ++ "."
