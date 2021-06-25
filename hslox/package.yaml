@@ -29,6 +29,7 @@ dependencies:
 - hashable
 - monad-loops
 - vector
+- extra
 
 library:
   source-dirs: src

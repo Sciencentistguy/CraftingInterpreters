@@ -28,6 +28,7 @@ library
       Interpreter.Environment
       Lexer
       Parser
+      Util
   other-modules:
       Paths_hslox
   hs-source-dirs:
@@ -35,6 +36,7 @@ library
   build-depends:
       Stack
     , base >=4.7 && <5
+    , extra
     , hashable
     , megaparsec
     , monad-loops
@@ -56,6 +58,7 @@ executable hslox-exe
   build-depends:
       Stack
     , base >=4.7 && <5
+    , extra
     , hashable
     , hslox
     , megaparsec
@@ -79,6 +82,7 @@ test-suite hslox-test
   build-depends:
       Stack
     , base >=4.7 && <5
+    , extra
     , hashable
     , hslox
     , megaparsec

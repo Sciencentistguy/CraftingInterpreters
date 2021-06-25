@@ -37,7 +37,16 @@ cStatement :: Statement -> [Instruction]
 cStatement stmt = case stmt of
   ExpressionStatement expr -> cExpression expr ++ [ReturnInstr]
   ForStatement {..} -> undefined
-  IfStatement {..} -> undefined
+  IfStatement {..} ->
+    let contents = cStatement ifStmtContents
+     in cExpression ifStmtCond
+          ++ [JumpIfFalseInstr $ length contents + if isJust ifStmtElse then 1 else 0]
+          ++ contents
+          ++ case ifStmtElse of
+            Nothing -> []
+            Just else' ->
+              let contents = cStatement else'
+               in JumpInstr (length contents) : contents
   PrintStatement expr -> cExpression expr ++ [PrintInstr]
   ReturnStatement maybe_expr -> undefined
   WhileStatement {..} -> undefined

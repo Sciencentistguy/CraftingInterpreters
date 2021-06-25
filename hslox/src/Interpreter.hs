@@ -5,6 +5,7 @@ module Interpreter where
 import AST
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Extra
 import Control.Monad.Loops
 import Data.Foldable
 import Data.HashMap.Strict (HashMap)
@@ -110,7 +111,9 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
     DefineVariableInstr name -> do
       exists <- checkVaraibleExistsInCurrentScope name
       if exists
-        then error $ "Variable with name '" ++ T.unpack name ++ "' already exists in the current scope."
+        then
+          error $
+            "Variable with name '" ++ T.unpack name ++ "' already exists in the current scope."
         else do
           a <- pop'
           addVariable name a
@@ -129,6 +132,10 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
       modifyIORef' environmentPtr newScope
     EndScopeInstr -> do
       modifyIORef' environmentPtr popScope_
+    JumpIfFalseInstr distance -> do
+      unlessM (valueToBool <$> peek') $ modifyIORef' programCounterPtr (+ distance)
+    JumpInstr distance -> do
+      modifyIORef' programCounterPtr (+ distance)
   where
     pop' = pop stackPtr
     push' = push stackPtr
@@ -155,7 +162,7 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
       writeIORef environmentPtr newEnv
       where
         replaceInList xs n newElement = take n xs ++ [newElement] ++ drop (n + 1) xs
-        go [] _ = error "variable does not exist"
+        go [] _ = internalError "Variable does not exist"
         go (x : xs) idx =
           if HashMap.member key x
             then (HashMap.insert key value x, idx)
@@ -172,7 +179,7 @@ pop :: IORef (Stack a) -> IO a
 pop stackPtr = do
   stack <- readIORef stackPtr
   let (newStack, val) = case stackPop stack of
-        Nothing -> error "Attempted to pop from empty stack."
+        Nothing -> internalError "Attempted to pop from empty stack."
         Just a -> a
   writeIORef stackPtr newStack
   return val
@@ -181,7 +188,7 @@ peek :: IORef (Stack a) -> IO a
 peek stackPtr = do
   stack <- readIORef stackPtr
   return $ case stackPeek stack of
-    Nothing -> error "Attempted to peek empty stack."
+    Nothing -> internalError "Attempted to peek empty stack."
     Just a -> a
 
 handleError :: Either String a -> a
@@ -189,3 +196,6 @@ handleError :: Either String a -> a
 handleError either = case either of
   Left err -> error err
   Right a -> a
+
+internalError :: String -> a
+internalError msg = error $ "Internal: " ++ msg

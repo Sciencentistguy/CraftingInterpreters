@@ -38,6 +38,8 @@ data Instruction
   | SetVariableInstr StringType
   | BeginScopeInstr
   | EndScopeInstr
+  | JumpIfFalseInstr Int
+  | JumpInstr Int
   deriving (Show)
 
 errorMsg :: a -> Maybe b -> Either a b
