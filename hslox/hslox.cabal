@@ -23,12 +23,14 @@ library
   exposed-modules:
       AST
       Compiler
-      Instructions
+      Instruction
       Interpreter
       Interpreter.Environment
-      Lexer
+      Interpreter.Error
+      Interpreter.Native
       Parser
       Util
+      Value
   other-modules:
       Paths_hslox
   hs-source-dirs:

@@ -8,7 +8,8 @@ where
 import AST
 import Data.Maybe
 import Data.Text (Text)
-import Instructions
+import Instruction
+import Value
 
 compile :: LoxProgram -> [Instruction]
 compile = cLoxProgram -- TODO make sure this is in the right order
@@ -44,9 +45,7 @@ cFunction Function {..} =
 
 cVariableDecl :: Identifier -> Maybe Expression -> [Instruction]
 cVariableDecl (Identifier name) expr =
-  let val = case expr of
-        Just a -> cExpression a
-        Nothing -> [ConstantInstr NilValue]
+  let val = maybe [ConstantInstr NilValue] cExpression expr
    in val ++ [DefineVariableInstr name]
 
 cStatement :: Statement -> [Instruction]

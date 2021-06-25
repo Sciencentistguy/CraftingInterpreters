@@ -8,12 +8,12 @@ import Data.Either
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import Data.Vector (Vector, fromList)
-import Instructions
 import Interpreter
 import Options.Applicative
 import Parser
 import System.IO
 import Text.Megaparsec
+import Value
 
 newtype Filename = Filename (Maybe String)
 

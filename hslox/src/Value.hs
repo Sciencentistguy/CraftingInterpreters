@@ -1,9 +1,11 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE RecordWildCards #-}
 
-module Instructions where
+module Value where
 
 import Data.Text (Text)
 import qualified Data.Text as T
+import Interpreter.Error
 
 type StringType = Text
 
@@ -14,12 +16,21 @@ data Value
   | BooleanValue Bool
   | FunctionValue LoxFunction
 
-data LoxFunction = LoxFunction
-  { lfLocation :: Maybe Int,
-    lfArity :: Int,
-    lfName :: StringType
-  }
-  deriving (Show)
+data LoxFunction
+  = LoxFunction
+      { lfLocation :: Maybe Int,
+        lfArity :: Int,
+        lfName :: StringType
+      }
+  | NativeFunction
+      { nfName :: StringType,
+        nfArity :: Int,
+        nfFunction :: [Value] -> IO Value
+      }
+
+instance Show LoxFunction where
+  show LoxFunction {..} = "<fn " ++ T.unpack lfName ++ "(" ++ show lfArity ++ ")>"
+  show NativeFunction {..} = "<native fn " ++ T.unpack nfName ++ "(" ++ show nfArity ++ ")>"
 
 instance Show Value where
   show val = case val of
@@ -28,39 +39,6 @@ instance Show Value where
     NilValue -> "nil"
     BooleanValue b -> show b
     FunctionValue f -> show f
-
-data Instruction
-  = AddInstr
-  | SubInstr
-  | NegateInstr
-  | ConstantInstr Value
-  | PrintInstr
-  | MultiplyInstr
-  | DivideInstr
-  | NotInstr
-  | GreaterInstr
-  | GreaterEqInstr
-  | LessInstr
-  | LessEqInstr
-  | EqInstr
-  | AndInstr
-  | OrInstr
-  | PopInstr
-  | DefineVariableInstr StringType
-  | GetVariableInstr StringType
-  | SetVariableInstr StringType
-  | BeginScopeInstr
-  | EndScopeInstr
-  | JumpIfFalseInstr Int
-  | JumpInstr Int
-  | DefineFunctionInstr
-  | CallInstr
-  | ReturnInstr
-  deriving (Show)
-
-errorMsg :: a -> Maybe b -> Either a b
-errorMsg _ (Just a) = Right a
-errorMsg msg Nothing = Left msg
 
 valueToNumber :: Value -> Maybe Double
 valueToNumber v = case v of

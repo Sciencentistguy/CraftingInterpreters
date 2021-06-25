@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Interpreter where
@@ -19,30 +20,19 @@ import qualified Data.Text as T
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as V
 import Debug.Trace
-import Instructions
+import Instruction
 import Interpreter.Environment
-
-data CallFrame = CallFrame
-  { cfStack :: Stack Value,
-    cfReturnAddr :: Int
-  }
-  deriving (Show)
-
-cfStackMap f (CallFrame stack a) = CallFrame (f stack) a
-
-cfReplaceStack (CallFrame _ a) stack = CallFrame stack a
-
-showCallStack callStack =
-  let CallFrame stack _ = fromJust $ stackPeek callStack
-   in print stack
-
-cfNew = CallFrame stackNew
+import Interpreter.Error
+import Interpreter.Native
+import Value
 
 run :: Vector Instruction -> IO ()
 run instructions = do
   callStackPtr <- newIORef $ stackPush stackNew $ cfNew (-1)
   programCounterPtr <- newIORef 0
   environmentPtr <- newIORef emptyEnvironment
+  addNativeFunction environmentPtr $ NativeFunction "nativeAdd" 2 nativeAdd
+
   whileM_
     do
       pc <- readIORef programCounterPtr
@@ -161,19 +151,24 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
       push' $ FunctionValue function'
     CallInstr -> do
       stack <- getLocalStack
-      let LoxFunction {..} = fromMaybe (internalError "Attempted to call when there is no function in the stack") do
+      let function = fromMaybe (internalError "Attempted to call when there is no function in the stack") do
             let g = isJust . valueToFunction
             v <- findFirst stack g
             valueToFunction v
-      --fromMaybe (internalError "Attempted to call not a function") . valueToFunction <$> findFirst stack (isJust . valueToFunction)
-      let location = case lfLocation of
-            Nothing -> internalError "Incorrecntly initialised function"
-            Just a -> a
-      pc <- readIORef programCounterPtr
-      stack <- getLocalStack
-      let newFrame = CallFrame stack pc --cfNew pc
-      modifyIORef' callStackPtr $ \x -> stackPush x newFrame
-      writeIORef programCounterPtr location
+      case function of
+        LoxFunction {..} -> do
+          let location = case lfLocation of
+                Nothing -> internalError "Incorrecntly initialised function"
+                Just a -> a
+          pc <- readIORef programCounterPtr
+          stack <- getLocalStack
+          let newFrame = CallFrame stack pc
+          modifyIORef' callStackPtr $ \x -> stackPush x newFrame
+          writeIORef programCounterPtr location
+        NativeFunction {..} -> do
+          args <- reverse <$> replicateM nfArity pop'
+          value <- nfFunction args
+          push' value
     ReturnInstr -> do
       callStack <- readIORef callStackPtr
       returnValue <- pop'
@@ -243,38 +238,3 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
       \(Environment (x : xs)) -> Environment $ HashMap.insert key value x : xs
 
     getLocalStack = cfStack . fromJust . stackPeek <$> readIORef callStackPtr
-
-push :: IORef (Stack a) -> a -> IO ()
-push stackPtr val = modifyIORef' stackPtr $ \stack -> stackPush stack val
-
-pop :: IORef (Stack a) -> IO a
-pop stackPtr = do
-  stack <- readIORef stackPtr
-  let (newStack, val) = case stackPop stack of
-        Nothing -> internalError "Attempted to pop from empty stack."
-        Just a -> a
-  writeIORef stackPtr newStack
-  return val
-
-peek :: IORef (Stack a) -> IO a
-peek stackPtr = do
-  stack <- readIORef stackPtr
-  return $ case stackPeek stack of
-    Nothing -> internalError "Attempted to peek empty stack."
-    Just a -> a
-
-handleError :: Either String a -> a
--- TODO I should probably be using ExceptT but I don't understand it so `error` it is
-handleError either = case either of
-  Left err -> error err
-  Right a -> a
-
-internalError :: String -> a
-internalError msg = error $ "Internal: " ++ msg
-
-findFirst :: Stack a -> (a -> Bool) -> Maybe a
-findFirst stack p = do
-  (stack', val) <- stackPop stack
-  if p val
-    then return val
-    else findFirst stack' p
