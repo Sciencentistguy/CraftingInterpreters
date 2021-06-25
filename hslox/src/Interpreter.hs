@@ -109,7 +109,7 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
       a <- pop'
       push' $ BooleanValue $ handleError $ liftA2 (||) (valueLess a b) (valueEqual a b)
     DefineVariableInstr name -> do
-      exists <- checkVaraibleExistsInCurrentScope name
+      exists <- checkVariableExistsInCurrentScope name
       if exists
         then
           error $
@@ -123,17 +123,17 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
         Just v -> push' v
         Nothing -> error $ "Variable with name '" ++ T.unpack name ++ "' does not exist."
     SetVariableInstr name -> do
-      contains <- checkVaraibleExists name
+      contains <- checkVariableExists name
+      unless contains $ error $ "Variable with name '" ++ T.unpack name ++ "' does not exist."
       val <- peek'
-      if not contains
-        then error $ "Variable with name '" ++ T.unpack name ++ "' does not exist."
-        else updateVariable name val
+      updateVariable name val
     BeginScopeInstr -> do
       modifyIORef' environmentPtr newScope
     EndScopeInstr -> do
       modifyIORef' environmentPtr popScope_
     JumpIfFalseInstr distance -> do
       unlessM (valueToBool <$> peek') $ modifyIORef' programCounterPtr (+ distance)
+      void pop'
     JumpInstr distance -> do
       modifyIORef' programCounterPtr (+ distance)
   where
@@ -141,12 +141,12 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
     push' = push stackPtr
     peek' = peek stackPtr
 
-    checkVaraibleExists key = do
+    checkVariableExists key = do
       env <- readIORef environmentPtr
       let f = map $ HashMap.member key
       return $ or $ liftEnv f env
 
-    checkVaraibleExistsInCurrentScope key = do
+    checkVariableExistsInCurrentScope key = do
       env <- readIORef environmentPtr
       return $ HashMap.member key $ liftEnv head env
 

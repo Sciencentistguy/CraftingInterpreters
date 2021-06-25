@@ -7,7 +7,11 @@ import qualified Data.Text as T
 
 type StringType = Text
 
-data Value = NumberValue Double | StringValue StringType | NilValue | BooleanValue Bool
+data Value
+  = NumberValue Double
+  | StringValue StringType
+  | NilValue
+  | BooleanValue Bool
 
 instance Show Value where
   show val = case val of
@@ -56,6 +60,12 @@ valueToString v = case v of
   StringValue s -> Just s
   _ -> Nothing
 
+valueToBool :: Value -> Bool
+valueToBool a = case a of
+  BooleanValue b -> b
+  NilValue -> False
+  _ -> True
+
 valueAdd :: Value -> Value -> Either String Value
 valueAdd a b = errorMsg "Operands to '+' must be numbers" $
   do
@@ -86,12 +96,6 @@ valueDiv a b = errorMsg "Operands to '/' must be numbers" $
 
 valueNegate :: Value -> Either String Value
 valueNegate a = errorMsg "Operand to unary '-' must be a number" $ NumberValue . negate <$> valueToNumber a
-
-valueToBool :: Value -> Bool
-valueToBool a = case a of
-  BooleanValue b -> b
-  NilValue -> False
-  _ -> True
 
 valueEqual :: Value -> Value -> Either String Bool
 valueEqual a b =

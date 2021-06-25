@@ -36,7 +36,23 @@ cVariableDecl (Identifier name) expr =
 cStatement :: Statement -> [Instruction]
 cStatement stmt = case stmt of
   ExpressionStatement expr -> cExpression expr ++ [ReturnInstr]
-  ForStatement {..} -> undefined
+  ForStatement {..} ->
+    -- TODO possible optimisation: if condition is Nothing, then omit JumpIfFalseInstr entirely
+    let init = case forStmtInit of
+          Nothing -> []
+          Just (LoopInitExpr stmt) -> cStatement stmt
+          Just (LoopInitVarDeclaration decl) -> cDecl decl
+        condition = maybe [ConstantInstr $ BooleanValue True] cExpression forStmtLoopCond
+        incr = maybe [] cExpression forStmtIncr
+        contents = cStatement forStmtContents
+        forwardJumpLength = 1 + length contents + length condition + length incr
+     in BeginScopeInstr :
+        init
+          ++ condition
+          ++ [JumpIfFalseInstr forwardJumpLength]
+          ++ contents
+          ++ incr
+          ++ [JumpInstr $ negate $ forwardJumpLength + 1]
   IfStatement {..} ->
     let contents = cStatement ifStmtContents
      in cExpression ifStmtCond
@@ -49,7 +65,13 @@ cStatement stmt = case stmt of
                in JumpInstr (length contents) : contents
   PrintStatement expr -> cExpression expr ++ [PrintInstr]
   ReturnStatement maybe_expr -> undefined
-  WhileStatement {..} -> undefined
+  WhileStatement {..} ->
+    let contents = cStatement whileStmtContents
+        output =
+          cExpression whileStmtCond
+            ++ [JumpIfFalseInstr $ length contents + 1] -- +1 because of the JumpInstr
+            ++ contents
+     in output ++ [JumpInstr (negate $ length output + 1)] -- +1 because it has to jump over itself as well
   BlockStatement (Block decls) -> [BeginScopeInstr] ++ concatMap cDecl decls ++ [EndScopeInstr]
 
 cExpression :: Expression -> [Instruction]
@@ -60,10 +82,6 @@ cAssignment assign = case assign of
   Assignment _ (Identifier name) assignmentExpr ->
     cAssignment assignmentExpr ++ [SetVariableInstr name]
   AssignmentLogicOr logicor -> cLogicOr logicor
-
---assignmentCall :: Maybe Call,
---assignmentTarget :: Identifier,
---assignmentExpr :: Assignment
 
 cLogicOr :: LogicOr -> [Instruction]
 cLogicOr (LogicOr (and : rest)) = cLogicAnd and ++ go rest []

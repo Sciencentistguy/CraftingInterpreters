@@ -223,6 +223,7 @@ pWhileStatement = do
   _ <- keyword "while"
   _ <- symbol "("
   whileStmtCond <- pExpression
+  _ <- symbol ")"
   whileStmtContents <- pStatement
   return WhileStatement {..}
 
