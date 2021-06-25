@@ -37,7 +37,6 @@ run instructions = do
   do
     s <- readIORef environmentPtr
     printEnvironment s
-    return ()
 
 runInstr :: IORef (Stack Value) -> IORef Int -> IORef Environment -> Instruction -> IO ()
 runInstr stackPtr programCounterPtr environmentPtr instr = do
@@ -45,7 +44,6 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
   do
     s <- readIORef environmentPtr
     printEnvironment s
-    return ()
   putStrLn $ "Executing instruction '" ++ show instr ++ "'"
   case instr of
     ReturnInstr -> do
@@ -79,7 +77,7 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
             NumberValue . negate <$> valueToNumber a
     NotInstr -> do
       a <- pop'
-      push' $ BooleanValue $ not $valueToBool a
+      push' $ BooleanValue $ not $ valueToBool a
     OrInstr -> do
       b <- pop'
       a <- pop'
@@ -110,13 +108,11 @@ runInstr stackPtr programCounterPtr environmentPtr instr = do
       push' $ BooleanValue $ handleError $ liftA2 (||) (valueLess a b) (valueEqual a b)
     DefineVariableInstr name -> do
       exists <- checkVariableExistsInCurrentScope name
-      if exists
-        then
-          error $
-            "Variable with name '" ++ T.unpack name ++ "' already exists in the current scope."
-        else do
-          a <- pop'
-          addVariable name a
+      when exists $
+        error $
+          "Variable with name '" ++ T.unpack name ++ "' already exists in the current scope."
+      a <- pop'
+      addVariable name a
     GetVariableInstr name -> do
       val <- getVariable name
       case val of
