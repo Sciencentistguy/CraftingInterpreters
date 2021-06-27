@@ -152,13 +152,13 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
     CallInstr -> do
       stack <- getLocalStack
       let function = fromMaybe (internalError "Attempted to call when there is no function in the stack") do
-            let g = isJust . valueToFunction
-            v <- findFirst stack g
+            let isFunction = isJust . valueToFunction
+            v <- findFirst stack isFunction
             valueToFunction v
       case function of
         LoxFunction {..} -> do
           let location = case lfLocation of
-                Nothing -> internalError "Incorrecntly initialised function"
+                Nothing -> internalError "Incorrectly initialised function"
                 Just a -> a
           pc <- readIORef programCounterPtr
           stack <- getLocalStack
@@ -172,7 +172,10 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
     ReturnInstr -> do
       callStack <- readIORef callStackPtr
       returnValue <- pop'
-      let (callStack', CallFrame _ location) = fromJust $ stackPop callStack
+      let (callStack', CallFrame _ location) =
+            fromMaybe
+              (internalError "Empty call stack")
+              $ stackPop callStack
       writeIORef programCounterPtr location
       writeIORef callStackPtr callStack'
       push' returnValue
@@ -181,7 +184,10 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
     pop' :: IO Value
     pop' = do
       callStack <- readIORef callStackPtr
-      let (callStack', frame@(CallFrame stack _)) = fromJust $ stackPop callStack
+      let (callStack', frame@(CallFrame stack _)) =
+            fromMaybe
+              (internalError "Empty call stack")
+              $ stackPop callStack
       let (stack', value) = case stackPop stack of
             Just a -> a
             Nothing -> internalError "Attempted to pop from empty stack"
@@ -193,7 +199,10 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
     push' :: Value -> IO ()
     push' value = do
       callStack <- readIORef callStackPtr
-      let (callStack', frame@(CallFrame stack _)) = fromJust $ stackPop callStack
+      let (callStack', frame@(CallFrame stack _)) =
+            fromMaybe
+              (internalError "Empty call stack")
+              $ stackPop callStack
       let stack' = stackPush stack value
       let frame' = cfReplaceStack frame stack'
       let callStack'' = stackPush callStack' frame'
@@ -201,7 +210,10 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
 
     peek' :: IO Value
     peek' = do
-      CallFrame stack _ <- fromJust . stackPeek <$> readIORef callStackPtr
+      CallFrame stack _ <-
+        fromMaybe (internalError "Empty call stack")
+          . stackPeek
+          <$> readIORef callStackPtr
       return $ case stackPeek stack of
         Nothing -> internalError "Attempted to peek empty stack"
         Just a -> a
@@ -237,4 +249,7 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
       environmentPtr
       \(Environment (x : xs)) -> Environment $ HashMap.insert key value x : xs
 
-    getLocalStack = cfStack . fromJust . stackPeek <$> readIORef callStackPtr
+    getLocalStack =
+      fmap
+        (fromMaybe (internalError "Empty call stack"))
+        (fmap cfStack . stackPeek <$> readIORef callStackPtr)

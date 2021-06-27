@@ -90,8 +90,8 @@ cfStackMap f (CallFrame stack a) = CallFrame (f stack) a
 
 cfReplaceStack (CallFrame _ a) stack = CallFrame stack a
 
-showCallStack callStack =
-  let CallFrame stack _ = fromJust $ stackPeek callStack
-   in print stack
+showCallStack callStack = case stackPeek callStack of
+  Just (CallFrame stack _) -> print stack
+  Nothing -> return ()
 
 cfNew = CallFrame stackNew
