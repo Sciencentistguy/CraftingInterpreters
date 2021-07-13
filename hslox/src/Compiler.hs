@@ -8,8 +8,7 @@ where
 import AST
 import Data.Maybe
 import Data.Text (Text)
-import Instruction
-import Value
+import Types
 
 compile :: LoxProgram -> [Instruction]
 compile = cLoxProgram -- TODO make sure this is in the right order

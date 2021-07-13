@@ -1,260 +1,246 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Interpreter where
 
-import AST
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Loops
 import Data.Foldable
-import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Hashable (Hashable)
 import Data.IORef
-import Data.Maybe
 import Data.Stack
 import qualified Data.Text as T
 import Data.Vector (Vector, (!))
-import qualified Data.Vector as V
-import Debug.Trace
-import Instruction
 import Interpreter.Environment
-import Interpreter.Error
 import Interpreter.Native
-import Value
+import Types
+import Util
 
-run :: Vector Instruction -> IO ()
+run :: Vector Instruction -> IOResult ()
 run instructions = do
-  callStackPtr <- newIORef $ stackPush stackNew $ cfNew (-1)
-  programCounterPtr <- newIORef 0
-  environmentPtr <- newIORef emptyEnvironment
+  callStackPtr <- liftIO $ newIORef $ stackPush stackNew $ cfNew (-1)
+  programCounterPtr <- liftIO $ newIORef 0
+  environmentPtr <- liftIO $ newIORef emptyEnvironment
   addNativeFunction environmentPtr $ NativeFunction "nativeAdd" 2 nativeAdd
 
   whileM_
     do
-      pc <- readIORef programCounterPtr
+      pc <- liftIO $ readIORef programCounterPtr
       return $ pc < length instructions
     do
-      pc <- readIORef programCounterPtr
+      pc <- liftIO $ readIORef programCounterPtr
       runInstr callStackPtr programCounterPtr environmentPtr (instructions ! pc)
-      modifyIORef' programCounterPtr (+ 1)
+      liftIO $ modifyIORef' programCounterPtr (+ 1)
 
-  readIORef callStackPtr >>= showCallStack
+  liftIO $ readIORef callStackPtr >>= showCallStack
   do
-    s <- readIORef environmentPtr
+    s <- liftIO $ readIORef environmentPtr
     printEnvironment s
 
-runInstr :: IORef (Stack CallFrame) -> IORef Int -> IORef Environment -> Instruction -> IO ()
+runInstr :: IORef (Stack CallFrame) -> IORef Int -> IORef Environment -> Instruction -> IOResult ()
 runInstr callStackPtr programCounterPtr environmentPtr instr = do
-  readIORef callStackPtr >>= showCallStack
-  readIORef callStackPtr >>= print
-  readIORef environmentPtr >>= printEnvironment
-  putStrLn $ "Executing instruction '" ++ show instr ++ "'"
+  liftIO $ readIORef callStackPtr >>= showCallStack
+  liftIO $readIORef callStackPtr >>= print
+  liftIO (readIORef environmentPtr) >>= printEnvironment
+  liftIO $putStrLn $ "Executing instruction '" ++ show instr ++ "'"
   case instr of
-    PopInstr -> do
-      void pop'
+    PopInstr -> void pop'
     PrintInstr -> do
       a <- pop'
-      print a
+      liftIO $ print a
     ConstantInstr val -> do
       push' val
     AddInstr -> do
       b <- pop'
       a <- pop'
-      push' $ handleError $ valueAdd a b
+      res <- liftResult $ valueAdd a b
+      push' res
     SubInstr -> do
       b <- pop'
       a <- pop'
-      push' $ handleError $ valueSub a b
+      res <- liftResult $ valueSub a b
+      push' res
     MultiplyInstr -> do
       b <- pop'
       a <- pop'
-      push' $ handleError $ valueMul a b
+      res <- liftResult $ valueMul a b
+      push' res
     DivideInstr -> do
       b <- pop'
       a <- pop'
-      push' $ handleError $ valueDiv a b
+      res <- liftResult $ valueDiv a b
+      push' res
     NegateInstr -> do
       a <- pop'
-      push' $
-        handleError $
-          errorMsg "Operand to unary '-' must be a number" $
-            NumberValue . negate <$> valueToNumber a
+      num <- liftResult $ valueToNumber a
+      push' $ NumberValue . negate $ num
     NotInstr -> do
       a <- pop'
-      push' $ BooleanValue $ not $ valueToBool a
+      push' $ BooleanValue $ not $ valueCoerceBool a
     OrInstr -> do
       b <- pop'
       a <- pop'
-      push' $ BooleanValue $ valueToBool a || valueToBool b
+      push' $ BooleanValue $ valueCoerceBool a || valueCoerceBool b
     AndInstr -> do
       b <- pop'
       a <- pop'
-      push' $ BooleanValue $ valueToBool a && valueToBool b
+      push' $ BooleanValue $ valueCoerceBool a && valueCoerceBool b
     EqInstr -> do
       b <- pop'
       a <- pop'
-      push' $ BooleanValue $ handleError $ valueEqual a b
+      res <- liftResult $ valueEqual a b
+      push' $ BooleanValue res
     GreaterInstr -> do
       b <- pop'
       a <- pop'
-      push' $ BooleanValue $ handleError $ valueGreater a b
+      res <- liftResult $ valueGreater a b
+      push' $ BooleanValue res
     GreaterEqInstr -> do
       b <- pop'
       a <- pop'
-      push' $ BooleanValue $ handleError $ liftA2 (||) (valueGreater a b) (valueEqual a b)
+      res <- liftResult $ liftA2 (||) (valueGreater a b) (valueEqual a b)
+      push' $ BooleanValue res
     LessInstr -> do
       b <- pop'
       a <- pop'
-      push' $ BooleanValue $ handleError $ valueLess a b
+      res <- liftResult $ valueLess a b
+      push' $ BooleanValue res
     LessEqInstr -> do
       b <- pop'
       a <- pop'
-      push' $ BooleanValue $ handleError $ liftA2 (||) (valueLess a b) (valueEqual a b)
+      res <- liftResult $ liftA2 (||) (valueLess a b) (valueEqual a b)
+      push' $ BooleanValue res
     DefineVariableInstr name -> do
-      exists <- checkVariableExistsInCurrentScope name
-      when exists $
-        error $
-          "Variable with name '" ++ T.unpack name ++ "' already exists in the current scope."
+      exists <- liftIO $ checkVariableExistsInCurrentScope name
+      when exists $ throwError $ VariableExistsError $ T.unpack name
       a <- pop'
-      addVariable name a
+      liftIO $ addVariable name a
     GetVariableInstr name -> do
       val <- getVariable name
-      case val of
-        Just v -> push' v
-        Nothing -> error $ "Variable with name '" ++ T.unpack name ++ "' does not exist."
+      push' val
     SetVariableInstr name -> do
-      contains <- checkVariableExists name
-      unless contains $ error $ "Variable with name '" ++ T.unpack name ++ "' does not exist."
       val <- peek'
       updateVariable name val
     BeginScopeInstr -> do
-      modifyIORef' environmentPtr newScope
+      liftIO $ modifyIORef' environmentPtr newScope
     EndScopeInstr -> do
-      modifyIORef' environmentPtr popScope_
+      modifyIORefM environmentPtr popScope_
     JumpIfFalseInstr distance -> do
-      unlessM (valueToBool <$> peek') $ modifyIORef' programCounterPtr (+ distance)
+      unlessM (valueCoerceBool <$> peek') $ liftIO $ modifyIORef' programCounterPtr (+ distance)
       void pop'
     JumpInstr distance -> do
-      modifyIORef' programCounterPtr (+ distance)
+      liftIO $ modifyIORef' programCounterPtr (+ distance)
     DefineFunctionInstr -> do
-      pc <- readIORef programCounterPtr
-      LoxFunction {..} <-
-        fromMaybe
-          (internalError "Cannot call DefineFunctionInstr on not a function")
-          . valueToFunction
-          <$> pop'
+      pc <- liftIO $ readIORef programCounterPtr
+      LoxFunction {..} <- do
+        x <- pop'
+        liftResult $ valueToFunction x
       let function' = LoxFunction (Just $ pc + 2) lfArity lfName
       push' $ FunctionValue function'
     CallInstr -> do
       stack <- getLocalStack
-      let function = fromMaybe (internalError "Attempted to call when there is no function in the stack") do
-            let isFunction = isJust . valueToFunction
-            v <- findFirst stack isFunction
-            valueToFunction v
+      function <- do
+        let isFunction v = case v of
+              FunctionValue _ -> True
+              _ -> False
+        v <-
+          liftMaybe (GenericError "Attempted to call with no callable in the stack") $
+            findFirst stack isFunction
+        liftResult $ valueToFunction v
       case function of
         LoxFunction {..} -> do
-          let location = case lfLocation of
-                Nothing -> internalError "Incorrectly initialised function"
-                Just a -> a
-          pc <- readIORef programCounterPtr
+          location <- liftMaybe (InternalError "Incorrectly initialised function") lfLocation
+          pc <- liftIO $ readIORef programCounterPtr
           stack <- getLocalStack
           let newFrame = CallFrame stack pc
-          modifyIORef' callStackPtr $ \x -> stackPush x newFrame
-          writeIORef programCounterPtr location
+          liftIO $ modifyIORef' callStackPtr $ \x -> stackPush x newFrame
+          liftIO $ writeIORef programCounterPtr location
         NativeFunction {..} -> do
           args <- reverse <$> replicateM nfArity pop'
           value <- nfFunction args
           push' value
     ReturnInstr -> do
-      callStack <- readIORef callStackPtr
+      callStack <- liftIO $ readIORef callStackPtr
       returnValue <- pop'
-      let (callStack', CallFrame _ location) =
-            fromMaybe
-              (internalError "Empty call stack")
-              $ stackPop callStack
-      writeIORef programCounterPtr location
-      writeIORef callStackPtr callStack'
+      (callStack', CallFrame _ location) <-
+        liftMaybe
+          (InternalError "Empty call stack")
+          $ stackPop callStack
+      liftIO $ writeIORef programCounterPtr location
+      liftIO $ writeIORef callStackPtr callStack'
       push' returnValue
-      modifyIORef' environmentPtr popScope_ -- leave function scope after returning
+      modifyIORefM environmentPtr popScope_ -- leave function scope after returning
   where
-    pop' :: IO Value
+    pop' :: (MonadIO m, MonadError LoxError m) => m Value
     pop' = do
-      callStack <- readIORef callStackPtr
-      let (callStack', frame@(CallFrame stack _)) =
-            fromMaybe
-              (internalError "Empty call stack")
-              $ stackPop callStack
-      let (stack', value) = case stackPop stack of
-            Just a -> a
-            Nothing -> internalError "Attempted to pop from empty stack"
+      callStack <- liftIO $ readIORef callStackPtr
+      (callStack', frame@(CallFrame stack _)) <-
+        liftMaybe (InternalError "Empty call stack") $
+          stackPop callStack
+      (stack', value) <-
+        liftMaybe
+          (InternalError "Attempted to pop from empty stack")
+          $ stackPop stack
       let frame' = cfReplaceStack frame stack'
       let callStack'' = stackPush callStack' frame'
-      writeIORef callStackPtr callStack''
+      liftIO $ writeIORef callStackPtr callStack''
       return value
 
-    push' :: Value -> IO ()
+    push' :: (MonadIO m, MonadError LoxError m) => Value -> m ()
     push' value = do
-      callStack <- readIORef callStackPtr
-      let (callStack', frame@(CallFrame stack _)) =
-            fromMaybe
-              (internalError "Empty call stack")
-              $ stackPop callStack
+      callStack <- liftIO $ readIORef callStackPtr
+      (callStack', frame@(CallFrame stack _)) <-
+        liftMaybe
+          (InternalError "Empty call stack")
+          $ stackPop callStack
       let stack' = stackPush stack value
       let frame' = cfReplaceStack frame stack'
       let callStack'' = stackPush callStack' frame'
-      writeIORef callStackPtr callStack''
+      liftIO $ writeIORef callStackPtr callStack''
 
-    peek' :: IO Value
+    peek' :: (MonadIO m, MonadError LoxError m) => m Value
     peek' = do
-      CallFrame stack _ <-
-        fromMaybe (internalError "Empty call stack")
-          . stackPeek
-          <$> readIORef callStackPtr
-      return $ case stackPeek stack of
-        Nothing -> internalError "Attempted to peek empty stack"
-        Just a -> a
+      callstack <- liftIO $ readIORef callStackPtr
+      CallFrame stack _ <- liftMaybe (InternalError "Empty call stack") $ stackPeek callstack
+      liftMaybe (InternalError "Attempted to peek empty stack") $ stackPeek stack
 
-    checkVariableExists key = do
-      env <- readIORef environmentPtr
-      let f = map $ HashMap.member key
-      return $ or $ liftEnv f env
-
-    checkVariableExistsInCurrentScope key = do
+    checkVariableExistsInCurrentScope key = liftIO do
       env <- readIORef environmentPtr
       return $ HashMap.member key $ liftEnv head env
 
-    getVariable key = do
-      env <- readIORef environmentPtr
+    getVariablePtr key = do
+      env <- liftIO $ readIORef environmentPtr
       let f = map $ HashMap.lookup key
-      return (asum $ liftEnv f env)
+          x = liftEnv f env
+          y = asum x
+      case y of
+        Just x -> return x
+        Nothing -> throwError $ UnboundVariableError (T.unpack key)
+
+    getVariable key = do
+      ptr <- getVariablePtr key
+      liftIO $ readIORef ptr
 
     updateVariable key value = do
-      Environment ls <- readIORef environmentPtr
-      let (updatedMap, index) = go ls 0
-      let newEnv = Environment $ replaceInList ls index updatedMap
-      writeIORef environmentPtr newEnv
-      where
-        replaceInList xs n newElement = take n xs ++ [newElement] ++ drop (n + 1) xs
-        go [] _ = internalError "Variable does not exist"
-        go (x : xs) idx =
-          if HashMap.member key x
-            then (HashMap.insert key value x, idx)
-            else go xs (idx + 1)
+      variablePtr <- getVariablePtr key
+      liftIO $ writeIORef variablePtr value
 
-    addVariable key value = modifyIORef'
-      environmentPtr
-      \(Environment (x : xs)) -> Environment $ HashMap.insert key value x : xs
+    addVariable key value = liftIO $ do
+      var <- newIORef value
+      modifyIORef'
+        environmentPtr
+        \(Environment (x : xs)) -> Environment $ HashMap.insert key var x : xs
 
-    getLocalStack :: IO (Stack Value)
-    getLocalStack =
-      -- readIORef callStackPtr returns an IO (Stack CallFrame). mapping stackPeek :: Stack a ->
-      -- Maybe a gives an IO (Maybe (CallFrame)). double-mapping cfStack :: CallFrame ->
-      -- Stack Value then gives an IO (Maybe (Stack Value)). Mapping fromMaybe over this gives the
-      -- required IO (Stack Value)
-      fmap
-        (fromMaybe (internalError "Empty call stack"))
-        (fmap cfStack . stackPeek <$> readIORef callStackPtr)
+    getLocalStack :: IOResult (Stack Value)
+    getLocalStack = do
+      callstack <- liftIO $ readIORef callStackPtr
+      let top = stackPeek callstack
+          stack = cfStack <$> top
+      case stack of
+        Just s -> return s
+        Nothing -> throwError $ InternalError "Empty call stack"

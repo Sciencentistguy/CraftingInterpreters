@@ -23,19 +23,17 @@ library
   exposed-modules:
       AST
       Compiler
-      Instruction
       Interpreter
       Interpreter.Environment
-      Interpreter.Error
-      Interpreter.Function
       Interpreter.Native
       Parser
+      Types
       Util
-      Value
   other-modules:
       Paths_hslox
   hs-source-dirs:
       src
+  ghc-options: -Wall -Wno-name-shadowing -Wno-type-defaults
   build-depends:
       Stack
     , base >=4.7 && <5
@@ -46,6 +44,7 @@ library
     , mtl
     , optparse-applicative
     , parser-combinators
+    , safe
     , text
     , unordered-containers
     , vector
@@ -69,6 +68,7 @@ executable hslox-exe
     , mtl
     , optparse-applicative
     , parser-combinators
+    , safe
     , text
     , unordered-containers
     , vector
@@ -93,6 +93,7 @@ test-suite hslox-test
     , mtl
     , optparse-applicative
     , parser-combinators
+    , safe
     , text
     , unordered-containers
     , vector

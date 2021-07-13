@@ -4,6 +4,7 @@ module Main where
 
 import Compiler
 import Control.Monad
+import Control.Monad.Except
 import Data.Either
 import Data.Semigroup ((<>))
 import qualified Data.Text as T
@@ -13,7 +14,7 @@ import Options.Applicative
 import Parser
 import System.IO
 import Text.Megaparsec
-import Value
+import Types
 
 newtype Filename = Filename (Maybe String)
 
@@ -41,7 +42,10 @@ repl = do
       putStrLn "\nInstructions:"
       mapM_ print program
       putStrLn "\nRunning:"
-      run program
+      ran <- runExceptT $ run program
+      case ran of
+        Right _ -> return ()
+        Left x -> print x
 
 file :: FilePath -> IO ()
 file name = do
@@ -56,4 +60,7 @@ file name = do
       putStrLn "\nInstructions:"
       mapM_ print program
       putStr "\nRunning:"
-      run program
+      ran <- runExceptT $ run program
+      case ran of
+        Right _ -> return ()
+        Left x -> print x

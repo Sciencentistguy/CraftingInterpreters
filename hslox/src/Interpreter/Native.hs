@@ -2,30 +2,24 @@
 
 module Interpreter.Native where
 
+import Control.Monad.Except
 import qualified Data.HashMap.Strict as HashMap
 import Data.IORef
-import Data.Maybe
 import Interpreter.Environment
-import Interpreter.Error
-import Util
-import Value
+import Safe
+import Types
 
-nativeAdd [a, b] = return $ handleError $ valueAdd a b
-nativeAdd _ = error "Incorrect number of arguments passed to nativeAdd"
+nativeAdd :: [Value] -> IOResult Value
+nativeAdd [a, b] = liftResult $ valueAdd a b
+nativeAdd bal = throwError $ NumArgsError 2 bal
 
-addNativeFunction :: IORef Environment -> LoxFunction -> IO ()
+addNativeFunction :: IORef Environment -> LoxFunction -> IOResult ()
 addNativeFunction environmentPtr nativeFunction = do
-  env <- readIORef environmentPtr
-  let globals' = globals env
-  let globals'' =
-        HashMap.insert
-          (nfName nativeFunction)
-          (FunctionValue nativeFunction)
-          globals'
-  let env' = fromMaybe (internalError "empty environment") do
-        x <- liftEnv initMaybe env
-        return $ Environment $ x ++ [globals'']
-  writeIORef environmentPtr env'
-
-initMaybe [] = Nothing
-initMaybe x = Just $ init x
+  env <- liftIO $ readIORef environmentPtr
+  globals' <- globals env
+  var <- liftIO $ newIORef $ FunctionValue nativeFunction
+  let globals'' = HashMap.insert (nfName nativeFunction) var globals'
+  env' <- liftMaybe (InternalError "empty environment") do
+    x <- liftEnv initMay env
+    return $ Environment $ x ++ [globals'']
+  liftIO $ writeIORef environmentPtr env'
