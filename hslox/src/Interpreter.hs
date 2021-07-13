@@ -249,7 +249,12 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
       environmentPtr
       \(Environment (x : xs)) -> Environment $ HashMap.insert key value x : xs
 
+    getLocalStack :: IO (Stack Value)
     getLocalStack =
+      -- readIORef callStackPtr returns an IO (Stack CallFrame). mapping stackPeek :: Stack a ->
+      -- Maybe a gives an IO (Maybe (CallFrame)). double-mapping cfStack :: CallFrame ->
+      -- Stack Value then gives an IO (Maybe (Stack Value)). Mapping fromMaybe over this gives the
+      -- required IO (Stack Value)
       fmap
         (fromMaybe (internalError "Empty call stack"))
         (fmap cfStack . stackPeek <$> readIORef callStackPtr)
