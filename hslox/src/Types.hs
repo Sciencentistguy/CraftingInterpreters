@@ -1,6 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Types where
 
@@ -44,8 +42,6 @@ data Value
   | FunctionValue LoxFunction
   | ClassValue LoxClass
   | InstanceValue LoxInstance
-
-type Result = Either LoxError
 
 type IOResult = ExceptT LoxError IO
 
@@ -217,10 +213,6 @@ valueLess a b = do
   a <- valueToNumber a
   b <- valueToNumber b
   return $ a < b
-
-liftResult :: (MonadError LoxError m) => Result a -> m a
-liftResult (Right v) = return v
-liftResult (Left e) = throwError e
 
 runIOResult :: IOResult String -> IO String
 runIOResult action =

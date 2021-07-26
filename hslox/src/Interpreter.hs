@@ -1,7 +1,4 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Interpreter where
 
@@ -260,7 +257,7 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
         environmentPtr
         \(Environment (x : xs)) -> Environment $ HashMap.insert key var x : xs
 
-    getLocalStack :: IOResult (Stack Value)
+    getLocalStack :: (MonadIO m, MonadError LoxError m) => m (Stack Value)
     getLocalStack = do
       callstack <- liftIO $ readIORef callStackPtr
       let top = stackPeek callstack

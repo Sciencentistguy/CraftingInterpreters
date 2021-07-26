@@ -32,6 +32,11 @@ dependencies:
 - extra
 - safe
 
+default-extensions:
+- BlockArguments
+- FlexibleContexts
+- RecordWildCards
+
 library:
   source-dirs: src
   ghc-options: 

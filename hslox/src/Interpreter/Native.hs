@@ -1,5 +1,3 @@
-{-# LANGUAGE BlockArguments #-}
-
 module Interpreter.Native where
 
 import Control.Monad.Except
@@ -10,10 +8,10 @@ import Safe
 import Types
 
 nativeAdd :: [Value] -> IOResult Value
-nativeAdd [a, b] = liftResult $ valueAdd a b
+nativeAdd [a, b] = valueAdd a b
 nativeAdd bal = throwError $ NumArgsError 2 bal
 
-addNativeFunction :: IORef Environment -> LoxFunction -> IOResult ()
+addNativeFunction :: (MonadError LoxError m, MonadIO m) => IORef Environment -> LoxFunction -> m ()
 addNativeFunction environmentPtr nativeFunction = do
   env <- liftIO $ readIORef environmentPtr
   globals' <- globals env

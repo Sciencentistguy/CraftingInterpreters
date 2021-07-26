@@ -1,6 +1,3 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE RecordWildCards #-}
-
 module Compiler
   ( compile,
   )
