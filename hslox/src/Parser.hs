@@ -194,7 +194,7 @@ pLogicOr = do
 
 pAssignment :: Parser Assignment
 --FIXME 'a.b = c' should parse, but it does not. This is because pCall will consume the entire
--- iden(.iden)*, so the "char '.'" in assignmentCall failes.
+-- iden(.iden)*, so the "char '.'" in assignmentCall fails.
 pAssignment =
   try do
     assignmentCall <- optional $

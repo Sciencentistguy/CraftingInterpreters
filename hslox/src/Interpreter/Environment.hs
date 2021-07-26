@@ -40,26 +40,31 @@ emptyEnvironment :: Environment
 emptyEnvironment = Environment [HashMap.empty]
 
 globals :: MonadError LoxError m => Environment -> m (HashMap StringType (IORef Value))
-globals (Environment x) = liftMaybe (InternalError "Envrionment is empty") $ lastMay x
+globals (Environment x) = liftMaybe (InternalError "Environment is empty") $ lastMay x
 
 printEnvironment :: (MonadError LoxError m, MonadIO m) => Environment -> m ()
 printEnvironment env = do
   gs <- globals env
-  unless (null gs) $ liftIO do
+  let pred (_, b) = do
+        b <- readIORef b
+        return $ case b of
+          FunctionValue NativeFunction {} -> False
+          _ -> True
+  pairs <- liftIO $ filterM pred $ HashMap.toList gs
+  unless (null pairs) $ liftIO do
     putStrLn "Global variables:"
-    let pairs = HashMap.toList gs
     traverse_ printBinding pairs
   let scopes = reverse <$> liftEnv initMay env
-  liftIO $ when (isJust scopes) $ putStrLn "Scoped variables:"
-  liftIO $ forM_ scopes (mapM_ f)
+  when (isJust scopes) $
+    liftIO do
+      putStrLn "Scoped variables:"
+      forM_ scopes (traverse_ f)
   where
     printBinding (k, v) = do
       v <- readIORef v
       putStrLn $ "  '" ++ T.unpack k ++ "' = " ++ show v ++ "."
 
-    f scope = unless (null scope) do
-      let pairs = HashMap.toList scope
-      mapM_ printBinding pairs
+    f pairs = unless (null pairs) $ traverse_ printBinding (HashMap.toList pairs)
 
 findFirst :: Stack a -> (a -> Bool) -> Maybe a
 findFirst stack p = do

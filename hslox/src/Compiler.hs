@@ -7,7 +7,6 @@ where
 
 import AST
 import Data.Maybe
-import Data.Text (Text)
 import Types
 
 compile :: LoxProgram -> [Instruction]

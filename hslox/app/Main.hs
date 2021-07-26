@@ -32,9 +32,9 @@ repl = do
   putStr ">>> "
   hFlush stdout
   line <- getLine
-  let ast = parse pLoxProgram "REPL" $ T.pack line
+  let ast = parse pLoxProgram "REPL" (T.pack line)
   case ast of
-    Left err -> putStr $ errorBundlePretty err
+    Left err -> print err
     Right ast -> do
       putStrLn "AST:"
       print ast
