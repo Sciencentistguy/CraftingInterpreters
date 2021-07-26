@@ -34,7 +34,7 @@ repl = do
   line <- getLine
   let ast = parse pLoxProgram "REPL" (T.pack line)
   case ast of
-    Left err -> print err
+    Left err -> putStrLn $ errorBundlePretty err
     Right ast -> do
       putStrLn "AST:"
       print ast

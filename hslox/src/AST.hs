@@ -62,8 +62,7 @@ newtype Expression = Expression Assignment
 
 data Assignment
   = Assignment
-      { assignmentCall :: Maybe Call,
-        assignmentTarget :: Identifier,
+      { assignmentCall :: Call,
         assignmentExpr :: Assignment
       }
   | AssignmentLogicOr LogicOr
@@ -122,3 +121,6 @@ data Primary
   | BracketedExpression Expression
   | SuperDot Identifier
   deriving (Eq, Show)
+
+unwrapIdentifier :: Identifier -> Text
+unwrapIdentifier (Identifier t) = t

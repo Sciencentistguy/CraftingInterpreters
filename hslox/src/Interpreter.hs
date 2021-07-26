@@ -58,26 +58,26 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
     AddInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ valueAdd a b
+      res <- valueAdd a b
       push' res
     SubInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ valueSub a b
+      res <- valueSub a b
       push' res
     MultiplyInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ valueMul a b
+      res <- valueMul a b
       push' res
     DivideInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ valueDiv a b
+      res <- valueDiv a b
       push' res
     NegateInstr -> do
       a <- pop'
-      num <- liftResult $ valueToNumber a
+      num <- valueToNumber a
       push' $ NumberValue . negate $ num
     NotInstr -> do
       a <- pop'
@@ -93,27 +93,27 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
     EqInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ valueEqual a b
+      res <- valueEqual a b
       push' $ BooleanValue res
     GreaterInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ valueGreater a b
+      res <- valueGreater a b
       push' $ BooleanValue res
     GreaterEqInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ liftA2 (||) (valueGreater a b) (valueEqual a b)
+      res <- liftA2 (||) (valueGreater a b) (valueEqual a b)
       push' $ BooleanValue res
     LessInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ valueLess a b
+      res <- valueLess a b
       push' $ BooleanValue res
     LessEqInstr -> do
       b <- pop'
       a <- pop'
-      res <- liftResult $ liftA2 (||) (valueLess a b) (valueEqual a b)
+      res <- liftA2 (||) (valueLess a b) (valueEqual a b)
       push' $ BooleanValue res
     DefineVariableInstr name -> do
       exists <- liftIO $ checkVariableExistsInCurrentScope name
@@ -139,31 +139,35 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
       pc <- liftIO $ readIORef programCounterPtr
       LoxFunction {..} <- do
         x <- pop'
-        liftResult $ valueToFunction x
+        valueToFunction x
       let function' = LoxFunction (Just $ pc + 2) lfArity lfName
       push' $ FunctionValue function'
     CallInstr -> do
       stack <- getLocalStack
-      function <- do
-        let isFunction v = case v of
+      callable <- do
+        let isCallable v = case v of
               FunctionValue _ -> True
+              ClassValue _ -> True
               _ -> False
-        v <-
-          liftMaybe (GenericError "Attempted to call with no callable in the stack") $
-            findFirst stack isFunction
-        liftResult $ valueToFunction v
-      case function of
-        LoxFunction {..} -> do
+        liftMaybe (GenericError "Attempted to call with no callable in the stack") $
+          findFirst stack isCallable
+      case callable of
+        FunctionValue LoxFunction {..} -> do
           location <- liftMaybe (InternalError "Incorrectly initialised function") lfLocation
           pc <- liftIO $ readIORef programCounterPtr
           stack <- getLocalStack
           let newFrame = CallFrame stack pc
           liftIO $ modifyIORef' callStackPtr $ \x -> stackPush x newFrame
           liftIO $ writeIORef programCounterPtr location
-        NativeFunction {..} -> do
+        FunctionValue NativeFunction {..} -> do
           args <- reverse <$> replicateM nfArity pop'
           value <- nfFunction args
           push' value
+        ClassValue class' -> do
+          env <- liftIO $ newIORef HashMap.empty
+          let inst = LoxInstance class' env
+          push' $ InstanceValue inst
+        other -> throwError $ TypeMismatchError "callable" (valueGetType other)
     ReturnInstr -> do
       callStack <- liftIO $ readIORef callStackPtr
       returnValue <- pop'
@@ -175,6 +179,26 @@ runInstr callStackPtr programCounterPtr environmentPtr instr = do
       liftIO $ writeIORef callStackPtr callStack'
       push' returnValue
       modifyIORefM environmentPtr popScope_ -- leave function scope after returning
+    DefineClassInstr name -> do
+      let class' = ClassValue (LoxClass name)
+      push' class'
+    GetPropInstr propName -> do
+      LoxInstance (LoxClass name) envPtr <- valueToInstance =<< pop'
+      instanceEnv <- liftIO $ readIORef envPtr
+      let val = HashMap.lookup propName instanceEnv
+      case val of
+        Nothing -> throwError $ UnboundVariableError (T.unpack name ++ "." ++ T.unpack propName)
+        Just val -> do
+          val <- liftIO $ readIORef val
+          push' val
+    SetPropInstr propName -> do
+      (LoxInstance _ envPtr) <- valueToInstance =<< pop'
+      val <- pop'
+      instanceEnv <- liftIO $ readIORef envPtr
+      valPtr <- liftIO $ newIORef val
+      let instanceEnv' = HashMap.insert propName valPtr instanceEnv
+      liftIO $ writeIORef envPtr instanceEnv'
+      push' val
   where
     pop' :: (MonadIO m, MonadError LoxError m) => m Value
     pop' = do

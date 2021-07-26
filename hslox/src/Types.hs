@@ -6,6 +6,8 @@ module Types where
 
 import Control.Monad.Except
 import Data.Functor
+import Data.HashMap.Strict (HashMap)
+import Data.IORef
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
@@ -25,12 +27,23 @@ data LoxFunction
         nfFunction :: [Value] -> IOResult Value
       }
 
+newtype LoxClass = LoxClass
+  { lcName :: StringType
+  }
+
+data LoxInstance = LoxInstance
+  { liClass :: LoxClass,
+    liEnv :: IORef (HashMap StringType (IORef Value))
+  }
+
 data Value
   = NumberValue Double
   | StringValue StringType
   | NilValue
   | BooleanValue Bool
   | FunctionValue LoxFunction
+  | ClassValue LoxClass
+  | InstanceValue LoxInstance
 
 type Result = Either LoxError
 
@@ -72,6 +85,9 @@ data Instruction
   | DefineFunctionInstr
   | CallInstr
   | ReturnInstr
+  | DefineClassInstr StringType
+  | SetPropInstr StringType
+  | GetPropInstr StringType
   deriving (Show)
 
 instance Show LoxError where
@@ -100,6 +116,12 @@ instance Show LoxFunction where
   show LoxFunction {..} = "<fn " ++ T.unpack lfName ++ "(" ++ show lfArity ++ ")>"
   show NativeFunction {..} = "<native fn " ++ T.unpack nfName ++ "(" ++ show nfArity ++ ")>"
 
+instance Show LoxClass where
+  show LoxClass {..} = "<class " ++ T.unpack lcName ++ ">"
+
+instance Show LoxInstance where
+  show (LoxInstance (LoxClass name) _) = "<instance of " ++ T.unpack name ++ ">"
+
 instance Show Value where
   show val = case val of
     NumberValue num -> show num
@@ -107,6 +129,8 @@ instance Show Value where
     NilValue -> "nil"
     BooleanValue b -> show b
     FunctionValue f -> show f
+    ClassValue c -> show c
+    InstanceValue i -> show i
 
 valueGetType :: Value -> String
 valueGetType v = case v of
@@ -115,13 +139,15 @@ valueGetType v = case v of
   NilValue -> "nil"
   BooleanValue _ -> "boolean"
   FunctionValue _ -> "function"
+  ClassValue _ -> "class"
+  InstanceValue _ -> "instance"
 
-valueToNumber :: Value -> Result Double
+valueToNumber :: MonadError LoxError m => Value -> m Double
 valueToNumber v = case v of
   NumberValue n -> return n
   _ -> throwError $ TypeMismatchError "number" (valueGetType v)
 
-valueToString :: Value -> Result Text
+valueToString :: MonadError LoxError m => Value -> m StringType
 valueToString v = case v of
   StringValue s -> return s
   _ -> throwError $ TypeMismatchError "string" (valueGetType v)
@@ -132,56 +158,61 @@ valueCoerceBool v = case v of
   NilValue -> False
   _ -> True
 
-valueToBool :: Value -> Result Bool
+valueToBool :: MonadError LoxError m => Value -> m Bool
 valueToBool v = case v of
   BooleanValue b -> return b
   _ -> throwError $ TypeMismatchError "bool" (valueGetType v)
 
-valueToFunction :: Value -> Result LoxFunction
+valueToFunction :: MonadError LoxError m => Value -> m LoxFunction
 valueToFunction v = case v of
   FunctionValue f -> return f
   _ -> throwError $ TypeMismatchError "function" (valueGetType v)
 
-valueAdd :: Value -> Value -> Result Value
+valueToInstance :: MonadError LoxError m => Value -> m LoxInstance
+valueToInstance v = case v of
+  InstanceValue i -> return i
+  _ -> throwError $ TypeMismatchError "instance" (valueGetType v)
+
+valueAdd :: MonadError LoxError m => Value -> Value -> m Value
 valueAdd a b = do
   a <- valueToNumber a
   b <- valueToNumber b
   return $ NumberValue $ a + b
 
-valueSub :: Value -> Value -> Result Value
+valueSub :: MonadError LoxError m => Value -> Value -> m Value
 valueSub a b = do
   a <- valueToNumber a
   b <- valueToNumber b
   return $ NumberValue $ a - b
 
-valueMul :: Value -> Value -> Result Value
+valueMul :: MonadError LoxError m => Value -> Value -> m Value
 valueMul a b = do
   a <- valueToNumber a
   b <- valueToNumber b
   return $ NumberValue $ a * b
 
-valueDiv :: Value -> Value -> Result Value
+valueDiv :: MonadError LoxError m => Value -> Value -> m Value
 valueDiv a b = do
   a <- valueToNumber a
   b <- valueToNumber b
   return $ NumberValue $ a / b
 
-valueNegate :: Value -> Result Value
+valueNegate :: MonadError LoxError f => Value -> f Value
 valueNegate a = NumberValue . negate <$> valueToNumber a
 
-valueEqual :: Value -> Value -> Result Bool
+valueEqual :: MonadError LoxError m => Value -> Value -> m Bool
 valueEqual a b = do
   a <- valueToNumber a
   b <- valueToNumber b
   return $ a == b
 
-valueGreater :: Value -> Value -> Result Bool
+valueGreater :: MonadError LoxError m => Value -> Value -> m Bool
 valueGreater a b = do
   a <- valueToNumber a
   b <- valueToNumber b
   return $ a > b
 
-valueLess :: Value -> Value -> Result Bool
+valueLess :: MonadError LoxError m => Value -> Value -> m Bool
 valueLess a b = do
   a <- valueToNumber a
   b <- valueToNumber b

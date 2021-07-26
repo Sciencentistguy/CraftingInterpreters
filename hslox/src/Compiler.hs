@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Compiler
@@ -20,7 +21,9 @@ cLoxProgram (LoxProgram decls) = go decls []
 
 cDecl :: Declaration -> [Instruction]
 cDecl decl = case decl of
-  ClassDeclaration {..} -> undefined
+  ClassDeclaration {..} ->
+    let name = unwrapIdentifier classDeclName
+     in [DefineClassInstr name, DefineVariableInstr name]
   FunctionDeclaration func -> cFunction func
   VariableDeclaration {..} -> cVariableDecl variableDeclName variableDeclInitialiser
   StatementDeclaration stmt -> cStatement stmt
@@ -97,8 +100,11 @@ cExpression (Expression assign) = cAssignment assign
 
 cAssignment :: Assignment -> [Instruction]
 cAssignment assign = case assign of
-  Assignment _ (Identifier name) assignmentExpr ->
-    cAssignment assignmentExpr ++ [SetVariableInstr name]
+  Assignment call assignmentExpr ->
+    cAssignment assignmentExpr ++ case call of
+      CallFun (IdenLiteral (Identifier name)) _ -> [SetVariableInstr name]
+      CallProp inst (Identifier prop) -> cPrimary inst ++ [SetPropInstr prop]
+      _ -> undefined
   AssignmentLogicOr logicor -> cLogicOr logicor
 
 cLogicOr :: LogicOr -> [Instruction]
@@ -166,7 +172,7 @@ cCall call = case call of
   CallFun primary args -> case args of
     Nothing -> cPrimary primary
     Just (Arguments args) -> cPrimary primary ++ concatMap cExpression args ++ [CallInstr]
-  CallProp primary iden -> undefined
+  CallProp primary (Identifier propName) -> cPrimary primary ++ [GetPropInstr propName]
 
 cPrimary :: Primary -> [Instruction]
 cPrimary primary = case primary of

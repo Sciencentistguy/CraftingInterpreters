@@ -5,14 +5,12 @@
 module Parser where
 
 import AST
-import Control.Monad
 import Control.Monad.Combinators
 import Data.Text as T
 import Data.Void (Void)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Text.Megaparsec.Debug
 
 type Parser = Parsec Void Text
 
@@ -113,8 +111,6 @@ pCall = do
           args <- pArguments
           _ <- symbol ")"
           return $ CallFun p (Just args)
-  where
-    null' (Arguments a) = Prelude.null a
 
 pArguments :: Parser Arguments
 pArguments = Arguments <$> sepBy pExpression (symbol ",")
@@ -193,16 +189,9 @@ pLogicOr = do
   return $ LogicOr $ f : x
 
 pAssignment :: Parser Assignment
---FIXME 'a.b = c' should parse, but it does not. This is because pCall will consume the entire
--- iden(.iden)*, so the "char '.'" in assignmentCall fails.
 pAssignment =
   try do
-    assignmentCall <- optional $
-      try $ do
-        c <- pCall
-        _ <- char '.'
-        return c
-    assignmentTarget <- identifier
+    assignmentCall <- pCall
     _ <- symbol "="
     assignmentExpr <- pAssignment
     return Assignment {..}
