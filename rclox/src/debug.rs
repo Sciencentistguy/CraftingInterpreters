@@ -33,12 +33,8 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
         Return => {
             println!("Return");
         }
-        Constant(constant) => {
-            //let constant = chunk[offset + 1] as usize;
-            println!(
-                "Constant\t{:04}\t'{}'",
-                constant, chunk.constants[*constant]
-            );
+        Constant(value) => {
+            println!("Constant\t`{}`", value);
         }
         Negate => {
             println!("Negate");
@@ -82,45 +78,28 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
         Pop => {
             println!("Pop");
         }
-        DefineGlobal(constant) => {
-            //let constant = chunk[offset + 1] as usize;
-            println!(
-                "DefineGlobal\t{:04}\t'{}'",
-                constant, chunk.constants[*constant]
-            );
+        DefineGlobal(name) => {
+            println!("DefineGlobal\t`{}`", name);
         }
-        GetGlobal(constant) => {
-            //let constant = chunk[offset + 1] as usize;
-            println!(
-                "GetGlobal\t{:04}\t'{}'",
-                constant, chunk.constants[*constant]
-            );
+        GetGlobal(name) => {
+            println!("GetGlobal\t`{}`", name);
         }
-        SetGlobal(constant) => {
-            //let constant = chunk[offset + 1] as usize;
-            println!(
-                "SetGlobal\t{:04}\t'{}'",
-                constant, chunk.constants[*constant]
-            );
+        SetGlobal(name) => {
+            println!("SetGlobal\t`{}`", name);
         }
         GetLocal(slot) => {
-            //let slot = chunk[offset + 1];
             println!("GetLocal\t{:04}", slot);
         }
         SetLocal(slot) => {
-            //let slot = chunk[offset + 1];
             println!("SetLocal\t{:04}", slot);
         }
         JumpIfFalse(jump) => {
-            //let jump = ((chunk[offset + 1] as usize) << 8) | chunk[offset + 2] as usize;
             println!("JumpIfFalse\t{:04} -> {:04}", offset, offset + jump);
         }
         Jump(jump) => {
-            //let jump = ((chunk[offset + 1] as usize) << 8) | chunk[offset + 2] as usize;
             println!("Jump\t\t{:04} -> {:04}", offset, offset + jump);
         }
         Loop(jump) => {
-            //let jump = ((chunk[offset + 1] as usize) << 8) | chunk[offset + 2] as usize;
             println!(
                 "Loop\t\t{:04} -> {:04}",
                 offset,

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
     Bool(bool),
@@ -99,18 +99,6 @@ impl std::ops::Div for Value {
         match (self, rhs) {
             (Value::Number(a), Value::Number(b)) => Value::Number(a / b),
             _ => panic!("Cannot divide two Values that are not both numbers"),
-        }
-    }
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Value::Number(a), Value::Number(b)) => a == b,
-            (Value::Bool(a), Value::Bool(b)) => a == b,
-            (Value::String(a), Value::String(b)) => **a == **b,
-            (Value::Nil, Value::Nil) => true,
-            _ => false,
         }
     }
 }

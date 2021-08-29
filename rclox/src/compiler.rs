@@ -172,13 +172,7 @@ impl<'source> Compiler<'source> {
     }
 
     fn emit_constant(&mut self, value: Value) {
-        let c = self.make_constant(value);
-        self.emit_instruction(Instruction::Constant(c));
-    }
-
-    #[inline]
-    fn make_constant(&mut self, value: Value) -> usize {
-        self.output_chunk.add_constant(value)
+        self.emit_instruction(Instruction::Constant(value));
     }
 
     fn grouping(&mut self) -> Result<()> {
@@ -559,27 +553,22 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
-    fn parse_variable(&mut self) -> Result<Option<usize>> {
+    fn parse_variable(&mut self) -> Result<Option<String>> {
         self.expect_token(TokenType::Identifier, "Expected a variable name.")?;
         self.declare_variable()?;
         if self.target().scope_depth > 0 {
+            // This is a local
             return Ok(None);
         }
         let name = self.previous_token.string.to_string();
-        Ok(Some(self.identifier_constant(name)))
-    }
-
-    /// Add a constant with the value of `name`, used for storing the names of
-    /// global variables.
-    fn identifier_constant(&mut self, name: String) -> usize {
-        self.make_constant(Value::String(Rc::new(name)))
+        Ok(Some(name))
     }
 
     fn variable_declaration(&mut self) -> Result<()> {
         // if scope depth is more than zero, then variable_name_id = None
         // else, it is the index in the constants table pointing to the name of the
         // variable
-        let variable_name_id = self.parse_variable()?;
+        let variable_name = self.parse_variable()?;
         if self.advance_if_token_matches(TokenType::Equal)? {
             self.expression()?;
         } else {
@@ -589,20 +578,18 @@ impl<'source> Compiler<'source> {
             TokenType::Semicolon,
             "Expected ';' after variable declaration.",
         )?;
-        self.define_variable(variable_name_id);
+        self.define_variable(variable_name);
         Ok(())
     }
 
-    fn define_variable(&mut self, variable_name_id: Option<usize>) {
-        // if variable_name_id is None, this is a local variable.
-        // if it is Some(x), x is the index of the name of the global variable in the
-        // constants table
+    fn define_variable(&mut self, variable_name: Option<String>) {
+        // if variable_name is None, this is a local variable.
         //
         // The c version checks scope_depth twice, instead of using the value of
         // variable_name_id. This check is maintained with an assert, but should
         // be unnecessary
-        match variable_name_id {
-            Some(id) => self.emit_instruction(Instruction::DefineGlobal(id)),
+        match variable_name {
+            Some(name) => self.emit_instruction(Instruction::DefineGlobal(Rc::new(name))),
             None => {
                 // XXX: asserts are slow?
                 assert!(self.target().scope_depth > 0);
@@ -669,29 +656,36 @@ impl<'source> Compiler<'source> {
     }
 
     fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
-        let arg = self.resolve_local(self.target(), name.as_str())?;
+        // if stack_slot is None, this is a global variable.
+        let stack_slot = self.get_stack_slot_from_variable_name(self.target(), name.as_str())?;
+
         let assignable = can_assign && self.advance_if_token_matches(TokenType::Equal)?;
-        match arg {
+
+        // XXX: Binary choice table means that each match arm is duplicated
+        match stack_slot {
             Some(x) if assignable => {
                 self.expression()?;
                 self.emit_instruction(Instruction::SetLocal(x))
             }
             Some(x) if !assignable => self.emit_instruction(Instruction::GetLocal(x)),
+
             None if assignable => {
                 self.expression()?;
-                let x = self.identifier_constant(name);
-                self.emit_instruction(Instruction::SetGlobal(x))
+                self.emit_instruction(Instruction::SetGlobal(Rc::new(name)))
             }
-            None if !assignable => {
-                let x = self.identifier_constant(name);
-                self.emit_instruction(Instruction::GetGlobal(x))
-            }
-            _ => unreachable!(),
+            None if !assignable => self.emit_instruction(Instruction::GetGlobal(Rc::new(name))),
+
+            // XXX: use `core::hint::unreachable_unchecked()`?
+            _ => unreachable!("this one's actually unreachable"),
         }
         Ok(())
     }
 
-    fn resolve_local(&self, target: &Target, name: &str) -> Result<Option<usize>> {
+    fn get_stack_slot_from_variable_name(
+        &self,
+        target: &Target,
+        name: &str,
+    ) -> Result<Option<usize>> {
         for (i, local) in target.locals.iter().enumerate().rev() {
             if name == *local.name {
                 if local.depth.is_none() {

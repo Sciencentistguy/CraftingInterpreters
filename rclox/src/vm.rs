@@ -5,12 +5,16 @@ use crate::chunk::Chunk;
 use crate::compiler::compile;
 use crate::error::RcloxError;
 use crate::instruction::Instruction;
-use crate::lexer::Token;
-use crate::lexer::TokenType;
 use crate::value::Value;
+
+#[cfg(test)]
+use crate::lexer::Token;
+#[cfg(test)]
+use crate::lexer::TokenType;
 
 use crate::Result;
 
+#[derive(Debug)]
 pub struct VM {
     chunk: Chunk,
     program_counter: usize,
@@ -37,6 +41,7 @@ impl VM {
     }
 
     /// Produce a vector of tokens from a source str.
+    #[cfg(test)]
     pub fn lex<'a>(&mut self, source: &'a str) -> Result<Vec<Token<'a>>> {
         let mut lexer = crate::lexer::Lexer::new(source);
 
@@ -65,17 +70,25 @@ impl VM {
     }
 
     #[inline]
+    fn peek_mut(&mut self, index: usize) -> &mut Value {
+        if index == 0 {
+            self.stack.last_mut()
+        } else {
+            let idx = self.stack.len() - index;
+            self.stack.get_mut(idx)
+        }
+        .expect("Invalid peek")
+    }
+
+    #[inline]
     fn peek(&self, index: usize) -> &Value {
         if index == 0 {
-            return self.stack.last().expect("Attempted to peek an empty stack");
+            self.stack.last()
+        } else {
+            let idx = self.stack.len() - index;
+            self.stack.get(idx)
         }
-        let idx = self.stack.len() - index;
-        println!(
-            "Peeking index {} of stack of size {}.",
-            idx,
-            self.stack.len()
-        );
-        &self.stack[idx]
+        .expect("Invalid peek")
     }
 
     fn runtime_error(&self, error_message: &str) -> RcloxError {
@@ -102,28 +115,19 @@ impl VM {
                     // Exit interpreter
                     return Ok(printed);
                 }
-                Instruction::Constant(index) => {
-                    let constant = {
-                        match &self.chunk.constants[*index] {
-                            Value::String(ref x) => Value::String(x.clone()),
-                            x => x.clone(),
-                            /*Value::Number(x) => Value::Number(*x),
-                             *Value::Bool(x) => Value::Bool(x),
-                             *Value::Nil => Value::Nil, */
-                        }
-                    };
-                    self.push(constant);
+                Instruction::Constant(constant) => {
+                    let val = constant.clone();
+                    self.push(val);
                 }
                 Instruction::Negate => {
-                    let val = match self.pop() {
-                        Value::Number(x) => Value::Number(-x),
+                    match self.peek_mut(0) {
+                        Value::Number(x) => *x = -*x,
                         _ => {
                             return Err(
                                 self.runtime_error("Operand to unary negation must be a number.")
                             )
                         }
                     };
-                    self.push(val);
                 }
                 Instruction::Add => {
                     let b = self.pop();
@@ -200,32 +204,16 @@ impl VM {
                     self.pop();
                 }
                 Instruction::DefineGlobal(name) => {
-                    let name = &self.chunk.constants[*name];
-                    let name = match name {
-                        Value::String(ref x) => x.clone(),
-                        _ => {
-                            unreachable!(
-                                "Attempted to define a  global with a name that is not a String."
-                            )
-                        }
-                    };
+                    let name = name.clone();
                     let a = self.pop();
                     self.globals_table.insert(name, a);
                 }
                 Instruction::GetGlobal(name) => {
-                    let name = &self.chunk.constants[*name];
-                    let name = match name {
-                        Value::String(ref x) => x.clone(),
-                        _ => {
-                            unreachable!(
-                                "Attempted to define a  global with a name that is not a String."
-                            )
-                        }
-                    };
-                    let value = self.globals_table.get(&name).map(|v| match v {
-                        Value::String(s) => Value::String(s.clone()),
-                        _ => v.clone(),
-                    });
+                    let name = name.clone();
+
+                    // XXX: shut up the borrow checker. It has to clone, but theoretically this
+                    // clones on the cold path when it shouldn't have to 
+                    let value = self.globals_table.get(&name).cloned();
                     match value {
                         Some(x) => self.push(x),
                         None => {
@@ -235,21 +223,18 @@ impl VM {
                     }
                 }
                 Instruction::SetGlobal(name) => {
-                    let name = &self.chunk.constants[*name];
-                    let name = match name {
-                        Value::String(ref x) => x.clone(),
-                        _ => {
-                            unreachable!(
-                                "Attempted to define a  global with a name that is not a String."
-                            )
-                        }
-                    };
-                    if self.globals_table.get(&name).is_none() {
+                    let name = name.clone();
+                    // XXX: shut up the borrow checker. It has to clone, but theoretically this
+                    // clones on the cold path when it shouldn't have to 
+                    let value = self.peek(0).clone();
+                    if let Some(ptr) = self.globals_table.get_mut(&name) {
+                        *ptr = value;
+                    } else {
+                        //if self.globals_table.get(name).is_none() {
                         return Err(
                             self.runtime_error(format!("Undefined variable {}", name).as_str())
                         );
                     }
-                    *self.globals_table.get_mut(&name).unwrap() = self.peek(0).clone();
                 }
                 Instruction::GetLocal(slot) => {
                     let val = self.stack[*slot].clone();

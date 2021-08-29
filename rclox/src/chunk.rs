@@ -3,14 +3,14 @@ use std::ops::IndexMut;
 use std::slice::SliceIndex;
 
 use crate::instruction::Instruction;
-use crate::value::Value;
 
+#[derive(Debug)]
 pub struct Chunk {
     pub code: Vec<InstructionWithLine>,
-    pub constants: Vec<Value>,
 }
 
 #[derive(Debug)]
+#[allow(missing_copy_implementations)]
 pub struct InstructionWithLine {
     pub instruction: Instruction,
     pub line: usize,
@@ -32,20 +32,12 @@ impl<Idx: SliceIndex<[InstructionWithLine]>> Index<Idx> for Chunk {
 
 impl Chunk {
     pub fn new() -> Chunk {
-        Chunk {
-            code: Vec::new(),
-            constants: Vec::new(),
-        }
+        Chunk { code: Vec::new() }
     }
 
     #[inline]
     pub fn write_instruction(&mut self, instruction: Instruction, line: usize) {
         self.code.push(InstructionWithLine { instruction, line })
-    }
-
-    pub fn add_constant(&mut self, constant: Value) -> usize {
-        self.constants.push(constant);
-        self.constants.len() - 1
     }
 
     pub fn get(&self, index: usize) -> Option<&InstructionWithLine> {

@@ -1,9 +1,13 @@
-#[derive(Debug, PartialEq, Eq)]
+use std::rc::Rc;
+
+use crate::value::Value;
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Instruction {
     /// Return from the current function
     Return,
     /// Refers to a constant stored in the constants table
-    Constant(usize),
+    Constant(Value),
     /// Pushes `Nil` to the stack
     Nil,
     /// Pushes `true` to the stack.
@@ -41,11 +45,11 @@ pub enum Instruction {
     Pop,
     /// Define a global variable with value of the value at the top of the
     /// stack.
-    DefineGlobal(usize),
+    DefineGlobal(Rc<String>),
     /// Fetch the value of a global variable and push it to the stack.
-    GetGlobal(usize),
+    GetGlobal(Rc<String>),
     /// Set the value of a global variable to the value at the top of the stack.
-    SetGlobal(usize),
+    SetGlobal(Rc<String>),
     /// Fetch the value of a local variable and push it to the stack.
     GetLocal(usize),
     /// Set the value of a local variable to the value at the top of the stack.

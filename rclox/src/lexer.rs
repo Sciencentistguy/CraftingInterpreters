@@ -1,6 +1,7 @@
 use crate::error::RcloxError;
 use crate::Result;
 
+#[derive(Debug)]
 pub struct Lexer<'source_code> {
     source: &'source_code [u8],
     start: usize,
