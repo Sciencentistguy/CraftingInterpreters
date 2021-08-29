@@ -1,4 +1,3 @@
-
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -12,5 +11,5 @@ pub enum RcloxError {
         message: String,
     },
     #[error("<Runtime> [Line {line}] Error: {message}")]
-    Runtime { message: String, line: usize },
+    Runtime { message: String, line: usize },   
 }

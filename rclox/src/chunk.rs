@@ -21,11 +21,12 @@ impl<Idx: SliceIndex<[InstructionWithLine]>> IndexMut<Idx> for Chunk {
         self.code.index_mut(index)
     }
 }
+
 impl<Idx: SliceIndex<[InstructionWithLine]>> Index<Idx> for Chunk {
     type Output = Idx::Output;
 
     fn index(&self, index: Idx) -> &Self::Output {
-        &self.code.index(index)
+        self.code.index(index)
     }
 }
 

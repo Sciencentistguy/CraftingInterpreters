@@ -1,13 +1,14 @@
 use std::rc::Rc;
 
 use crate::chunk::Chunk;
+use crate::error::RcloxError;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
 use crate::lexer::TokenType;
 use crate::opcode::OpCode;
 use crate::value::Value;
 
-use eyre::Result;
+use crate::Result;
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
 #[rustfmt::skip]
@@ -169,7 +170,7 @@ impl<'source> Parser<'source> {
         self.parse_precedence(Precedence::Assignment)
     }
 
-    #[allow(clippy::unnecessary_wraps)]
+    //#[allow(clippy::unnecessary_wraps)]
     fn number(&mut self) -> Result<()> {
         let value = self.previous.string.parse().expect("Invalid number token");
         self.emit_constant(Value::Number(value));
@@ -290,11 +291,11 @@ impl<'source> Parser<'source> {
         Ok(())
     }
 
-    fn error_at_current(&self, message: &str) -> eyre::Report {
+    fn error_at_current(&self, message: &str) -> RcloxError {
         error_at(&self.current, message)
     }
 
-    fn error_at_previous(&self, message: &str) -> eyre::Report {
+    fn error_at_previous(&self, message: &str) -> RcloxError {
         error_at(&self.previous, message)
     }
 
@@ -887,11 +888,10 @@ fn get_rule(kind: TokenType) -> ParseRule {
     }
 }
 
-fn error_at(token: &Token, message: &str) -> eyre::Report {
-    crate::error::RcloxError::Compiler {
+fn error_at(token: &Token, message: &str) -> RcloxError {
+    RcloxError::Compiler {
         string: token.string.to_owned(),
         line: token.line,
         message: message.to_owned(),
     }
-    .into()
 }

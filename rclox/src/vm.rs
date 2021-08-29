@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::chunk::Chunk;
 use crate::compiler::CompilerDriver;
+use crate::error::RcloxError;
 use crate::lexer::Token;
 use crate::lexer::TokenType;
 use crate::opcode::OpCode;
 use crate::value::Value;
-use crate::{chunk::Chunk, error::RcloxError};
 
-use eyre::Result;
+use crate::Result;
 
 pub struct VM {
     chunk: Chunk,
@@ -78,12 +79,11 @@ impl VM {
         &self.stack[idx]
     }
 
-    fn runtime_error(&self, error_message: &str) -> eyre::Report {
+    fn runtime_error(&self, error_message: &str) -> RcloxError {
         RcloxError::Runtime {
             message: error_message.to_string(),
             line: self.chunk[self.program_counter].line,
         }
-        .into()
     }
 
     fn run(&mut self) -> Result<Vec<String>> {
