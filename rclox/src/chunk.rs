@@ -2,7 +2,7 @@ use std::ops::Index;
 use std::ops::IndexMut;
 use std::slice::SliceIndex;
 
-use crate::opcode::OpCode;
+use crate::instruction::Instruction;
 use crate::value::Value;
 
 pub struct Chunk {
@@ -12,7 +12,7 @@ pub struct Chunk {
 
 #[derive(Debug)]
 pub struct InstructionWithLine {
-    pub instruction: OpCode,
+    pub instruction: Instruction,
     pub line: usize,
 }
 
@@ -39,7 +39,7 @@ impl Chunk {
     }
 
     #[inline]
-    pub fn write_instruction(&mut self, instruction: OpCode, line: usize) {
+    pub fn write_instruction(&mut self, instruction: Instruction, line: usize) {
         self.code.push(InstructionWithLine { instruction, line })
     }
 

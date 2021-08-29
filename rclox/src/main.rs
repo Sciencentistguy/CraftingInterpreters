@@ -9,8 +9,8 @@ mod chunk;
 mod compiler;
 mod debug;
 mod error;
+mod instruction;
 mod lexer;
-mod opcode;
 mod value;
 mod vm;
 

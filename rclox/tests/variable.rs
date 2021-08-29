@@ -191,15 +191,15 @@ fn test_variable_keyword_as_ident() -> Result<()> {
     const PROGRAMS: [(&str, &str); 3] = [
         (
             r#"var false = "value";"#,
-            "<Compiler> [Line 0] Error at 'false': Expected a varaible name.",
+            "<Compiler> [Line 0] Error at 'false': Expected a variable name.",
         ),
         (
             r#"var this = "value";"#,
-            "<Compiler> [Line 0] Error at 'this': Expected a varaible name.",
+            "<Compiler> [Line 0] Error at 'this': Expected a variable name.",
         ),
         (
             r#"var class = "value";"#,
-            "<Compiler> [Line 0] Error at 'class': Expected a varaible name.",
+            "<Compiler> [Line 0] Error at 'class': Expected a variable name.",
         ),
     ];
     for (program, error_message) in PROGRAMS.iter() {

@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Eq)]
-pub enum OpCode {
+pub enum Instruction {
     /// Return from the current function
     Return,
     /// Refers to a constant stored in the constants table

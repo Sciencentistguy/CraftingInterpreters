@@ -1,9 +1,9 @@
 use crate::chunk::Chunk;
-use crate::opcode::OpCode;
+use crate::instruction::Instruction;
 
 pub fn disassemble_chunk(chunk: &Chunk, module_name: &str) {
     println!("== {} ==", module_name);
-    println!("Index\tLine\tOpcode\t");
+    println!("Index\tLine\tInstruction");
     println!("---");
     for offset in 0..chunk.code.len() {
         disassemble_instruction(chunk, offset, true);
@@ -27,7 +27,7 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
         print!("{:04}\t", chunk[offset].line);
     }
 
-    use OpCode::*;
+    use Instruction::*;
 
     match instruction {
         Return => {

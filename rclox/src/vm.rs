@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::chunk::Chunk;
-use crate::compiler::CompilerDriver;
+use crate::compiler::compile;
 use crate::error::RcloxError;
+use crate::instruction::Instruction;
 use crate::lexer::Token;
 use crate::lexer::TokenType;
-use crate::opcode::OpCode;
 use crate::value::Value;
 
 use crate::Result;
@@ -30,8 +30,7 @@ impl VM {
 
     pub fn interpret(&mut self, source: &str) -> Result<Vec<String>> {
         let mut chunk = Chunk::new();
-        let mut compiler_driver = CompilerDriver::new(source);
-        compiler_driver.compile(&mut chunk)?;
+        compile(source, &mut chunk)?;
         self.chunk = chunk;
         self.program_counter = 0;
         self.run()
@@ -94,28 +93,28 @@ impl VM {
             crate::debug::disassemble_instruction(&self.chunk, self.program_counter, false);
 
             let instruction = &self.chunk[self.program_counter].instruction;
-            // This has to be wrapping because loop instructions can wrap to usize::MAX. See the
-            // comment on OpCode::Loop.
+            // This has to be wrapping because loop instructions can wrap to usize::MAX. See
+            // the comment on the match arm for Instruction::Loop.
             self.program_counter = self.program_counter.wrapping_add(1);
 
             match instruction {
-                OpCode::Return => {
+                Instruction::Return => {
                     // Exit interpreter
                     return Ok(printed);
                 }
-                OpCode::Constant(index) => {
+                Instruction::Constant(index) => {
                     let constant = {
                         match &self.chunk.constants[*index] {
                             Value::String(ref x) => Value::String(x.clone()),
                             x => x.clone(),
-                            //Value::Number(x) => Value::Number(*x),
-                            //Value::Bool(x) => Value::Bool(x),
-                            //Value::Nil => Value::Nil,
+                            /*Value::Number(x) => Value::Number(*x),
+                             *Value::Bool(x) => Value::Bool(x),
+                             *Value::Nil => Value::Nil, */
                         }
                     };
                     self.push(constant);
                 }
-                OpCode::Negate => {
+                Instruction::Negate => {
                     let val = match self.pop() {
                         Value::Number(x) => Value::Number(-x),
                         _ => {
@@ -126,7 +125,7 @@ impl VM {
                     };
                     self.push(val);
                 }
-                OpCode::Add => {
+                Instruction::Add => {
                     let b = self.pop();
                     let a = self.pop();
                     match (&a, &b) {
@@ -139,7 +138,7 @@ impl VM {
                         }
                     }
                 }
-                OpCode::Subtract => {
+                Instruction::Subtract => {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
@@ -147,7 +146,7 @@ impl VM {
                     }
                     self.push(a - b);
                 }
-                OpCode::Multiply => {
+                Instruction::Multiply => {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
@@ -155,7 +154,7 @@ impl VM {
                     }
                     self.push(a * b);
                 }
-                OpCode::Divide => {
+                Instruction::Divide => {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
@@ -163,19 +162,19 @@ impl VM {
                     }
                     self.push(a / b);
                 }
-                OpCode::Nil => self.push(Value::Nil),
-                OpCode::True => self.push(Value::Bool(true)),
-                OpCode::False => self.push(Value::Bool(false)),
-                OpCode::Not => {
+                Instruction::Nil => self.push(Value::Nil),
+                Instruction::True => self.push(Value::Bool(true)),
+                Instruction::False => self.push(Value::Bool(false)),
+                Instruction::Not => {
                     let v = self.pop();
                     self.push(Value::Bool(!v.coersce_bool()))
                 }
-                OpCode::Equal => {
+                Instruction::Equal => {
                     let b = self.pop();
                     let a = self.pop();
                     self.push(Value::Bool(a == b));
                 }
-                OpCode::Greater => {
+                Instruction::Greater => {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
@@ -183,7 +182,7 @@ impl VM {
                     }
                     self.push(Value::Bool(a > b))
                 }
-                OpCode::Less => {
+                Instruction::Less => {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
@@ -191,16 +190,16 @@ impl VM {
                     }
                     self.push(Value::Bool(a < b))
                 }
-                OpCode::Print => {
+                Instruction::Print => {
                     let a = self.pop();
                     let string = format!("{}", a);
                     println!("{}", string);
                     printed.push(string);
                 }
-                OpCode::Pop => {
+                Instruction::Pop => {
                     self.pop();
                 }
-                OpCode::DefineGlobal(name) => {
+                Instruction::DefineGlobal(name) => {
                     let name = &self.chunk.constants[*name];
                     let name = match name {
                         Value::String(ref x) => x.clone(),
@@ -213,7 +212,7 @@ impl VM {
                     let a = self.pop();
                     self.globals_table.insert(name, a);
                 }
-                OpCode::GetGlobal(name) => {
+                Instruction::GetGlobal(name) => {
                     let name = &self.chunk.constants[*name];
                     let name = match name {
                         Value::String(ref x) => x.clone(),
@@ -235,7 +234,7 @@ impl VM {
                         }
                     }
                 }
-                OpCode::SetGlobal(name) => {
+                Instruction::SetGlobal(name) => {
                     let name = &self.chunk.constants[*name];
                     let name = match name {
                         Value::String(ref x) => x.clone(),
@@ -252,23 +251,23 @@ impl VM {
                     }
                     *self.globals_table.get_mut(&name).unwrap() = self.peek(0).clone();
                 }
-                OpCode::GetLocal(slot) => {
+                Instruction::GetLocal(slot) => {
                     let val = self.stack[*slot].clone();
                     self.push(val);
                 }
-                OpCode::SetLocal(slot) => {
+                Instruction::SetLocal(slot) => {
                     let val = self.peek(0).clone();
                     self.stack[*slot] = val;
                 }
-                OpCode::JumpIfFalse(offset) => {
+                Instruction::JumpIfFalse(offset) => {
                     if !self.peek(0).coersce_bool() {
                         self.program_counter += offset;
                     }
                 }
-                OpCode::Jump(offset) => {
+                Instruction::Jump(offset) => {
                     self.program_counter += offset;
                 }
-                OpCode::Loop(offset) => {
+                Instruction::Loop(offset) => {
                     // We have to allow wrapping here because to jump to index 0 the program
                     // counter has to be -1. As it is a usize, -1 is represented with usize::MAX.
                     // In the C version this is a pointer to an instruction, and is just allowed to
