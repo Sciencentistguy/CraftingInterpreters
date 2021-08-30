@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+/// The error type for Rclox
 #[derive(Debug, Error)]
 pub enum RcloxError {
     #[error("<Lexer> error: {0}")]

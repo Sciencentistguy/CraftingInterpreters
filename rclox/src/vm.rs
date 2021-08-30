@@ -14,6 +14,7 @@ use crate::lexer::TokenType;
 
 use crate::Result;
 
+/// The VM state machine
 #[derive(Debug)]
 pub struct VM {
     chunk: Chunk,
@@ -23,6 +24,7 @@ pub struct VM {
 }
 
 impl VM {
+    /// Construct a new, blank, VM
     pub fn new() -> VM {
         VM {
             chunk: Chunk::new(),
@@ -32,15 +34,15 @@ impl VM {
         }
     }
 
+    /// Run a Lox program, from a string
     pub fn interpret(&mut self, source: &str) -> Result<Vec<String>> {
-        let mut chunk = Chunk::new();
-        compile(source, &mut chunk)?;
+        let chunk = compile(source)?;
         self.chunk = chunk;
         self.program_counter = 0;
         self.run()
     }
 
-    /// Produce a vector of tokens from a source str.
+    /// Produce a vector of tokens from a source str. Only used in testing
     #[cfg(test)]
     pub fn lex<'a>(&mut self, source: &'a str) -> Result<Vec<Token<'a>>> {
         let mut lexer = crate::lexer::Lexer::new(source);
@@ -58,11 +60,13 @@ impl VM {
     }
 
     #[inline]
+    /// Push `value` to the stack
     fn push(&mut self, value: Value) {
         self.stack.push(value);
     }
 
     #[inline]
+    /// Pop from the stack and return the value
     fn pop(&mut self) -> Value {
         self.stack
             .pop()
@@ -70,6 +74,8 @@ impl VM {
     }
 
     #[inline]
+    /// Peek the stack, returning a mutable reference. Panics if the stack is
+    /// empty or if the peek index is too high
     fn peek_mut(&mut self, index: usize) -> &mut Value {
         if index == 0 {
             self.stack.last_mut()
@@ -81,6 +87,8 @@ impl VM {
     }
 
     #[inline]
+    /// Peek the stack, returning a reference. Panics if the stack is empty or
+    /// if the peek index is too high
     fn peek(&self, index: usize) -> &Value {
         if index == 0 {
             self.stack.last()
@@ -91,6 +99,7 @@ impl VM {
         .expect("Invalid peek")
     }
 
+    /// Construct a RcloxError::Runtime with the correct line
     fn runtime_error(&self, error_message: &str) -> RcloxError {
         RcloxError::Runtime {
             message: error_message.to_string(),
@@ -98,6 +107,7 @@ impl VM {
         }
     }
 
+    /// Run the VM
     fn run(&mut self) -> Result<Vec<String>> {
         println!("Executing program...");
         let mut printed = Vec::new();
@@ -211,8 +221,9 @@ impl VM {
                 Instruction::GetGlobal(name) => {
                     let name = name.clone();
 
-                    // XXX: shut up the borrow checker. It has to clone, but theoretically this
-                    // clones on the cold path when it shouldn't have to 
+                    // XXX: shut up the borrow checker. It has to clone on the hot path, but this
+                    // clones on the cold path when it shouldn't have to. This *really* doesn't
+                    // matter, but its annoying
                     let value = self.globals_table.get(&name).cloned();
                     match value {
                         Some(x) => self.push(x),
@@ -224,13 +235,14 @@ impl VM {
                 }
                 Instruction::SetGlobal(name) => {
                     let name = name.clone();
-                    // XXX: shut up the borrow checker. It has to clone, but theoretically this
-                    // clones on the cold path when it shouldn't have to 
+
+                    // XXX: shut up the borrow checker. It has to clone on the hot path, but this
+                    // clones on the cold path when it shouldn't have to. This *really* doesn't
+                    // matter, but its annoying
                     let value = self.peek(0).clone();
                     if let Some(ptr) = self.globals_table.get_mut(&name) {
                         *ptr = value;
                     } else {
-                        //if self.globals_table.get(name).is_none() {
                         return Err(
                             self.runtime_error(format!("Undefined variable {}", name).as_str())
                         );
@@ -253,11 +265,12 @@ impl VM {
                     self.program_counter += offset;
                 }
                 Instruction::Loop(offset) => {
-                    // We have to allow wrapping here because to jump to index 0 the program
-                    // counter has to be -1. As it is a usize, -1 is represented with usize::MAX.
                     // In the C version this is a pointer to an instruction, and is just allowed to
                     // point to an invalid location in the interim before it is incremented before
                     // the next iteration of run();
+                    //
+                    // Using wrapping sub and wrapping add allows this behaviour to be replicated
+                    // with indices rather than pointers
                     self.program_counter = self.program_counter.wrapping_sub(*offset);
                 }
             }

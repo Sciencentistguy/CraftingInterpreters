@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::rc::Rc;
 
+/// A Lox Value
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
@@ -23,22 +24,27 @@ impl Display for Value {
 
 #[allow(dead_code)]
 impl Value {
+    /// Check if a value contains a number
     pub fn is_number(&self) -> bool {
         matches!(self, Value::Number(_))
     }
 
+    /// Check if a value contains a bool
     pub fn is_bool(&self) -> bool {
         matches!(self, Value::Bool(_))
     }
 
+    /// Check if a value contains a Nil
     pub fn is_nil(&self) -> bool {
         matches!(self, Value::Nil)
     }
 
+    /// Check if a value contains a String
     pub fn is_string(&self) -> bool {
         matches!(self, Value::String(_))
     }
 
+    /// Get the contained number, if it exists
     pub fn as_number(&self) -> Option<f64> {
         if let Value::Number(x) = self {
             Some(*x)
@@ -47,6 +53,7 @@ impl Value {
         }
     }
 
+    /// Perform type coercion to Bool
     #[allow(clippy::match_like_matches_macro)] // Readability
     pub fn coersce_bool(&self) -> bool {
         match self {

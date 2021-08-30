@@ -1,3 +1,7 @@
+//! The parser and compiler.
+//!
+//! See https://craftinginterpreters.com/appendix-i.html for the Lox grammar.
+
 use std::rc::Rc;
 
 use crate::chunk::Chunk;
@@ -9,11 +13,13 @@ use crate::lexer::TokenType;
 use crate::value::Value;
 use crate::Result;
 
-pub fn compile(source: &str, output_chunk: &mut Chunk) -> Result<()> {
+/// Compile source code to a chunk.
+pub fn compile(source: &str) -> Result<Chunk> {
     println!("Starting compilation");
+    let mut chunk = Chunk::new();
     let lexer = Lexer::new(source);
     let mut targets = vec![Target::new()];
-    let mut parser = Compiler::new(lexer, output_chunk, &mut targets);
+    let mut parser = Compiler::new(lexer, &mut chunk, &mut targets);
     parser.advance()?;
     while !parser.advance_if_token_matches(TokenType::Eof)? {
         parser.declaration()?;
@@ -21,30 +27,44 @@ pub fn compile(source: &str, output_chunk: &mut Chunk) -> Result<()> {
     let last_line_num = parser.output_chunk.code.last().map(|x| x.line);
     parser.emit_instruction(Instruction::Return); // endCompiler()
     if let Some(x) = last_line_num {
-        output_chunk.code.last_mut().unwrap().line = x + 1;
+        chunk.code.last_mut().unwrap().line = x + 1;
     }
-    crate::debug::disassemble_chunk(output_chunk, "code");
+    crate::debug::disassemble_chunk(&chunk, "code");
     println!("Finished compilation.");
-    Ok(())
+    Ok(chunk)
 }
 
-#[rustfmt::skip]
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
 #[repr(u8)]
+/// The order of precedence of the operations in Lox
+///
+/// See https://craftinginterpreters.com/appendix-i.html
 enum Precedence {
-    Assignment = 0, // =
-    Or = 1,         // OR
-    And = 2,        // AND
-    Equality = 3,   // == !=
-    Comparison = 4, // < > <= >=
-    Term = 5,       // + -
-    Factor = 6,     // *         /
-    Unary = 7,      // ! -
-    Call = 8,       // . ()
+    /// The precedence of `=`
+    Assignment = 0,
+    /// The precedence of `or`
+    Or = 1,
+    /// The precedence of `and`
+    And = 2,
+    /// The precedence of `==`, `!=`
+    Equality = 3,
+    /// The precedence of `<`, `>`, `<=`, `>=`
+    Comparison = 4,
+    /// The precedence of `+`, `binary -`
+    Term = 5,
+    /// The precedence of `*`, `/`
+    Factor = 6,
+    /// The precedence of `!`, `unary -`
+    Unary = 7,
+    /// The precedence of `.`, `()`
+    Call = 8,
+    /// The precedence of primaries
     Primary = 9,
 }
 
 impl Precedence {
+    /// Get the next highest precedence. Panics if called on Precedence::Primary, as that is the
+    /// highest precedence
     fn one_higher(&self) -> Self {
         use Precedence::*;
         match self {
@@ -67,6 +87,7 @@ impl Precedence {
 }
 
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
+/// Enum allowing dynamic dispatch of parsing functions
 enum ParseFn {
     Grouping,
     Unary,
@@ -79,6 +100,9 @@ enum ParseFn {
     Or,
 }
 
+/// A row in the pratt parser table
+///
+/// See https://craftinginterpreters.com/compiling-expressions.html#a-pratt-parser
 struct ParseRule {
     prefix: Option<ParseFn>,
     infix: Option<ParseFn>,
@@ -86,17 +110,23 @@ struct ParseRule {
 }
 
 #[derive(Debug)]
+/// A local variable, with a (reference-counted) name, and depth
+// This option exists to represent an interim state.
+// TODO: remove it, use the type system better.
 struct LocalVariable {
     name: Rc<String>,
     depth: Option<usize>,
 }
 
+/// A set of local variables and a scope depth. Somewhat equivalent to a `compiler` in the C
+/// version
 struct Target {
     locals: Vec<LocalVariable>,
     scope_depth: usize,
 }
 
 impl Target {
+    /// Creates a new, empty, `Target`
     fn new() -> Self {
         Target {
             locals: Vec::with_capacity(u8::MAX as usize),
@@ -105,6 +135,7 @@ impl Target {
     }
 }
 
+/// The compiler state machine
 struct Compiler<'source> {
     lexer: Lexer<'source>,
     current_token: Token<'source>,
@@ -128,20 +159,25 @@ impl<'source> Compiler<'source> {
         }
     }
 
+    /// Returns a reference to the top of the target stack
     fn target(&self) -> &Target {
         self.targets.last().expect("Internal error: no target")
     }
 
+    /// Returns a mutable reference to the top of the target stack
     fn target_mut(&mut self) -> &mut Target {
         self.targets.last_mut().expect("Internal error: no target")
     }
 
+    /// Consume the next token from the Lexer, and advance `self.previous_token` and
+    /// `self.current_token`
     fn advance(&mut self) -> Result<()> {
         std::mem::swap(&mut self.previous_token, &mut self.current_token);
         self.current_token = self.lexer.lex_token()?;
         Ok(())
     }
 
+    /// Consume a token, erroring if it is not the expected type
     fn expect_token(&mut self, kind: TokenType, error_message: &'static str) -> Result<()> {
         if self.current_token.kind == kind {
             self.advance()?;
@@ -152,34 +188,35 @@ impl<'source> Compiler<'source> {
     }
 
     #[inline]
+    /// Output an instruction to the chunk
     fn emit_instruction(&mut self, instruction: Instruction) {
         self.output_chunk
             .write_instruction(instruction, self.previous_token.line);
     }
 
+    /// Compile an expression
     fn expression(&mut self) -> Result<()> {
         self.compile_with_precedence(Some(Precedence::Assignment))
     }
 
+    /// Compile a number literal
     fn number(&mut self) -> Result<()> {
         let value = self
             .previous_token
-            .string
+            .span
             .parse()
             .expect("Invalid number token");
-        self.emit_constant(Value::Number(value));
+        self.emit_instruction(Instruction::Constant(Value::Number(value)));
         Ok(())
     }
 
-    fn emit_constant(&mut self, value: Value) {
-        self.emit_instruction(Instruction::Constant(value));
-    }
-
+    /// Compile a grouping (brackets in operator precedence)
     fn grouping(&mut self) -> Result<()> {
         self.expression()?;
         self.expect_token(TokenType::RightParen, "Expected ')' after expression.")
     }
 
+    /// Compile a unary expression
     fn unary(&mut self) -> Result<()> {
         let kind = self.previous_token.kind;
 
@@ -193,6 +230,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Compile a binary expression
     fn binary(&mut self) -> Result<()> {
         let operator_kind = self.previous_token.kind;
         let rule = get_rule(operator_kind);
@@ -224,6 +262,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Compile a literal expression
     fn literal(&mut self) -> Result<()> {
         match self.previous_token.kind {
             TokenType::False => self.emit_instruction(Instruction::False),
@@ -234,15 +273,16 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
-    #[allow(clippy::unnecessary_wraps)]
+    /// Compile a string literal
     fn string(&mut self) -> Result<()> {
-        self.emit_constant(Value::String(Rc::new(
-            self.previous_token.string.trim_matches('"').to_string(),
-        )));
+        self.emit_instruction(Instruction::Constant(Value::String(Rc::new(
+            self.previous_token.span.trim_matches('"').to_string(),
+        ))));
         Ok(())
     }
 
-    fn parse_with_parsefn(&mut self, parse_fn: ParseFn, can_assign: bool) -> Result<()> {
+    /// Dynamically dispatch the correct function to parse at the current precedence
+    fn compile_with_parsefn(&mut self, parse_fn: ParseFn, can_assign: bool) -> Result<()> {
         match parse_fn {
             ParseFn::Grouping => self.grouping(),
             ParseFn::Unary => self.unary(),
@@ -256,6 +296,7 @@ impl<'source> Compiler<'source> {
         }
     }
 
+    /// Compile an expression of the given precedence
     fn compile_with_precedence(&mut self, precedence: Option<Precedence>) -> Result<()> {
         let precedence = precedence.expect("Precedence should not be none");
 
@@ -267,7 +308,7 @@ impl<'source> Compiler<'source> {
 
         let can_assign = precedence <= Precedence::Assignment;
 
-        self.parse_with_parsefn(prefix_parsefn, can_assign)?;
+        self.compile_with_parsefn(prefix_parsefn, can_assign)?;
 
         while get_rule(self.current_token.kind)
             .precedence
@@ -278,7 +319,7 @@ impl<'source> Compiler<'source> {
             let infix_rule = get_rule(self.previous_token.kind)
                 .infix
                 .expect("should be unreachable");
-            self.parse_with_parsefn(infix_rule, can_assign)?;
+            self.compile_with_parsefn(infix_rule, can_assign)?;
         }
         if can_assign && self.advance_if_token_matches(TokenType::Equal)? {
             return Err(self.error_at_previous("Invalid assignment target"));
@@ -286,14 +327,17 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Emit an error at the current token
     fn error_at_current(&self, message: &str) -> RcloxError {
         error_at(&self.current_token, message)
     }
 
+    /// Emit an error at the previous token
     fn error_at_previous(&self, message: &str) -> RcloxError {
         error_at(&self.previous_token, message)
     }
 
+    /// Compile a declaration
     pub fn declaration(&mut self) -> Result<()> {
         if self.advance_if_token_matches(TokenType::Var)? {
             self.variable_declaration()
@@ -302,6 +346,7 @@ impl<'source> Compiler<'source> {
         }
     }
 
+    /// Compile a statement
     fn statement(&mut self) -> Result<()> {
         if self.advance_if_token_matches(TokenType::Print)? {
             self.print_statement()
@@ -321,6 +366,7 @@ impl<'source> Compiler<'source> {
         }
     }
 
+    /// Compile an if statement
     fn if_statement(&mut self) -> Result<()> {
         self.expect_token(TokenType::LeftParen, "Expected '(' after 'if'.")?;
 
@@ -356,6 +402,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Compile a while loop
     fn while_statement(&mut self) -> Result<()> {
         let loop_start_idx = self.output_chunk.code.len();
 
@@ -378,6 +425,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Compile a for loop
     fn for_statement(&mut self) -> Result<()> {
         self.begin_scope();
 
@@ -441,12 +489,14 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Emit a loop instruction to jump to the given index
     fn emit_loop(&mut self, target_index: usize) {
         let offset = self.output_chunk.code.len() - target_index + 1;
 
         self.emit_instruction(Instruction::Loop(offset));
     }
 
+    /// Emit a jump instruction.
     /// Returns the index of the jump instruction emitted
     fn emit_jump_instruction(&mut self, instruction: Instruction) -> usize {
         // TODO: remove the usize::MAX sentinel value, use the type system
@@ -462,8 +512,7 @@ impl<'source> Compiler<'source> {
         self.output_chunk.code.len() - 1
     }
 
-    /// Takes the index of the jump instruction to patch. {anics if this is not
-    /// a jump instruction
+    /// Patches in the correct destination to a jump instruction.  Takes the index of the jump instruction to patch. Panics if this is not a jump instruction
     fn patch_jump_target(&mut self, offset: usize) {
         // We have to subtract 1 here because we want to set the pc to the instruction
         // before the one we want executed next
@@ -484,19 +533,24 @@ impl<'source> Compiler<'source> {
         }
     }
 
+    /// Parse a block
     fn block(&mut self) -> Result<()> {
-        while !self.check(TokenType::RightBrace) && !self.check(TokenType::Eof) {
+        while !self.check_current_token_kind(TokenType::RightBrace)
+            && !self.check_current_token_kind(TokenType::Eof)
+        {
             self.declaration()?;
         }
         self.expect_token(TokenType::RightBrace, "Expected '}' after block.")
     }
 
     #[inline]
+    /// Begin a new scope
     fn begin_scope(&mut self) {
         self.target_mut().scope_depth += 1;
     }
 
     #[inline]
+    /// End the current scope, emitting the correct number of pop instructions to remove all the scope's locals from the stack
     fn end_scope(&mut self) {
         if cfg!(debug_asserts) {
             self.target_mut().scope_depth = self
@@ -525,8 +579,9 @@ impl<'source> Compiler<'source> {
     }
 
     #[inline]
+    /// Call `advance()` if the current token is the given kind
     pub fn advance_if_token_matches(&mut self, kind: TokenType) -> Result<bool> {
-        if !self.check(kind) {
+        if !self.check_current_token_kind(kind) {
             Ok(false)
         } else {
             self.advance()?;
@@ -534,11 +589,13 @@ impl<'source> Compiler<'source> {
         }
     }
 
+    /// Check if the current token is the given kind
     #[inline]
-    fn check(&self, kind: TokenType) -> bool {
+    fn check_current_token_kind(&self, kind: TokenType) -> bool {
         self.current_token.kind == kind
     }
 
+    /// Compile a print statement
     fn print_statement(&mut self) -> Result<()> {
         self.expression()?;
         self.expect_token(TokenType::Semicolon, "Expected ';' after value.")?;
@@ -546,6 +603,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Compile an expression statement
     fn expression_statement(&mut self) -> Result<()> {
         self.expression()?;
         self.expect_token(TokenType::Semicolon, "Expected ';' after expression.")?;
@@ -553,6 +611,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Parse a variable declaration
     fn parse_variable(&mut self) -> Result<Option<String>> {
         self.expect_token(TokenType::Identifier, "Expected a variable name.")?;
         self.declare_variable()?;
@@ -560,10 +619,11 @@ impl<'source> Compiler<'source> {
             // This is a local
             return Ok(None);
         }
-        let name = self.previous_token.string.to_string();
+        let name = self.previous_token.span.to_string();
         Ok(Some(name))
     }
 
+    /// Compile a variable declaration
     fn variable_declaration(&mut self) -> Result<()> {
         // if scope depth is more than zero, then variable_name_id = None
         // else, it is the index in the constants table pointing to the name of the
@@ -582,6 +642,8 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Mark a variable as properly defined, either by emitting an `Instruction::DefineGlobal` or
+    /// by setting its depth
     fn define_variable(&mut self, variable_name: Option<String>) {
         // if variable_name is None, this is a local variable.
         //
@@ -598,20 +660,30 @@ impl<'source> Compiler<'source> {
         }
     }
 
+    /// Set a LocalVariable to the correct depth
     fn initialise_local_variable(&mut self) {
-        self.target_mut()
+        let depth = self.target().scope_depth;
+        let ptr = &mut self
+            .target_mut()
             .locals
             .last_mut()
             .unwrap_or_else(|| unreachable!("No local declared, yet attempting to mark intialised"))
-            .depth = Some(self.target().scope_depth);
+            .depth;
+
+        assert!(
+            ptr.is_none(),
+            "Attempted to initialise a local variable more than once"
+        );
+        *ptr = Some(depth);
     }
 
+    /// Declare a variable, checking that its name is not taken.
     fn declare_variable(&mut self) -> Result<()> {
         if self.target().scope_depth == 0 {
             return Ok(());
         }
 
-        let variable_name = self.previous_token.string;
+        let variable_name = self.previous_token.span;
 
         // Check that a variable does not already exist with this name in the current
         // scope.
@@ -642,6 +714,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Add a local variable to the vector of locals.
     fn add_uninitialised_local_variable(&mut self, name: &str) {
         //let depth = self.target().scope_depth;
         self.target_mut().locals.push(LocalVariable {
@@ -650,11 +723,13 @@ impl<'source> Compiler<'source> {
         });
     }
 
+    /// Compile a variable
     fn variable(&mut self, can_assign: bool) -> Result<()> {
-        let name = self.previous_token.string.to_string();
+        let name = self.previous_token.span.to_string();
         self.named_variable(name, can_assign)
     }
 
+    /// Emit the instructions to get the given variable
     fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
         // if stack_slot is None, this is a global variable.
         let stack_slot = self.get_stack_slot_from_variable_name(self.target(), name.as_str())?;
@@ -681,6 +756,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Get a stack slot for a local variable
     fn get_stack_slot_from_variable_name(
         &self,
         target: &Target,
@@ -698,6 +774,7 @@ impl<'source> Compiler<'source> {
         Ok(None)
     }
 
+    /// Compile an and expression
     fn and(&mut self) -> Result<()> {
         let end_jump = self.emit_jump_instruction(Instruction::JumpIfFalse(0));
         self.emit_instruction(Instruction::Pop);
@@ -706,6 +783,7 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
+    /// Compile an or expression
     fn or(&mut self) -> Result<()> {
         let else_jump = self.emit_jump_instruction(Instruction::JumpIfFalse(0));
 
@@ -721,6 +799,9 @@ impl<'source> Compiler<'source> {
     }
 }
 
+/// The pratt parser jump table.
+///
+/// This should be `const`, but https://github.com/rust-lang/rust/issues/51999
 fn get_rule(kind: TokenType) -> ParseRule {
     match kind {
         TokenType::LeftParen => ParseRule {
@@ -924,7 +1005,7 @@ fn get_rule(kind: TokenType) -> ParseRule {
 
 fn error_at(token: &Token, message: &str) -> RcloxError {
     RcloxError::Compiler {
-        string: token.string.to_owned(),
+        string: token.span.to_owned(),
         line: token.line,
         message: message.to_owned(),
     }

@@ -1,14 +1,17 @@
-use std::ops::Index;
-use std::ops::IndexMut;
-use std::slice::SliceIndex;
+use std::borrow::Borrow;
+use std::borrow::BorrowMut;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 use crate::instruction::Instruction;
 
+/// A wrapper around a vector of instructions and their lines.
 #[derive(Debug)]
 pub struct Chunk {
     pub code: Vec<InstructionWithLine>,
 }
 
+/// A struct to combine an instruction and a line number
 #[derive(Debug)]
 #[allow(missing_copy_implementations)]
 pub struct InstructionWithLine {
@@ -16,32 +19,30 @@ pub struct InstructionWithLine {
     pub line: usize,
 }
 
-impl<Idx: SliceIndex<[InstructionWithLine]>> IndexMut<Idx> for Chunk {
-    fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
-        self.code.index_mut(index)
-    }
-}
-
-impl<Idx: SliceIndex<[InstructionWithLine]>> Index<Idx> for Chunk {
-    type Output = Idx::Output;
-
-    fn index(&self, index: Idx) -> &Self::Output {
-        self.code.index(index)
-    }
-}
-
 impl Chunk {
+    /// Create a new, empty, chunk
     pub fn new() -> Chunk {
         Chunk { code: Vec::new() }
     }
 
     #[inline]
+    /// Add an instruction to the chunk, with a specific line number
     pub fn write_instruction(&mut self, instruction: Instruction, line: usize) {
         self.code.push(InstructionWithLine { instruction, line })
     }
+}
 
-    pub fn get(&self, index: usize) -> Option<&InstructionWithLine> {
-        self.code.get(index)
+impl Deref for Chunk {
+    type Target = [InstructionWithLine];
+
+    fn deref(&self) -> &Self::Target {
+        self.code.borrow()
+    }
+}
+
+impl DerefMut for Chunk {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.code.borrow_mut()
     }
 }
 

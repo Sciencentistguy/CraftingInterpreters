@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use crate::value::Value;
 
+/// An instruction for the VM
 #[derive(Debug, PartialEq, Clone)]
 pub enum Instruction {
     /// Return from the current function
