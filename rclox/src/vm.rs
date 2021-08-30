@@ -18,6 +18,16 @@ use crate::Result;
 #[derive(Debug)]
 pub struct VM {
     chunk: Chunk,
+    /// The index in the chunk to the instruction being executed.
+    ///
+    /// In the C version this is a pointer to an instruction. When jumping, the instruction pointer
+    /// is set to the value before the instruction to be executed next. If this value is the first
+    /// instruction (index 0), the pointer is set to an invalid location but is incremented before
+    /// it is ever dereferenced.
+    ///
+    /// With the program counter approach, care must be taken to allow this, using wrapping_sub and
+    /// wrapping_add.
+    // TODO: I don't like this. maybe use a pointer instead?
     program_counter: usize,
     stack: Vec<Value>,
     globals_table: HashMap<Rc<String>, Value>,
@@ -36,8 +46,10 @@ impl VM {
 
     /// Run a Lox program, from a string
     pub fn interpret(&mut self, source: &str) -> Result<Vec<String>> {
-        let chunk = compile(source)?;
-        self.chunk = chunk;
+        let targets = compile(source)?;
+        assert_eq!(targets.len(), 1);
+
+        self.chunk = targets.into_iter().next().unwrap().output_chunk;
         self.program_counter = 0;
         self.run()
     }

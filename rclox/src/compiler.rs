@@ -1,6 +1,6 @@
 //! The parser and compiler.
 //!
-//! See https://craftinginterpreters.com/appendix-i.html for the Lox grammar.
+//! See <https://craftinginterpreters.com/appendix-i.html> for the Lox grammar.
 
 use std::rc::Rc;
 
@@ -14,24 +14,28 @@ use crate::value::Value;
 use crate::Result;
 
 /// Compile source code to a chunk.
-pub fn compile(source: &str) -> Result<Chunk> {
+pub fn compile(source: &str) -> Result<Vec<Target>> {
     println!("Starting compilation");
-    let mut chunk = Chunk::new();
     let lexer = Lexer::new(source);
     let mut targets = vec![Target::new()];
-    let mut parser = Compiler::new(lexer, &mut chunk, &mut targets);
-    parser.advance()?;
-    while !parser.advance_if_token_matches(TokenType::Eof)? {
-        parser.declaration()?;
+    let mut compiler = Compiler::new(lexer, &mut targets);
+    compiler.advance()?;
+    while !compiler.advance_if_token_matches(TokenType::Eof)? {
+        compiler.declaration()?;
     }
-    let last_line_num = parser.output_chunk.code.last().map(|x| x.line);
-    parser.emit_instruction(Instruction::Return); // endCompiler()
+
+    let last_line_num = compiler.target().output_chunk.code.last().map(|x| x.line);
+
+    compiler.emit_instruction(Instruction::Return); // endCompiler()
+
     if let Some(x) = last_line_num {
-        chunk.code.last_mut().unwrap().line = x + 1;
+        compiler.target_mut().output_chunk.last_mut().unwrap().line = x + 1;
     }
-    crate::debug::disassemble_chunk(&chunk, "code");
+    for chunk in targets.iter().map(|x| &x.output_chunk) {
+        crate::debug::disassemble_chunk(chunk, "code");
+    }
     println!("Finished compilation.");
-    Ok(chunk)
+    Ok(targets)
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
@@ -113,24 +117,27 @@ struct ParseRule {
 /// A local variable, with a (reference-counted) name, and depth
 // This option exists to represent an interim state.
 // TODO: remove it, use the type system better.
-struct LocalVariable {
+pub struct LocalVariable {
     name: Rc<String>,
     depth: Option<usize>,
 }
 
 /// A set of local variables and a scope depth. Somewhat equivalent to a `compiler` in the C
 /// version
-struct Target {
-    locals: Vec<LocalVariable>,
-    scope_depth: usize,
+#[derive(Debug)]
+pub struct Target {
+    pub locals: Vec<LocalVariable>,
+    pub scope_depth: usize,
+    pub output_chunk: Chunk,
 }
 
 impl Target {
     /// Creates a new, empty, `Target`
     fn new() -> Self {
-        Target {
+        Self {
             locals: Vec::with_capacity(u8::MAX as usize),
             scope_depth: 0,
+            output_chunk: Chunk::new(),
         }
     }
 }
@@ -140,21 +147,15 @@ struct Compiler<'source> {
     lexer: Lexer<'source>,
     current_token: Token<'source>,
     previous_token: Token<'source>,
-    output_chunk: &'source mut Chunk,
     targets: &'source mut Vec<Target>,
 }
 
 impl<'source> Compiler<'source> {
-    fn new(
-        lexer: Lexer<'source>,
-        output_chunk: &'source mut Chunk,
-        targets: &'source mut Vec<Target>,
-    ) -> Self {
+    fn new(lexer: Lexer<'source>, targets: &'source mut Vec<Target>) -> Self {
         Self {
             lexer,
             current_token: Token::null(),
             previous_token: Token::null(),
-            output_chunk,
             targets,
         }
     }
@@ -190,8 +191,10 @@ impl<'source> Compiler<'source> {
     #[inline]
     /// Output an instruction to the chunk
     fn emit_instruction(&mut self, instruction: Instruction) {
-        self.output_chunk
-            .write_instruction(instruction, self.previous_token.line);
+        let previous_line = self.previous_token.line;
+        self.target_mut()
+            .output_chunk
+            .write_instruction(instruction, previous_line);
     }
 
     /// Compile an expression
@@ -404,7 +407,7 @@ impl<'source> Compiler<'source> {
 
     /// Compile a while loop
     fn while_statement(&mut self) -> Result<()> {
-        let loop_start_idx = self.output_chunk.code.len();
+        let loop_start_idx = self.target().output_chunk.len();
 
         self.expect_token(TokenType::LeftParen, "Expected '(' after 'while'.")?;
 
@@ -440,7 +443,7 @@ impl<'source> Compiler<'source> {
             self.expression_statement()?;
         }
 
-        let mut loop_start = self.output_chunk.code.len();
+        let mut loop_start = self.target().output_chunk.len();
 
         let mut exit_jump = None;
 
@@ -462,7 +465,7 @@ impl<'source> Compiler<'source> {
         // Increment
         if !self.advance_if_token_matches(TokenType::RightParen)? {
             let body_jump = self.emit_jump_instruction(Instruction::Jump(0));
-            let increment_start = self.output_chunk.code.len();
+            let increment_start = self.target().output_chunk.len();
             self.expression()?;
             self.emit_instruction(Instruction::Pop);
             self.expect_token(TokenType::RightParen, "Expected ')' after 'for' clauses.")?;
@@ -491,7 +494,7 @@ impl<'source> Compiler<'source> {
 
     /// Emit a loop instruction to jump to the given index
     fn emit_loop(&mut self, target_index: usize) {
-        let offset = self.output_chunk.code.len() - target_index + 1;
+        let offset = self.target().output_chunk.len() - target_index + 1;
 
         self.emit_instruction(Instruction::Loop(offset));
     }
@@ -509,16 +512,16 @@ impl<'source> Compiler<'source> {
             }
             _ => unreachable!("Invalid jump instruction"),
         };
-        self.output_chunk.code.len() - 1
+        self.target().output_chunk.len() - 1
     }
 
     /// Patches in the correct destination to a jump instruction.  Takes the index of the jump instruction to patch. Panics if this is not a jump instruction
     fn patch_jump_target(&mut self, offset: usize) {
         // We have to subtract 1 here because we want to set the pc to the instruction
         // before the one we want executed next
-        let distance = self.output_chunk.code.len() - offset - 1;
+        let distance = self.target().output_chunk.len() - offset - 1;
 
-        match self.output_chunk[offset].instruction {
+        match self.target_mut().output_chunk[offset].instruction {
             Instruction::Jump(ref mut x) | Instruction::JumpIfFalse(ref mut x) => {
                 // TODO: remove the usize::MAX sentinel value, use the type system
                 assert_eq!(*x, usize::MAX);
@@ -527,7 +530,7 @@ impl<'source> Compiler<'source> {
             _ => {
                 unreachable!(
                     "Cannot patch a non-jump instruction '{:?}'",
-                    self.output_chunk.code[offset]
+                    self.target().output_chunk[offset]
                 );
             }
         }
