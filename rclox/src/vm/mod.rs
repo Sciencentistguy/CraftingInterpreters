@@ -12,9 +12,7 @@ use crate::value::LoxFunction;
 use crate::value::NativeFunction;
 use crate::value::Value;
 
-#[cfg(test)]
 use crate::lexer::Token;
-#[cfg(test)]
 use crate::lexer::TokenType;
 
 use crate::Result;
@@ -150,7 +148,6 @@ impl VM {
     }
 
     /// Produce a vector of tokens from a source str. Only used in testing
-    #[cfg(test)]
     pub fn lex<'a>(&mut self, source: &'a str) -> Result<Vec<Token<'a>>> {
         let mut lexer = crate::lexer::Lexer::new(source);
 
