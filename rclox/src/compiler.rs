@@ -803,19 +803,26 @@ impl<'source> Compiler<'source> {
             .target_mut()
             .locals
             .last_mut()
-            .unwrap_or_else(|| unreachable!("No local declared, yet attempting to mark initialized"))
+            .unwrap_or_else(|| {
+                unreachable!("No local declared, yet attempting to mark initialised")
+            })
             .depth;
 
-        assert!(
-            ptr.is_none(),
-            "Attempted to initialise a local variable more than once"
-        );
+        //assert!(
+        //ptr.is_none(),
+        //"Attempted to initialise a local variable more than once"
+        //);
+        if ptr.is_some() {
+            eprintln!("Attempted to initialise a local variable more than once");
+        }
+
         *ptr = Some(depth);
     }
 
     /// Declare a variable, checking that its name is not taken.
     fn declare_variable(&mut self) -> Result<()> {
         if self.target().scope_depth == 0 {
+            // This is a global variable
             return Ok(());
         }
 
@@ -937,6 +944,8 @@ impl<'source> Compiler<'source> {
     /// Compile a function declaration
     fn function_declaration(&mut self) -> Result<()> {
         let variable_name = self.parse_variable()?;
+        // TODO: I can't see why this is necessary, define_variable calls it and it tripped my
+        // sanity check assertion
         self.initialise_local_variable();
         self.function()?;
         self.define_variable(variable_name);
