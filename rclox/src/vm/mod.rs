@@ -451,6 +451,14 @@ impl VM {
 
     /// Call a function
     fn call(&mut self, function: Rc<LoxFunction>, arg_count: usize) -> Result<bool> {
+        if arg_count != function.arity {
+            //TODO: two allocations here, should runtime_error take a String bc it always
+            // allocates anyway
+            return Err(self.runtime_error(&format!(
+                "Expected {} arguments, but got {}",
+                function.arity, arg_count
+            )));
+        }
         let output = CallFrameCode::Function(function);
         let mut frame = CallFrame::new(output);
         frame.slots_start = self.stack.len() - arg_count;
