@@ -6,13 +6,13 @@ use std::ops::DerefMut;
 use crate::instruction::Instruction;
 
 /// A wrapper around a vector of instructions and their lines.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chunk {
     pub code: Vec<InstructionWithLine>,
 }
 
 /// A struct to combine an instruction and a line number
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(missing_copy_implementations)]
 pub struct InstructionWithLine {
     pub instruction: Instruction,

@@ -84,3 +84,4 @@ target/
 test.lox
 .stack-work/
 *~
+fib.lox

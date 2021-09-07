@@ -96,23 +96,29 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
             println!("SetLocal\t{:04}", slot);
         }
         JumpIfFalse(jump) => {
-            // Add 1 here, because it technically jumps to the instruction *before* the next one to
-            // be executed, but for debug purposes we want to display the next instruction.
+            // Add 1 here, because it technically jumps to the instruction *before* the next
+            // one to be executed, but for debug purposes we want to display the
+            // next instruction.
             println!("JumpIfFalse\t{:04} -> {:04}", offset, offset + jump + 1);
         }
         Jump(jump) => {
-            // Add 1 here, because it technically jumps to the instruction *before* the next one to
-            // be executed, but for debug purposes we want to display the next instruction.
+            // Add 1 here, because it technically jumps to the instruction *before* the next
+            // one to be executed, but for debug purposes we want to display the
+            // next instruction.
             println!("Jump\t\t{:04} -> {:04}", offset, offset + jump + 1);
         }
         Loop(jump) => {
-            // Add 1 here, because it technically jumps to the instruction *before* the next one to
-            // be executed, but for debug purposes we want to display the next instruction.
+            // Add 1 here, because it technically jumps to the instruction *before* the next
+            // one to be executed, but for debug purposes we want to display the
+            // next instruction.
             println!(
                 "Loop\t\t{:04} -> {:04}",
                 offset,
                 offset.wrapping_sub(*jump).wrapping_add(1)
             );
+        }
+        Call(arity) => {
+            println!("Call\t\t{:04}", arity);
         }
     }
 }

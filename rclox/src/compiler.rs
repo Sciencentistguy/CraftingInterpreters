@@ -10,29 +10,38 @@ use crate::instruction::Instruction;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
 use crate::lexer::TokenType;
+use crate::value::LoxFunction;
 use crate::value::Value;
+use crate::vm::CallFrameCode;
 use crate::Result;
 
 /// Compile source code to a chunk.
 pub fn compile(source: &str) -> Result<Vec<Target>> {
     println!("Starting compilation");
     let lexer = Lexer::new(source);
-    let mut targets = vec![Target::new()];
+    let mut targets = vec![Target::new_script()];
     let mut compiler = Compiler::new(lexer, &mut targets);
     compiler.advance()?;
     while !compiler.advance_if_token_matches(TokenType::Eof)? {
         compiler.declaration()?;
     }
 
-    let last_line_num = compiler.target().output_chunk.code.last().map(|x| x.line);
+    let last_line_num = compiler.target().chunk().last().map(|x| x.line);
 
-    compiler.emit_instruction(Instruction::Return); // endCompiler()
+    // The script returns nothing, but the vm will still attempt to look at the
+    // stack to find the return value, so insert a nil
+    compiler.emit_instruction(Instruction::Nil);
+    compiler.emit_instruction(Instruction::Return);
 
     if let Some(x) = last_line_num {
-        compiler.target_mut().output_chunk.last_mut().unwrap().line = x + 1;
+        compiler.target_mut().chunk_mut().last_mut().unwrap().line = x + 1;
     }
-    for chunk in targets.iter().map(|x| &x.output_chunk) {
-        crate::debug::disassemble_chunk(chunk, "code");
+    for target in &targets {
+        let name = match target.output {
+            TargetOutput::Script(_) => "<program>".to_owned(),
+            TargetOutput::Function(ref x) => format!("<fn {}>", x.name),
+        };
+        crate::debug::disassemble_chunk(target.chunk(), name.as_str());
     }
     println!("Finished compilation.");
     Ok(targets)
@@ -67,8 +76,8 @@ enum Precedence {
 }
 
 impl Precedence {
-    /// Get the next highest precedence. Panics if called on Precedence::Primary, as that is the
-    /// highest precedence
+    /// Get the next highest precedence. Panics if called on
+    /// Precedence::Primary, as that is the highest precedence
     fn one_higher(&self) -> Self {
         use Precedence::*;
         match self {
@@ -102,6 +111,7 @@ enum ParseFn {
     Variable,
     And,
     Or,
+    Call,
 }
 
 /// A row in the pratt parser table
@@ -122,22 +132,112 @@ pub struct LocalVariable {
     depth: Option<usize>,
 }
 
-/// A set of local variables and a scope depth. Somewhat equivalent to a `compiler` in the C
-/// version
+#[derive(Debug, Clone)]
+pub enum TargetOutput {
+    Script(Chunk),
+    Function(LoxFunction),
+}
+
+impl TargetOutput {
+    /// Clone this TargetOutput into a CallFrameCode, possibly allocating a new Rc
+    pub fn to_callframe_code(&self) -> CallFrameCode {
+        match self {
+            Self::Script(c) => CallFrameCode::Script(c.clone()),
+            Self::Function(f) => CallFrameCode::Function(Rc::new(f.clone())),
+        }
+    }
+
+    /// Extract the inner chunk
+    pub fn chunk(&self) -> &Chunk {
+        match self {
+            TargetOutput::Script(ref x) => x,
+            TargetOutput::Function(ref x) => &x.chunk,
+        }
+    }
+
+    /// Extract the inner chunk mutably
+    fn chunk_mut(&mut self) -> &mut Chunk {
+        match self {
+            TargetOutput::Script(ref mut x) => x,
+            TargetOutput::Function(ref mut x) => &mut x.chunk,
+        }
+    }
+
+    /// Extract the inner function, panicking if `self` is a `Script(_)`
+    fn as_function(&self) -> &LoxFunction {
+        match self {
+            TargetOutput::Script(_) => {
+                unreachable!("called as_function on a TargetOutput::Script(_)")
+            }
+            TargetOutput::Function(x) => x,
+        }
+    }
+
+    /// Extract the inner function mutably, panicking if `self` is a `Script(_)`
+    fn as_function_mut(&mut self) -> &mut LoxFunction {
+        match self {
+            TargetOutput::Script(_) => {
+                unreachable!("called as_function on a TargetOutput::Script(_)")
+            }
+            TargetOutput::Function(x) => x,
+        }
+    }
+}
+
+/// A set of local variables and a scope depth. Somewhat equivalent to a
+/// `compiler` in the C version
 #[derive(Debug)]
 pub struct Target {
     pub locals: Vec<LocalVariable>,
     pub scope_depth: usize,
-    pub output_chunk: Chunk,
+    pub output: TargetOutput,
 }
 
 impl Target {
-    /// Creates a new, empty, `Target`
-    fn new() -> Self {
+    /// Creates a new `Target` with a `Script(_)` output.
+    fn new_script() -> Self {
+        let mut locals = Vec::with_capacity(u8::MAX as usize);
+        locals.push(LocalVariable {
+            name: Rc::new("".to_owned()),
+            depth: Some(0),
+        });
+        // FIXME: A hack.
+        // This is to use up the first stack slot, which is unused until methods are
+        // added
+        let mut c = Chunk::new();
+        c.write_instruction(Instruction::Nil, 0);
         Self {
-            locals: Vec::with_capacity(u8::MAX as usize),
+            locals,
             scope_depth: 0,
-            output_chunk: Chunk::new(),
+            output: TargetOutput::Script(c),
+        }
+    }
+
+    /// Creates a new `Target` with a `Function(_)` output.
+    fn new_function(name: String) -> Self {
+        let locals = Vec::with_capacity(u8::MAX as usize);
+        let function = LoxFunction::with_name(name);
+
+        Self {
+            locals,
+            scope_depth: 0,
+            output: TargetOutput::Function(function),
+        }
+    }
+
+    /// Extract the inner chunk
+    pub fn chunk(&self) -> &Chunk {
+        match self.output {
+            TargetOutput::Script(ref x) => x,
+            TargetOutput::Function(ref x) => &x.chunk,
+        }
+    }
+
+    /// Extract the inner chunk mutably
+    fn chunk_mut(&mut self) -> &mut Chunk {
+        match self.output {
+            TargetOutput::Script(ref mut x) => x,
+            TargetOutput::Function(ref mut x) => &mut x.chunk,
         }
     }
 }
@@ -151,6 +251,7 @@ struct Compiler<'source> {
 }
 
 impl<'source> Compiler<'source> {
+    /// Create a new, blank, `Compiler`
     fn new(lexer: Lexer<'source>, targets: &'source mut Vec<Target>) -> Self {
         Self {
             lexer,
@@ -170,8 +271,8 @@ impl<'source> Compiler<'source> {
         self.targets.last_mut().expect("Internal error: no target")
     }
 
-    /// Consume the next token from the Lexer, and advance `self.previous_token` and
-    /// `self.current_token`
+    /// Consume the next token from the Lexer, and advance `self.previous_token`
+    /// and `self.current_token`
     fn advance(&mut self) -> Result<()> {
         std::mem::swap(&mut self.previous_token, &mut self.current_token);
         self.current_token = self.lexer.lex_token()?;
@@ -193,7 +294,7 @@ impl<'source> Compiler<'source> {
     fn emit_instruction(&mut self, instruction: Instruction) {
         let previous_line = self.previous_token.line;
         self.target_mut()
-            .output_chunk
+            .chunk_mut()
             .write_instruction(instruction, previous_line);
     }
 
@@ -284,7 +385,8 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
-    /// Dynamically dispatch the correct function to parse at the current precedence
+    /// Dynamically dispatch the correct function to parse at the current
+    /// precedence
     fn compile_with_parsefn(&mut self, parse_fn: ParseFn, can_assign: bool) -> Result<()> {
         match parse_fn {
             ParseFn::Grouping => self.grouping(),
@@ -296,6 +398,7 @@ impl<'source> Compiler<'source> {
             ParseFn::Variable => self.variable(can_assign),
             ParseFn::And => self.and(),
             ParseFn::Or => self.or(),
+            ParseFn::Call => self.call(),
         }
     }
 
@@ -344,6 +447,8 @@ impl<'source> Compiler<'source> {
     pub fn declaration(&mut self) -> Result<()> {
         if self.advance_if_token_matches(TokenType::Var)? {
             self.variable_declaration()
+        } else if self.advance_if_token_matches(TokenType::Fun)? {
+            self.function_declaration()
         } else {
             self.statement()
         }
@@ -360,6 +465,8 @@ impl<'source> Compiler<'source> {
             Ok(())
         } else if self.advance_if_token_matches(TokenType::If)? {
             self.if_statement()
+        } else if self.advance_if_token_matches(TokenType::Return)? {
+            self.return_statement()
         } else if self.advance_if_token_matches(TokenType::While)? {
             self.while_statement()
         } else if self.advance_if_token_matches(TokenType::For)? {
@@ -367,6 +474,22 @@ impl<'source> Compiler<'source> {
         } else {
             self.expression_statement()
         }
+    }
+
+    /// Compile a return statement
+    fn return_statement(&mut self) -> Result<()> {
+        if matches!(self.target().output, TargetOutput::Script(_)) {
+            return Err(self.error_at_previous("Cannot return from top-level code"));
+        }
+
+        if self.advance_if_token_matches(TokenType::Semicolon)? {
+            self.emit_instruction(Instruction::Nil);
+        } else {
+            self.expression()?;
+            self.expect_token(TokenType::Semicolon, "Expected `;` after return value.")?;
+        }
+        self.emit_instruction(Instruction::Return);
+        Ok(())
     }
 
     /// Compile an if statement
@@ -407,7 +530,7 @@ impl<'source> Compiler<'source> {
 
     /// Compile a while loop
     fn while_statement(&mut self) -> Result<()> {
-        let loop_start_idx = self.target().output_chunk.len();
+        let loop_start_idx = self.target().chunk().len();
 
         self.expect_token(TokenType::LeftParen, "Expected '(' after 'while'.")?;
 
@@ -443,7 +566,7 @@ impl<'source> Compiler<'source> {
             self.expression_statement()?;
         }
 
-        let mut loop_start = self.target().output_chunk.len();
+        let mut loop_start = self.target().chunk().len();
 
         let mut exit_jump = None;
 
@@ -465,7 +588,7 @@ impl<'source> Compiler<'source> {
         // Increment
         if !self.advance_if_token_matches(TokenType::RightParen)? {
             let body_jump = self.emit_jump_instruction(Instruction::Jump(0));
-            let increment_start = self.target().output_chunk.len();
+            let increment_start = self.target().chunk().len();
             self.expression()?;
             self.emit_instruction(Instruction::Pop);
             self.expect_token(TokenType::RightParen, "Expected ')' after 'for' clauses.")?;
@@ -494,7 +617,7 @@ impl<'source> Compiler<'source> {
 
     /// Emit a loop instruction to jump to the given index
     fn emit_loop(&mut self, target_index: usize) {
-        let offset = self.target().output_chunk.len() - target_index + 1;
+        let offset = self.target().chunk().len() - target_index + 1;
 
         self.emit_instruction(Instruction::Loop(offset));
     }
@@ -512,16 +635,18 @@ impl<'source> Compiler<'source> {
             }
             _ => unreachable!("Invalid jump instruction"),
         };
-        self.target().output_chunk.len() - 1
+        self.target().chunk().len() - 1
     }
 
-    /// Patches in the correct destination to a jump instruction.  Takes the index of the jump instruction to patch. Panics if this is not a jump instruction
+    /// Patches in the correct destination to a jump instruction.  Takes the
+    /// index of the jump instruction to patch. Panics if this is not a jump
+    /// instruction
     fn patch_jump_target(&mut self, offset: usize) {
         // We have to subtract 1 here because we want to set the pc to the instruction
         // before the one we want executed next
-        let distance = self.target().output_chunk.len() - offset - 1;
+        let distance = self.target().chunk().len() - offset - 1;
 
-        match self.target_mut().output_chunk[offset].instruction {
+        match self.target_mut().chunk_mut()[offset].instruction {
             Instruction::Jump(ref mut x) | Instruction::JumpIfFalse(ref mut x) => {
                 // TODO: remove the usize::MAX sentinel value, use the type system
                 assert_eq!(*x, usize::MAX);
@@ -530,7 +655,7 @@ impl<'source> Compiler<'source> {
             _ => {
                 unreachable!(
                     "Cannot patch a non-jump instruction '{:?}'",
-                    self.target().output_chunk[offset]
+                    self.target().chunk()[offset]
                 );
             }
         }
@@ -553,7 +678,8 @@ impl<'source> Compiler<'source> {
     }
 
     #[inline]
-    /// End the current scope, emitting the correct number of pop instructions to remove all the scope's locals from the stack
+    /// End the current scope, emitting the correct number of pop instructions
+    /// to remove all the scope's locals from the stack
     fn end_scope(&mut self) {
         if cfg!(debug_asserts) {
             self.target_mut().scope_depth = self
@@ -615,6 +741,8 @@ impl<'source> Compiler<'source> {
     }
 
     /// Parse a variable declaration
+    ///
+    /// Returns the name of the global variable, or `None` if this is a local
     fn parse_variable(&mut self) -> Result<Option<String>> {
         self.expect_token(TokenType::Identifier, "Expected a variable name.")?;
         self.declare_variable()?;
@@ -628,9 +756,7 @@ impl<'source> Compiler<'source> {
 
     /// Compile a variable declaration
     fn variable_declaration(&mut self) -> Result<()> {
-        // if scope depth is more than zero, then variable_name_id = None
-        // else, it is the index in the constants table pointing to the name of the
-        // variable
+        // if variable_name = None, this is a local variable
         let variable_name = self.parse_variable()?;
         if self.advance_if_token_matches(TokenType::Equal)? {
             self.expression()?;
@@ -645,8 +771,8 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
-    /// Mark a variable as properly defined, either by emitting an `Instruction::DefineGlobal` or
-    /// by setting its depth
+    /// Mark a variable as properly defined, either by emitting an
+    /// `Instruction::DefineGlobal` or by setting its depth
     fn define_variable(&mut self, variable_name: Option<String>) {
         // if variable_name is None, this is a local variable.
         //
@@ -663,8 +789,14 @@ impl<'source> Compiler<'source> {
         }
     }
 
-    /// Set a LocalVariable to the correct depth
+    /// Set the most recent LocalVariable to the correct depth, marking it as
+    /// initialised.
+    ///
+    /// Does nothing if not in a local scope
     fn initialise_local_variable(&mut self) {
+        if self.target().scope_depth == 0 {
+            return;
+        }
         let depth = self.target().scope_depth;
         let ptr = &mut self
             .target_mut()
@@ -800,6 +932,78 @@ impl<'source> Compiler<'source> {
 
         Ok(())
     }
+
+    /// Compile a function declaration
+    fn function_declaration(&mut self) -> Result<()> {
+        let variable_name = self.parse_variable()?;
+        self.initialise_local_variable();
+        self.function()?;
+        self.define_variable(variable_name);
+        Ok(())
+    }
+
+    /// Compile a function
+    fn function(&mut self) -> Result<()> {
+        // TODO this will need an argument once methods
+        let mut target = Target::new_function(String::new());
+        target.output.as_function_mut().name = self.previous_token.span.to_owned();
+        self.targets.push(target);
+        self.begin_scope();
+
+        self.expect_token(TokenType::LeftParen, "Expected `(` after function name.")?;
+
+        if !self.check_current_token_kind(TokenType::RightParen) {
+            // compile parameters
+            while {
+                self.target_mut().output.as_function_mut().arity += 1;
+                let variable_name = self.parse_variable()?;
+                self.define_variable(variable_name);
+
+                self.advance_if_token_matches(TokenType::Comma)?
+            } {}
+        }
+
+        self.expect_token(
+            TokenType::RightParen,
+            "Expected `)` after function parameters.",
+        )?;
+        self.expect_token(TokenType::LeftBrace, "Expected `{` before function body.")?;
+
+        self.block()?;
+
+        self.emit_instruction(Instruction::Nil);
+        self.emit_instruction(Instruction::Return);
+
+        let target = self.targets.pop().unwrap();
+        let function = match target.output {
+            TargetOutput::Script(_) => unreachable!("Attempted to close global function"),
+            TargetOutput::Function(x) => x,
+        };
+        self.emit_instruction(Instruction::Constant(Value::Function(Rc::new(function))));
+
+        Ok(())
+    }
+
+    /// Compile a function call
+    fn call(&mut self) -> Result<()> {
+        let arg_count = self.argument_list()?;
+        self.emit_instruction(Instruction::Call(arg_count));
+        Ok(())
+    }
+
+    /// Compile a comma-separated list of expression
+    fn argument_list(&mut self) -> Result<usize> {
+        let mut arg_count = 0;
+        if !self.check_current_token_kind(TokenType::RightParen) {
+            while {
+                self.expression()?;
+                arg_count += 1;
+                self.advance_if_token_matches(TokenType::Comma)?
+            } {}
+        }
+        self.expect_token(TokenType::RightParen, "Expected `)` after arguments.")?;
+        Ok(arg_count)
+    }
 }
 
 /// The pratt parser jump table.
@@ -809,8 +1013,8 @@ fn get_rule(kind: TokenType) -> ParseRule {
     match kind {
         TokenType::LeftParen => ParseRule {
             prefix: Some(ParseFn::Grouping),
-            infix: None,
-            precedence: None,
+            infix: Some(ParseFn::Call),
+            precedence: Some(Precedence::Call),
         },
         TokenType::RightParen => ParseRule {
             prefix: None,

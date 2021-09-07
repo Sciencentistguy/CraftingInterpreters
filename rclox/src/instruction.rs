@@ -62,4 +62,6 @@ pub enum Instruction {
     Jump(usize),
     /// Jump backwards `n` instructions unconditionally
     Loop(usize),
+    /// Call the function at the top of the stack
+    Call(usize),
 }

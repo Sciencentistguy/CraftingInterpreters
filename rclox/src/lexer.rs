@@ -50,7 +50,8 @@ pub enum TokenType {
     Null,
 }
 
-/// A token of input. This has a type, a reference to the string it represents, and a line number
+/// A token of input. This has a type, a reference to the string it represents,
+/// and a line number
 #[derive(Debug, PartialEq, Eq)]
 pub struct Token<'source_code> {
     pub kind: TokenType,

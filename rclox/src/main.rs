@@ -21,6 +21,8 @@ use text_io::read;
 type Result<T> = std::result::Result<T, error::RcloxError>;
 
 fn main() -> result::Result<(), Box<dyn Error>> {
+    better_panic::install();
+
     if std::env::args().len() == 1 {
         repl()
     } else if std::env::args().len() == 2 {

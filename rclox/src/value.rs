@@ -1,5 +1,9 @@
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::rc::Rc;
+
+use crate::chunk::Chunk;
+use crate::Result;
 
 /// A Lox Value
 #[derive(Debug, Clone, PartialEq)]
@@ -8,7 +12,84 @@ pub enum Value {
     Bool(bool),
     String(Rc<String>),
     Nil,
-    //Value(&str),
+    Function(Rc<LoxFunction>),
+    NativeFunction(NativeFunction),
+}
+
+/// A first-class function. Owns its code, and knows its name and arity
+#[derive(Clone)]
+pub struct LoxFunction {
+    pub arity: usize,
+    pub chunk: Chunk,
+    pub name: String,
+}
+
+/// A native function written in Rust that is callable from Lox
+#[derive(Clone, Copy)]
+pub struct NativeFunction {
+    pub func: fn(args: &[Value]) -> Result<Value>,
+    pub name: &'static str,
+}
+
+impl NativeFunction {
+    /// Create a named `NativeFunction` with the given function pointer
+    pub fn new(func: fn(&[Value]) -> Result<Value>, name: &'static str) -> Self {
+        Self { func, name }
+    }
+}
+
+impl PartialEq for NativeFunction {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Debug for NativeFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NativeFunction")
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
+impl Debug for LoxFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoxFunction")
+            .field("name", &self.name)
+            .field("arity", &self.arity)
+            .finish()
+    }
+}
+
+impl LoxFunction {
+    /// Create a new, blank, `LoxFunction`
+    pub fn new() -> Self {
+        Self {
+            arity: 0,
+            chunk: Chunk::new(),
+            name: String::new(),
+        }
+    }
+
+    /// Create a named `LoxFunction`
+    pub fn with_name(name: String) -> Self {
+        Self {
+            arity: 0,
+            chunk: Chunk::new(),
+            name,
+        }
+    }
+}
+impl Default for LoxFunction {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PartialEq for LoxFunction {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 impl Display for Value {
@@ -18,11 +99,12 @@ impl Display for Value {
             Value::Bool(x) => write!(f, "{}", x),
             Value::String(x) => write!(f, "{}", x),
             Value::Nil => write!(f, "nil"),
+            Value::Function(x) => write!(f, "<fn {}>", x.name),
+            Value::NativeFunction(x) => write!(f, "<native fn {}>", x.name),
         }
     }
 }
 
-#[allow(dead_code)]
 impl Value {
     /// Check if a value contains a number
     pub fn is_number(&self) -> bool {
@@ -44,6 +126,11 @@ impl Value {
         matches!(self, Value::String(_))
     }
 
+    /// Check if a value contains a Function
+    pub fn is_function(&self) -> bool {
+        matches!(self, Value::Function(_))
+    }
+
     /// Get the contained number, if it exists
     pub fn as_number(&self) -> Option<f64> {
         if let Value::Number(x) = self {
@@ -54,12 +141,8 @@ impl Value {
     }
 
     /// Perform type coercion to Bool
-    #[allow(clippy::match_like_matches_macro)] // Readability
-    pub fn coersce_bool(&self) -> bool {
-        match self {
-            Self::Nil | Self::Bool(false) => false,
-            _ => true,
-        }
+    pub fn coerce_bool(&self) -> bool {
+        !matches!(self, Self::Nil | Self::Bool(false))
     }
 }
 
