@@ -803,7 +803,7 @@ impl<'source> Compiler<'source> {
             .target_mut()
             .locals
             .last_mut()
-            .unwrap_or_else(|| unreachable!("No local declared, yet attempting to mark intialised"))
+            .unwrap_or_else(|| unreachable!("No local declared, yet attempting to mark initialized"))
             .depth;
 
         assert!(
