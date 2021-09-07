@@ -13,4 +13,8 @@ pub enum RcloxError {
     },
     #[error("<Runtime> [Line {line}] Error: {message}")]
     Runtime { message: String, line: usize },
+    #[error("<Runtime> (in native function) Error: {message}")]
+    Native {message: String},
+    #[error("<Runtime> (IO) Error: {0}")]
+    Io(#[from] std::io::Error)
 }

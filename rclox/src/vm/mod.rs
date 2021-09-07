@@ -121,17 +121,28 @@ impl VM {
         self.run()
     }
 
+    /// Register native functions as global variables
     fn init_native_functions(&mut self) {
-        let clock = NativeFunction::new(native::clock_native, "clock");
+        let clock = NativeFunction::new(native::clock, "clock");
         self.define_native(clock);
+        let read_to_string = NativeFunction::new(native::read_to_string, "read_to_string");
+        self.define_native(read_to_string);
+        let check_if_file_exists =
+            NativeFunction::new(native::check_if_file_exists, "check_if_file_exists");
+        self.define_native(check_if_file_exists);
+        let write_string_to_file =
+            NativeFunction::new(native::write_string_to_file, "write_string_to_file");
+        self.define_native(write_string_to_file);
     }
 
+    /// Get the current frame
     fn current_frame(&self) -> &CallFrame {
         self.call_stack
             .last()
             .expect("Call stack should not be empty")
     }
 
+    /// Get the current frame mutably
     fn current_frame_mut(&mut self) -> &mut CallFrame {
         self.call_stack
             .last_mut()
