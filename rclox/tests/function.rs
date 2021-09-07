@@ -223,4 +223,4 @@ fn over_255_arguments() -> Result<()> {
     assert_eq!(printed, &["ok"]);
 
     Ok(())
-    }
+}

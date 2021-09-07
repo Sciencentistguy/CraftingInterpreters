@@ -944,8 +944,8 @@ impl<'source> Compiler<'source> {
     /// Compile a function declaration
     fn function_declaration(&mut self) -> Result<()> {
         let variable_name = self.parse_variable()?;
-        // TODO: I can't see why this is necessary, define_variable calls it and it tripped my
-        // sanity check assertion
+        // TODO: I can't see why this is necessary, define_variable calls it and it
+        // tripped my sanity check assertion
         self.initialise_local_variable();
         self.function()?;
         self.define_variable(variable_name);
