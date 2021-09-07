@@ -1,8 +1,11 @@
 //! Native rust functions that are callable from Lox
 //!
-//! These are all of type `fn(&[Value]) -> Result<Value>`. This allows them to signal runtime
-//! errors, unlike in clox. This includes being able to check for an unexpected number of
-//! arguments, but this is not forced, and each function much check this itself.
+//! These are all of type `fn(&[Value]) -> Result<Value>`. This allows them to
+//! signal runtime errors, unlike in clox. This includes being able to check for
+//! an unexpected number of arguments, but this is not forced, and each function
+//! must check this itself. Rust will prevent reads to uninitialised memory
+//! unless unsafe code is used, but it may cause unexpected behaviour if
+//! arguments are discarded silently.
 
 use std::path::Path;
 use std::rc::Rc;
@@ -65,7 +68,8 @@ pub(super) fn check_if_file_exists(args: &[Value]) -> Result<Value> {
     Ok(Value::Bool(path.exists()))
 }
 
-/// Write a string to a file, creating the file if it does not exist, and overwriting it if it does
+/// Write a string to a file, creating the file if it does not exist, and
+/// overwriting it if it does
 ///
 /// Argument 0 is the filepath, and argument 1 is the string to write to it.
 pub(super) fn write_string_to_file(args: &[Value]) -> Result<Value> {

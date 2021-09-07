@@ -139,7 +139,8 @@ pub enum TargetOutput {
 }
 
 impl TargetOutput {
-    /// Clone this TargetOutput into a CallFrameCode, possibly allocating a new Rc
+    /// Clone this TargetOutput into a CallFrameCode, possibly allocating a new
+    /// Rc
     pub fn to_callframe_code(&self) -> CallFrameCode {
         match self {
             Self::Script(c) => CallFrameCode::Script(c.clone()),

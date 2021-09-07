@@ -458,7 +458,8 @@ impl VM {
         Ok(true)
     }
 
-    /// Helper function to add a native function. Used in `[init_native_functions]`
+    /// Helper function to add a native function. Used in
+    /// `[init_native_functions]`
     fn define_native(&mut self, function: NativeFunction) {
         self.globals_table.insert(
             Rc::new(function.name.to_owned()),
