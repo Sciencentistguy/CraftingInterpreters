@@ -240,17 +240,16 @@ fn test_variable_local_in_initialiser() -> Result<()> {
 }
 
 #[test]
-#[ignore = "Not yet implemented"]
 fn collide_with_parameter() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    fun foo(a) {
-        var a;
-    }
+        fun foo(a) {
+            var a;
+        }
     "#;
     check_error_msg!(
         vm.interpret(PROGRAM),
-        "TODO",
+        "<Compiler> [Line 2] Error at 'a': There is already a variable with name a in this scope",
         "Variable name cannot shadow parameter."
     );
     Ok(())

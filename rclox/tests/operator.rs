@@ -403,7 +403,6 @@ fn not() -> Result<()> {
 }
 
 #[test]
-#[ignore = "Not yet implemented"]
 fn not_fun() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
