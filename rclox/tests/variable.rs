@@ -6,7 +6,7 @@ mod macros;
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[test]
-fn test_variable_block() -> Result<()> {
+fn block() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"{
         var a = "a";
@@ -27,7 +27,7 @@ fn test_variable_block() -> Result<()> {
 }
 
 #[test]
-fn test_variable_duplicate_local() -> Result<()> {
+fn duplicate_local() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"{
         var a = "value";
@@ -42,7 +42,7 @@ fn test_variable_duplicate_local() -> Result<()> {
 }
 
 #[test]
-fn test_variable_nested_block() -> Result<()> {
+fn nested_block() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"{
         var a = "outer";
@@ -56,46 +56,52 @@ fn test_variable_nested_block() -> Result<()> {
 }
 
 #[test]
-fn test_variable_redeclare_global() -> Result<()> {
+fn redeclare_global() -> Result<()> {
     let mut vm = VM::new();
-    const PROGRAM: &str = r#"var a = "1";
-    var a;
-    print a;"#;
+    const PROGRAM: &str = r#"
+        var a = "1";
+        var a;
+        print a;
+    "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["nil"]);
     Ok(())
 }
 
 #[test]
-fn test_variable_redefine_global() -> Result<()> {
+fn redefine_global() -> Result<()> {
     let mut vm = VM::new();
-    const PROGRAM: &str = r#"var a = "1";
-    var a = "2";
-    print a;"#;
+    const PROGRAM: &str = r#"
+        var a = "1";
+        var a = "2";
+        print a;
+    "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["2"]);
     Ok(())
 }
 
 #[test]
-fn test_variable_reuse_in_different_blocks() -> Result<()> {
+fn reuse_in_different_blocks() -> Result<()> {
     let mut vm = VM::new();
-    const PROGRAM: &str = r#"{
-        var a = "first";
-        print a;
-    }
+    const PROGRAM: &str = r#"
+        {
+            var a = "first";
+            print a;
+        }
 
-    {
-        var a = "second";
-        print a;
-    }"#;
+        {
+            var a = "second";
+            print a;
+        }
+    "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["first", "second"]);
     Ok(())
 }
 
 #[test]
-fn test_variable_shadow_and_local() -> Result<()> {
+fn shadow_and_local() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"{
         var a = "outer";
@@ -111,21 +117,23 @@ fn test_variable_shadow_and_local() -> Result<()> {
 }
 
 #[test]
-fn test_variable_shadow_global() -> Result<()> {
+fn shadow_global() -> Result<()> {
     let mut vm = VM::new();
-    const PROGRAM: &str = r#"var a = "global";
-    {
-        var a = "shadow";
+    const PROGRAM: &str = r#"
+        var a = "global";
+        {
+            var a = "shadow";
+            print a;
+        }
         print a;
-    }
-    print a;"#;
+    "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["shadow", "global"]);
     Ok(())
 }
 
 #[test]
-fn test_variable_shadow_local() -> Result<()> {
+fn shadow_local() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"{
         var a = "local";
@@ -141,7 +149,7 @@ fn test_variable_shadow_local() -> Result<()> {
 }
 
 #[test]
-fn test_variable_undefined_global() -> Result<()> {
+fn undefined_global() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = "print not_defined;";
     check_error_msg!(
@@ -153,7 +161,7 @@ fn test_variable_undefined_global() -> Result<()> {
 }
 
 #[test]
-fn test_variable_undefined_local() -> Result<()> {
+fn undefined_local() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"{
         print not_defined;
@@ -167,7 +175,7 @@ fn test_variable_undefined_local() -> Result<()> {
 }
 
 #[test]
-fn test_variable_uninitialised() -> Result<()> {
+fn uninitialised() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"var a;
     print a;"#;
@@ -177,7 +185,7 @@ fn test_variable_uninitialised() -> Result<()> {
 }
 
 #[test]
-fn test_variable_unreached_undefined() -> Result<()> {
+fn unreached_undefined() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"if (false) print not_defined;
     print "ok";"#;
@@ -187,8 +195,8 @@ fn test_variable_unreached_undefined() -> Result<()> {
 }
 
 #[test]
-fn test_variable_keyword_as_ident() -> Result<()> {
-    const PROGRAMS: [(&str, &str); 3] = [
+fn keyword_as_ident() -> Result<()> {
+    const PROGRAMS_WITH_ERRORS: [(&str, &str); 3] = [
         (
             r#"var false = "value";"#,
             "<Compiler> [Line 0] Error at 'false': Expected a variable name.",
@@ -202,7 +210,7 @@ fn test_variable_keyword_as_ident() -> Result<()> {
             "<Compiler> [Line 0] Error at 'class': Expected a variable name.",
         ),
     ];
-    for (program, error_message) in PROGRAMS.iter() {
+    for (program, error_message) in PROGRAMS_WITH_ERRORS {
         let mut vm = VM::new();
         check_error_msg!(
             vm.interpret(program),
@@ -214,26 +222,30 @@ fn test_variable_keyword_as_ident() -> Result<()> {
 }
 
 #[test]
-fn test_variable_global_in_initialiser() -> Result<()> {
+fn global_in_initialiser() -> Result<()> {
     let mut vm = VM::new();
-    const PROGRAM: &str = r#"var a = "value";
-    var a = a;
-    print a;"#;
+    const PROGRAM: &str = r#"
+        var a = "value";
+        var a = a;
+        print a;
+    "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["value"]);
     Ok(())
 }
 
 #[test]
-fn test_variable_local_in_initialiser() -> Result<()> {
+fn local_in_initialiser() -> Result<()> {
     let mut vm = VM::new();
-    const PROGRAM: &str = r#"var a = "outer";
-    {
-        var a = a;
-    }"#;
+    const PROGRAM: &str = r#"
+        var a = "outer";
+        {
+            var a = a;
+        }
+    "#;
     check_error_msg!(
         vm.interpret(PROGRAM),
-        "<Compiler> [Line 2] Error at 'a': Cannot read local variable in its own initialiser.",
+        "<Compiler> [Line 3] Error at 'a': Cannot read local variable in its own initialiser.",
         "Attempting to read a local variable in its own initialiser is ill-formed and should fail."
     );
     Ok(())

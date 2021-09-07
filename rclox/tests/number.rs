@@ -9,12 +9,12 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn literals() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = "
-    print 123;
-    print 987654;
-    print 0;
-    print -0;
-    print 123.456;
-    print -0.001;
+        print 123;
+        print 987654;
+        print 0;
+        print -0;
+        print 123.456;
+        print -0.001;
     ";
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["123", "987654", "0", "-0", "123.456", "-0.001"]);
@@ -61,10 +61,10 @@ fn trailing_dot() -> Result<()> {
 fn nan_equality() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print (0/0) == 0;
-    print (0/0) != 1;
-    print (0/0) == (0/0);
-    print (0/0) != (0/0);
+        print (0/0) == 0;
+        print (0/0) != 1;
+        print (0/0) == (0/0);
+        print (0/0) != (0/0);
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["false", "true", "false", "true"]);

@@ -9,8 +9,8 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn add() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print 123 + 456;
-    print "str" + "ing";
+        print 123 + 456;
+        print "str" + "ing";
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["579", "string"]);
@@ -43,10 +43,10 @@ fn add_invalid_operands() -> Result<()> {
 fn divide() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print 8 / 2;
-    print 12.34 / 12.34;
-    print 5.5 / 2.2;
-    print 5 / 0;
+        print 8 / 2;
+        print 12.34 / 12.34;
+        print 5.5 / 2.2;
+        print 5 / 0;
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["4", "1", "2.5", "inf"]);
@@ -81,16 +81,16 @@ fn divide_invalid_operands() -> Result<()> {
 fn equals() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print nil==nil;
-    print true == true;
-    print true == false;
-    print 1 == 1;
-    print 1 == 2;
-    print "str" == "str";
-    print "str" == "ing";
-    print nil == false;
-    print false == 0;
-    print 0 == "0";
+        print nil == nil;
+        print true == true;
+        print true == false;
+        print 1 == 1;
+        print 1 == 2;
+        print "str" == "str";
+        print "str" == "ing";
+        print nil == false;
+        print false == 0;
+        print 0 == "0";
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(
@@ -104,20 +104,20 @@ fn equals() -> Result<()> {
 fn not_equals() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print nil != nil; // expect: false
+        print nil != nil; // expect: false
 
-    print true != true; // expect: false
-    print true != false; // expect: true
+        print true != true; // expect: false
+        print true != false; // expect: true
 
-    print 1 != 1; // expect: false
-    print 1 != 2; // expect: true
+        print 1 != 1; // expect: false
+        print 1 != 2; // expect: true
 
-    print "str" != "str"; // expect: false
-    print "str" != "ing"; // expect: true
+        print "str" != "str"; // expect: false
+        print "str" != "ing"; // expect: true
 
-    print nil != false; // expect: true
-    print false != 0; // expect: true
-    print 0 != "0"; // expect: true
+        print nil != false; // expect: true
+        print false != 0; // expect: true
+        print 0 != "0"; // expect: true
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(
@@ -131,9 +131,9 @@ fn not_equals() -> Result<()> {
 fn multiply() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print 5 * 3;
-    print 12.34 * 0.3;
-    print 2 * 0;
+        print 5 * 3;
+        print 12.34 * 0.3;
+        print 2 * 0;
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["15", "3.702", "0"]);
@@ -168,8 +168,8 @@ fn multiply_invalid_operands() -> Result<()> {
 fn subtract() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print 4 - 3;
-    print 12.34 - 0.3;
+        print 4 - 3;
+        print 12.34 - 0.3;
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["1", "12.04"]);
@@ -252,30 +252,30 @@ fn greater_than_invalid_operands() -> Result<()> {
 fn comparison() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print 1 < 2;
-    print 2 < 2;
-    print 2 < 1;
+        print 1 < 2;
+        print 2 < 2;
+        print 2 < 1;
 
-    print 1 <= 2;
-    print 2 <= 2;
-    print 2 <= 1;
+        print 1 <= 2;
+        print 2 <= 2;
+        print 2 <= 1;
 
-    print 1 > 2;
-    print 2 > 2;
-    print 2 > 1;
+        print 1 > 2;
+        print 2 > 2;
+        print 2 > 1;
 
-    print 1 >= 2;
-    print 2 >= 2;
-    print 2 >= 1;
+        print 1 >= 2;
+        print 2 >= 2;
+        print 2 >= 1;
 
-    print 0 < -0;
-    print -0 < 0;
-    print 0 > -0;
-    print -0 > 0;
-    print 0 <= -0;
-    print -0 <= 0;
-    print 0 >= -0;
-    print -0 >= 0;
+        print 0 < -0;
+        print -0 < 0;
+        print 0 > -0;
+        print -0 > 0;
+        print 0 <= -0;
+        print -0 <= 0;
+        print 0 >= -0;
+        print -0 >= 0;
     "#;
     let printed = vm.interpret(PROGRAM)?;
 
@@ -292,9 +292,9 @@ fn comparison() -> Result<()> {
 fn negate() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = "
-    print -(3);
-    print --(3);
-    print ---(3);
+        print -(3);
+        print --(3);
+        print ---(3);
     ";
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["-3", "3", "-3"]);
@@ -316,22 +316,22 @@ fn negate_invalid_operands() -> Result<()> {
 }
 
 #[test]
-#[ignore = "Not yet implemented"]
+#[ignore = "Requires classes"]
 fn class() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    class Foo {}
-    class Bar {}
+        class Foo {}
+        class Bar {}
 
-    print Foo == Foo; // expect: true
-    print Foo == Bar; // expect: false
-    print Bar == Foo; // expect: false
-    print Bar == Bar; // expect: true
+        print Foo == Foo; // expect: true
+        print Foo == Bar; // expect: false
+        print Bar == Foo; // expect: false
+        print Bar == Bar; // expect: true
 
-    print Foo == "Foo"; // expect: false
-    print Foo == nil;   // expect: false
-    print Foo == 123;   // expect: false
-    print Foo == true;  // expect: false
+        print Foo == "Foo"; // expect: false
+        print Foo == nil;   // expect: false
+        print Foo == 123;   // expect: false
+        print Foo == true;  // expect: false
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(
@@ -342,23 +342,23 @@ fn class() -> Result<()> {
 }
 
 #[test]
-#[ignore = "Not yet implemented"]
+#[ignore = "Requires classes"]
 fn equals_method() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    // Bound methods have identity equality.
-    class Foo {
-      method() {}
-    }
+        // Bound methods have identity equality.
+        class Foo {
+          method() {}
+        }
 
-    var foo = Foo();
-    var fooMethod = foo.method;
+        var foo = Foo();
+        var fooMethod = foo.method;
 
-    // Same bound method.
-    print fooMethod == fooMethod; // expect: true
+        // Same bound method.
+        print fooMethod == fooMethod; // expect: true
 
-    // Different closurizations.
-    print foo.method == foo.method; // expect: false
+        // Different closurizations.
+        print foo.method == foo.method; // expect: false
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["true", "false"]);
@@ -366,13 +366,13 @@ fn equals_method() -> Result<()> {
 }
 
 #[test]
-#[ignore = "Not yet implemented"]
+#[ignore = "Requires classes"]
 fn not_class() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    class Bar {}
-    print !Bar;      // expect: false
-    print !Bar();    // expect: false
+        class Bar {}
+        print !Bar;      // expect: false
+        print !Bar();    // expect: false
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["false", "false"]);
@@ -383,16 +383,16 @@ fn not_class() -> Result<()> {
 fn not() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    print !true;     // expect: false
-    print !false;    // expect: true
-    print !!true;    // expect: true
+        print !true;     // expect: false
+        print !false;    // expect: true
+        print !!true;    // expect: true
 
-    print !123;      // expect: false
-    print !0;        // expect: false
+        print !123;      // expect: false
+        print !0;        // expect: false
 
-    print !nil;     // expect: true
+        print !nil;     // expect: true
 
-    print !"";       // expect: false
+        print !"";       // expect: false
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(
@@ -406,8 +406,8 @@ fn not() -> Result<()> {
 fn not_fun() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"
-    fun foo() {}
-    print !foo;      // expect: false
+        fun foo() {}
+        print !foo;      // expect: false
     "#;
     let printed = vm.interpret(PROGRAM)?;
     assert_eq!(printed, &["false"]);
