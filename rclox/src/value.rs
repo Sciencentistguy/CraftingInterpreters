@@ -12,14 +12,17 @@ pub enum Value {
     Bool(bool),
     String(Rc<String>),
     Nil,
-    Function(Rc<LoxFunction>),
+    //Function(Rc<LoxFunction>),
     NativeFunction(NativeFunction),
+    Closure(Rc<LoxClosure>),
+    Upvalue(RuntimeUpvalue),
 }
 
 /// A first-class function. Owns its code, and knows its name and arity
 #[derive(Clone)]
 pub struct LoxFunction {
     pub arity: usize,
+    pub upvalue_count: usize,
     pub chunk: Chunk,
     pub name: String,
 }
@@ -29,6 +32,50 @@ pub struct LoxFunction {
 pub struct NativeFunction {
     pub func: fn(args: &[Value]) -> Result<Value>,
     pub name: &'static str,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct LoxClosure {
+    pub func: LoxFunction,
+    pub upvalues: Vec<RuntimeUpvalue>,
+}
+
+/// A runtime representation of an upvalue
+///
+/// `ObjUpvalue`
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuntimeUpvalue {
+    Stack(usize),
+    Heap(Box<Value>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Upvalue {
+    pub index: usize,
+    pub is_local: bool,
+}
+
+impl Debug for LoxClosure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoxClosure")
+            .field("name", &self.func.name)
+            .finish()
+    }
+}
+
+impl RuntimeUpvalue {
+    pub fn new(slot: usize) -> Self {
+        Self::Stack(slot)
+    }
+}
+
+impl LoxClosure {
+    pub fn new(func: LoxFunction) -> Self {
+        Self {
+            func,
+            upvalues: Vec::with_capacity(u8::MAX as usize),
+        }
+    }
 }
 
 impl NativeFunction {
@@ -66,6 +113,7 @@ impl LoxFunction {
     pub fn new() -> Self {
         Self {
             arity: 0,
+            upvalue_count: 0,
             chunk: Chunk::new(),
             name: String::new(),
         }
@@ -75,6 +123,7 @@ impl LoxFunction {
     pub fn with_name(name: String) -> Self {
         Self {
             arity: 0,
+            upvalue_count: 0,
             chunk: Chunk::new(),
             name,
         }
@@ -99,8 +148,9 @@ impl Display for Value {
             Value::Bool(x) => write!(f, "{}", x),
             Value::String(x) => write!(f, "{}", x),
             Value::Nil => write!(f, "nil"),
-            Value::Function(x) => write!(f, "<fn {}>", x.name),
+            Value::Closure(x) => write!(f, "<fn {}>", x.func.name),
             Value::NativeFunction(x) => write!(f, "<native fn {}>", x.name),
+            Value::Upvalue(_) => write!(f, "<upvalue>"),
         }
     }
 }
@@ -126,15 +176,19 @@ impl Value {
         matches!(self, Value::String(_))
     }
 
-    /// Check if a value contains a Function
-    pub fn is_function(&self) -> bool {
-        matches!(self, Value::Function(_))
-    }
-
     /// Get the contained number, if it exists
     pub fn as_number(&self) -> Option<f64> {
         if let Value::Number(x) = self {
             Some(*x)
+        } else {
+            None
+        }
+    }
+
+    /// Get the contained closure, if it exists
+    pub fn as_closure(&self) -> Option<Rc<LoxClosure>> {
+        if let Value::Closure(x) = self {
+            Some(x.clone())
         } else {
             None
         }

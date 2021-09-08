@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::value::Value;
+use crate::value::{LoxClosure, Upvalue, Value};
 
 /// An instruction for the VM
 #[derive(Debug, PartialEq, Clone)]
@@ -64,4 +64,12 @@ pub enum Instruction {
     Loop(usize),
     /// Call the function at the top of the stack
     Call(usize),
+    /// Make a function object into a closure
+    Closure {
+        closure: LoxClosure,
+        upvalues: Vec<Upvalue>,
+    },
+
+    GetUpvalue(usize),
+    SetUpvalue(usize),
 }

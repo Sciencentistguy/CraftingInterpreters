@@ -10,7 +10,9 @@ use crate::instruction::Instruction;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
 use crate::lexer::TokenType;
+use crate::value::LoxClosure;
 use crate::value::LoxFunction;
+use crate::value::Upvalue;
 use crate::value::Value;
 use crate::vm::CallFrameCode;
 use crate::Result;
@@ -144,7 +146,7 @@ impl TargetOutput {
     pub fn to_callframe_code(&self) -> CallFrameCode {
         match self {
             Self::Script(c) => CallFrameCode::Script(c.clone()),
-            Self::Function(f) => CallFrameCode::Function(Rc::new(f.clone())),
+            Self::Function(f) => CallFrameCode::Closure(Rc::new(LoxClosure::new(f.clone()))),
         }
     }
 
@@ -190,6 +192,7 @@ impl TargetOutput {
 #[derive(Debug)]
 pub struct Target {
     pub locals: Vec<LocalVariable>,
+    pub upvalues: Vec<Upvalue>,
     pub scope_depth: usize,
     pub output: TargetOutput,
 }
@@ -209,6 +212,7 @@ impl Target {
         c.write_instruction(Instruction::Nil, 0);
         Self {
             locals,
+            upvalues: Vec::with_capacity(u8::MAX as usize),
             scope_depth: 0,
             output: TargetOutput::Script(c),
         }
@@ -221,6 +225,7 @@ impl Target {
 
         Self {
             locals,
+            upvalues: Vec::with_capacity(u8::MAX as usize),
             scope_depth: 0,
             output: TargetOutput::Function(function),
         }
@@ -879,27 +884,38 @@ impl<'source> Compiler<'source> {
 
         let assignable = can_assign && self.advance_if_token_matches(TokenType::Equal)?;
 
-        // XXX: Binary choice table means that each match arm is duplicated
-        match stack_slot {
-            Some(x) if assignable => {
-                self.expression()?;
-                self.emit_instruction(Instruction::SetLocal(x))
-            }
-            Some(x) if !assignable => self.emit_instruction(Instruction::GetLocal(x)),
+        // TODO: Rule of 3, maybe abstract out
 
-            None if assignable => {
+        if let Some(arg) = stack_slot {
+            if assignable {
                 self.expression()?;
-                self.emit_instruction(Instruction::SetGlobal(Rc::new(name)))
+                self.emit_instruction(Instruction::SetLocal(arg));
+            } else {
+                self.emit_instruction(Instruction::GetLocal(arg));
             }
-            None if !assignable => self.emit_instruction(Instruction::GetGlobal(Rc::new(name))),
-
-            // XXX: use `core::hint::unreachable_unchecked()`?
-            _ => unreachable!("this one's actually unreachable"),
+        } else if let Some(arg) = self.resolve_upvalue(self.targets.len() - 1, name.as_str())? {
+            if assignable {
+                self.expression()?;
+                self.emit_instruction(Instruction::SetUpvalue(arg));
+            } else {
+                self.emit_instruction(Instruction::GetUpvalue(arg));
+            }
+        } else {
+            #[allow(clippy::collapsible_else_if)]
+            if assignable {
+                self.expression()?;
+                self.emit_instruction(Instruction::SetGlobal(Rc::new(name)));
+            } else {
+                self.emit_instruction(Instruction::GetGlobal(Rc::new(name)));
+            }
         }
+
         Ok(())
     }
 
     /// Get a stack slot for a local variable
+    ///
+    /// `resolveLocal()``
     fn get_stack_slot_from_variable_name(
         &self,
         target: &Target,
@@ -989,7 +1005,12 @@ impl<'source> Compiler<'source> {
             TargetOutput::Script(_) => unreachable!("Attempted to close global function"),
             TargetOutput::Function(x) => x,
         };
-        self.emit_instruction(Instruction::Constant(Value::Function(Rc::new(function))));
+
+        self.emit_instruction(Instruction::Closure {
+            closure: LoxClosure::new(function),
+            // XXX: bad
+            upvalues: self.target().upvalues.clone(),
+        });
 
         Ok(())
     }
@@ -1013,6 +1034,43 @@ impl<'source> Compiler<'source> {
         }
         self.expect_token(TokenType::RightParen, "Expected `)` after arguments.")?;
         Ok(arg_count)
+    }
+
+    fn resolve_upvalue(&mut self, target_idx: usize, name: &str) -> Result<Option<usize>> {
+        // TODO: take a target index? this &mut will make things harder
+        // take a target. if that target is the outermost one, return none.
+        // else: if the variable has a stack slot, give that to add_upvalue. then
+        if target_idx == 0 {
+            return Ok(None);
+        }
+
+        let target = &self.targets[target_idx];
+
+        if let Some(local) = self.get_stack_slot_from_variable_name(target, name)? {
+            return Ok(Some(self.add_upvalue(target_idx, local, true)?));
+        }
+
+        if let Some(upvalue) = self.resolve_upvalue(target_idx - 1, name)? {
+            return Ok(Some(self.add_upvalue(target_idx, upvalue, false)?));
+        }
+
+        Ok(None)
+    }
+
+    fn add_upvalue(&mut self, target_idx: usize, index: usize, is_local: bool) -> Result<usize> {
+        //let upvalue_count = target.output.as_function().upvalue_count;
+        let upvalue = Upvalue { index, is_local };
+        let target = &mut self.targets[target_idx];
+
+        for (i, x) in target.upvalues.iter().enumerate() {
+            if upvalue == *x {
+                return Ok(i);
+            }
+        }
+
+        target.upvalues.push(upvalue);
+        target.output.as_function_mut().upvalue_count += 1;
+        Ok(target.output.as_function().upvalue_count - 1)
     }
 }
 

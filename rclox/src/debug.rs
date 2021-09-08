@@ -1,5 +1,20 @@
 use crate::chunk::Chunk;
 use crate::instruction::Instruction;
+use crate::value::Value;
+
+pub fn recurse_functions(chunk: &Chunk) {
+    for function in chunk.iter().filter_map(|x| match &x.instruction {
+        //Instruction::Closure(Value::Closure(c)) => Some(&c.func),
+        Instruction::Closure {
+            closure,
+            upvalues: _,
+        } => Some(&closure.func),
+        _ => None,
+    }) {
+        crate::debug::disassemble_chunk(&function.chunk, function.name.as_str());
+        recurse_functions(&function.chunk)
+    }
+}
 
 /// Print the contents of a chunk
 pub fn disassemble_chunk(chunk: &Chunk, module_name: &str) {
@@ -20,7 +35,7 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
 
     if grouped_mode && offset > 0 && (chunk[offset].line == chunk[offset - 1].line) {
         let next_line = chunk.get(offset + 1).map(|x| x.line);
-        if next_line.is_some() && Some(chunk[offset].line) == next_line {
+        if next_line == Some(chunk[offset].line) {
             print!("├───\t");
         } else {
             print!("└───\t");
@@ -119,6 +134,19 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
         }
         Call(arity) => {
             println!("Call\t\t{:04}", arity);
+        }
+        Closure {
+            closure,
+            upvalues: _,
+        } => {
+            println!("Closure\t{}", closure.func.name);
+            //TODO: print upvalues
+        }
+        GetUpvalue(slot) => {
+            println!("GetUpvalue\t{:04}", slot);
+        }
+        SetUpvalue(slot) => {
+            println!("SetUpvalue\t{:04}", slot);
         }
     }
 }

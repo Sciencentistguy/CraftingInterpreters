@@ -1,19 +1,20 @@
 mod native;
 
-use std::borrow::Borrow;
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::chunk::Chunk;
 use crate::compiler::compile;
+use crate::debug;
 use crate::error::RcloxError;
 use crate::instruction::Instruction;
-use crate::value::LoxFunction;
-use crate::value::NativeFunction;
-use crate::value::Value;
-
 use crate::lexer::Token;
 use crate::lexer::TokenType;
+use crate::value::LoxClosure;
+use crate::value::NativeFunction;
+use crate::value::RuntimeUpvalue;
+use crate::value::Value;
 
 use crate::Result;
 
@@ -38,7 +39,7 @@ struct CallFrame {
 
 #[derive(Debug)]
 pub enum CallFrameCode {
-    Function(Rc<LoxFunction>),
+    Closure(Rc<LoxClosure>),
     Script(Chunk),
 }
 
@@ -46,7 +47,7 @@ impl CallFrameCode {
     pub fn chunk(&self) -> &Chunk {
         match self {
             Self::Script(ref x) => x,
-            Self::Function(ref x) => &x.chunk,
+            Self::Closure(ref x) => &x.func.chunk,
         }
     }
 
@@ -96,22 +97,10 @@ impl VM {
 
         self.call_stack
             .push(CallFrame::new(targets[0].output.to_callframe_code()));
+
         // Debug: disassemble_chunk the functions
         println!("Functions:");
-        for func in self
-            .current_frame()
-            .code
-            .chunk()
-            .iter()
-            .filter_map(|x| match &x.instruction {
-                Instruction::Constant(Value::Function(f)) => {
-                    Some(<Rc<LoxFunction> as Borrow<LoxFunction>>::borrow(f))
-                }
-                _ => None,
-            })
-        {
-            crate::debug::disassemble_chunk(&func.chunk, func.name.as_str());
-        }
+        debug::recurse_functions(targets[0].chunk());
 
         self.init_native_functions();
 
@@ -247,7 +236,7 @@ impl VM {
 
                     // Pop locals
                     let arg_count = match frame.code {
-                        CallFrameCode::Function(f) => f.arity,
+                        CallFrameCode::Closure(c) => c.func.arity,
                         CallFrameCode::Script(_) => unreachable!(),
                     };
 
@@ -426,14 +415,44 @@ impl VM {
                         return Err(self.runtime_error("Incorrect number of arguments"));
                     }
                 }
+                Instruction::Closure { closure, upvalues } => {
+                    let mut closure = closure.clone();
+                    closure.upvalues = upvalues
+                        .iter()
+                        .map(|uv| {
+                            assert!(uv.is_local);
+                            RuntimeUpvalue::Stack(self.stack.len() - 1 - uv.index)
+                        })
+                        .collect();
+                    // XXX: Cloning here
+                    self.push(Value::Closure(Rc::new(closure.clone())));
+                }
+
+                Instruction::GetUpvalue(slot) => {
+                    let value = match self.current_frame().code {
+                        CallFrameCode::Closure(ref x) => {
+                            self.dereference_upvalue(&x.upvalues[*slot]).clone()
+                        }
+                        CallFrameCode::Script(_) => unreachable!(),
+                    };
+                    self.push(value);
+                }
+                Instruction::SetUpvalue(_) => todo!(),
             }
+        }
+    }
+
+    fn dereference_upvalue<'a>(&'a self, upvalue: &'a RuntimeUpvalue) -> &'a Value {
+        match upvalue {
+            RuntimeUpvalue::Stack(slot) => &self.stack[self.stack.len() - 1 - slot],
+            RuntimeUpvalue::Heap(boxed) => boxed,
         }
     }
 
     /// Call a value, erroring if it is not callable
     fn call_value(&mut self, callee: Value, arg_count: usize) -> Result<bool> {
         match callee {
-            Value::Function(f) => self.call(f, arg_count),
+            Value::Closure(c) => self.call(c, arg_count),
             Value::NativeFunction(f) => {
                 let result = (f.func)(&self.stack[self.stack.len() - arg_count..])?;
                 for _ in 0..arg_count + 1 {
@@ -446,8 +465,13 @@ impl VM {
         }
     }
 
+    fn capture_upvalue(&mut self, slot: usize) -> RuntimeUpvalue {
+        RuntimeUpvalue::new(slot)
+    }
+
     /// Call a function
-    fn call(&mut self, function: Rc<LoxFunction>, arg_count: usize) -> Result<bool> {
+    fn call(&mut self, closure: Rc<LoxClosure>, arg_count: usize) -> Result<bool> {
+        let function = &closure.func;
         if arg_count != function.arity {
             //TODO: two allocations here, should runtime_error take a String bc it always
             // allocates anyway
@@ -456,7 +480,7 @@ impl VM {
                 function.arity, arg_count
             )));
         }
-        let output = CallFrameCode::Function(function);
+        let output = CallFrameCode::Closure(closure);
         let mut frame = CallFrame::new(output);
         frame.slots_start = self.stack.len() - arg_count;
         self.call_stack.push(frame);
