@@ -26,3 +26,5 @@ target_compile_options(clox_pp
             -Wno-unused-parameter
             -Werror
         )
+
+install(TARGETS clox_pp DESTINATION bin)
