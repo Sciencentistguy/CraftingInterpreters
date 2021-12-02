@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 better-panic = "0.2.0"
 text_io = "0.1.9"
-thiserror = "1.0.24"
+thiserror = "1.0.30"
