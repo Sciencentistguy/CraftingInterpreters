@@ -12,8 +12,8 @@ fn add() -> Result<()> {
         print 123 + 456;
         print "str" + "ing";
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["579", "string"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["579", "string"]);
     Ok(())
 }
 
@@ -48,8 +48,8 @@ fn divide() -> Result<()> {
         print 5.5 / 2.2;
         print 5 / 0;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["4", "1", "2.5", "inf"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["4", "1", "2.5", "inf"]);
     Ok(())
 }
 
@@ -92,9 +92,9 @@ fn equals() -> Result<()> {
         print false == 0;
         print 0 == "0";
     "#;
-    let printed = vm.interpret(PROGRAM)?;
+    vm.interpret(PROGRAM)?;
     assert_eq!(
-        printed,
+        vm.print_log,
         &["true", "true", "false", "true", "false", "true", "false", "false", "false", "false"]
     );
     Ok(())
@@ -119,9 +119,9 @@ fn not_equals() -> Result<()> {
         print false != 0; // expect: true
         print 0 != "0"; // expect: true
     "#;
-    let printed = vm.interpret(PROGRAM)?;
+    vm.interpret(PROGRAM)?;
     assert_eq!(
-        printed,
+        vm.print_log,
         &["false", "false", "true", "false", "true", "false", "true", "true", "true", "true"]
     );
     Ok(())
@@ -135,8 +135,8 @@ fn multiply() -> Result<()> {
         print 12.34 * 0.3;
         print 2 * 0;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["15", "3.702", "0"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["15", "3.702", "0"]);
     Ok(())
 }
 
@@ -171,8 +171,8 @@ fn subtract() -> Result<()> {
         print 4 - 3;
         print 12.34 - 0.3;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["1", "12.04"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["1", "12.04"]);
     Ok(())
 }
 
@@ -277,14 +277,14 @@ fn comparison() -> Result<()> {
         print 0 >= -0;
         print -0 >= 0;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
+    vm.interpret(PROGRAM)?;
 
     let expected = &[
         "true", "false", "false", "true", "true", "false", "false", "false", "true", "false",
         "true", "true", "false", "false", "false", "false", "true", "true", "true", "true",
     ];
 
-    assert_eq!(printed, expected);
+    assert_eq!(vm.print_log, expected);
     Ok(())
 }
 
@@ -296,8 +296,8 @@ fn negate() -> Result<()> {
         print --(3);
         print ---(3);
     ";
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["-3", "3", "-3"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["-3", "3", "-3"]);
     Ok(())
 }
 
@@ -333,9 +333,9 @@ fn class() -> Result<()> {
         print Foo == 123;   // expect: false
         print Foo == true;  // expect: false
     "#;
-    let printed = vm.interpret(PROGRAM)?;
+    vm.interpret(PROGRAM)?;
     assert_eq!(
-        printed,
+        vm.print_log,
         &["true", "false", "false", "true", "false", "false", "false", "false"]
     );
     Ok(())
@@ -360,8 +360,8 @@ fn equals_method() -> Result<()> {
         // Different closurizations.
         print foo.method == foo.method; // expect: false
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["true", "false"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["true", "false"]);
     Ok(())
 }
 
@@ -374,8 +374,8 @@ fn not_class() -> Result<()> {
         print !Bar;      // expect: false
         print !Bar();    // expect: false
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["false", "false"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["false", "false"]);
     Ok(())
 }
 
@@ -394,9 +394,9 @@ fn not() -> Result<()> {
 
         print !"";       // expect: false
     "#;
-    let printed = vm.interpret(PROGRAM)?;
+    vm.interpret(PROGRAM)?;
     assert_eq!(
-        printed,
+        vm.print_log,
         &["false", "true", "true", "false", "false", "true", "false"]
     );
     Ok(())
@@ -409,7 +409,7 @@ fn not_fun() -> Result<()> {
         fun foo() {}
         print !foo;      // expect: false
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["false"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["false"]);
     Ok(())
 }

@@ -16,8 +16,8 @@ fn literals() -> Result<()> {
         print 123.456;
         print -0.001;
     ";
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["123", "987654", "0", "-0", "123.456", "-0.001"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["123", "987654", "0", "-0", "123.456", "-0.001"]);
     Ok(())
 }
 
@@ -66,7 +66,7 @@ fn nan_equality() -> Result<()> {
         print (0/0) == (0/0);
         print (0/0) != (0/0);
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["false", "true", "false", "true"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["false", "true", "false", "true"]);
     Ok(())
 }

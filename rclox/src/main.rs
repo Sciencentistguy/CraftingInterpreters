@@ -14,26 +14,28 @@ mod lexer;
 mod value;
 mod vm;
 
+use color_eyre::eyre::ContextCompat;
 use vm::VM;
 
 use text_io::read;
+use color_eyre::eyre::eyre;
 
 type Result<T> = std::result::Result<T, error::RcloxError>;
 
-fn main() -> result::Result<(), Box<dyn Error>> {
-    better_panic::install();
+fn main() -> color_eyre::Result<()> {
+    color_eyre::install().unwrap();
 
     if std::env::args().len() == 1 {
         repl()
     } else if std::env::args().len() == 2 {
-        let file = std::env::args().nth(1).ok_or("Usage: rclox [file]")?;
+        let file = std::env::args().nth(1).wrap_err("Usage: rclox [file]")?;
         run_file(file)
     } else {
-        Err("Usage: rclox [file]".into())
+        Err(eyre!("Usage: rclox [file]"))
     }
 }
 
-fn repl() -> result::Result<(), Box<dyn Error>> {
+fn repl() -> color_eyre::Result<()> {
     let mut vm = VM::new();
     loop {
         print!("> ");
@@ -50,7 +52,7 @@ fn repl() -> result::Result<(), Box<dyn Error>> {
     }
 }
 
-fn run_file<P: AsRef<Path>>(path: P) -> result::Result<(), Box<dyn Error>> {
+fn run_file<P: AsRef<Path>>(path: P) -> color_eyre::Result<()> {
     let source = std::fs::read_to_string(path)?;
     let mut vm = VM::new();
     match vm.interpret(source.trim()) {

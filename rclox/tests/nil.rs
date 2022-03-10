@@ -9,7 +9,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn literal() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"print nil;"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["nil"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["nil"]);
     Ok(())
 }

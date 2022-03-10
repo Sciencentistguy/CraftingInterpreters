@@ -12,8 +12,8 @@ fn last_line() -> Result<()> {
         print "ok";
         //comment
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["ok"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["ok"]);
     Ok(())
 }
 
@@ -21,8 +21,8 @@ fn last_line() -> Result<()> {
 fn only_line() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = "//comment\n";
-    let printed = vm.interpret(PROGRAM)?;
-    assert!(printed.is_empty());
+    vm.interpret(PROGRAM)?;
+    assert!(vm.print_log.is_empty());
     Ok(())
 }
 
@@ -30,8 +30,8 @@ fn only_line() -> Result<()> {
 fn only() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = "//comment";
-    let printed = vm.interpret(PROGRAM)?;
-    assert!(printed.is_empty());
+    vm.interpret(PROGRAM)?;
+    assert!(vm.print_log.is_empty());
     Ok(())
 }
 
@@ -49,7 +49,7 @@ fn unicode() -> Result<()> {
 
         print "ok";
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["ok"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["ok"]);
     Ok(())
 }

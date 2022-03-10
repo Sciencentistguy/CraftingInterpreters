@@ -3,7 +3,7 @@ use thiserror::Error;
 /// The error type for Rclox
 #[derive(Debug, Error)]
 pub enum RcloxError {
-    #[error("<Lexer> error: {0}")]
+    #[error("<Lexer> Error: {0}")]
     Lexer(String),
     #[error("<Compiler> [Line {line}] Error at '{string}': {message}")]
     Compiler {

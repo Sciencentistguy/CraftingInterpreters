@@ -19,8 +19,8 @@ fn associativity() -> Result<()> {
         print b;
         print c;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["c", "c", "c"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["c", "c", "c"]);
     Ok(())
 }
 
@@ -37,8 +37,8 @@ fn global() -> Result<()> {
         print a = "arg";
         print a;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["before", "after", "arg", "arg"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["before", "after", "arg", "arg"]);
     Ok(())
 }
 
@@ -51,8 +51,8 @@ fn syntax() -> Result<()> {
         print a;
         print c;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["var", "var"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["var", "var"]);
     Ok(())
 }
 
@@ -69,8 +69,8 @@ fn local() -> Result<()> {
         print a = "arg"; // expect: arg
         print a; // expect: arg
     }"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["before", "after", "arg", "arg"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["before", "after", "arg", "arg"]);
     Ok(())
 }
 

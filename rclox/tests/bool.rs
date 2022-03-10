@@ -33,14 +33,14 @@ fn equality() -> Result<()> {
         print false != "false";
         print false != "";
     "#;
-    let printed = vm.interpret(PROGRAM)?;
+    vm.interpret(PROGRAM)?;
 
     let expected = &[
         "true", "false", "false", "true", "false", "false", "false", "false", "false", "false",
         "true", "true", "false", "true", "true", "true", "true", "true",
     ];
 
-    assert_eq!(printed, expected);
+    assert_eq!(vm.print_log, expected);
     Ok(())
 }
 
@@ -52,7 +52,7 @@ fn not() -> Result<()> {
         print !false;
         print !!true;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["false", "true", "true"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["false", "true", "true"]);
     Ok(())
 }

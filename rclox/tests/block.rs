@@ -17,8 +17,8 @@ fn empty() -> Result<()> {
 
         print "ok";
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["ok"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["ok"]);
     Ok(())
 }
 
@@ -33,7 +33,7 @@ fn scope() -> Result<()> {
         }
         print a;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["inner", "outer"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["inner", "outer"]);
     Ok(())
 }

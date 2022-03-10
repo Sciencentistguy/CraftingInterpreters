@@ -9,8 +9,8 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn number_literal() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = "print 5;";
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["5"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["5"]);
     Ok(())
 }
 
@@ -18,8 +18,8 @@ fn number_literal() -> Result<()> {
 fn string_literal() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"print "Hello World";"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["Hello World"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["Hello World"]);
     Ok(())
 }
 
@@ -27,8 +27,8 @@ fn string_literal() -> Result<()> {
 fn nil() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = "print nil;";
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["nil"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["nil"]);
     Ok(())
 }
 
@@ -39,8 +39,8 @@ fn bool() -> Result<()> {
     print true; 
     print false;
     ";
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["true", "false"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["true", "false"]);
     Ok(())
 }
 

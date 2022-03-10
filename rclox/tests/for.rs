@@ -34,8 +34,8 @@ fn scope() -> Result<()> {
             print i; // expect: 0
         }
     }"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["0", "-1", "after", "0"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["0", "-1", "after", "0"]);
     Ok(())
 }
 
@@ -76,8 +76,8 @@ fn syntax() -> Result<()> {
         for (; false;) while (true) 1;
         for (; false;) for (;;) 1;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["1", "2", "3", "0", "1", "2", "0", "1", "0", "1"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["1", "2", "3", "0", "1", "2", "0", "1", "0", "1"]);
     Ok(())
 }
 
@@ -109,8 +109,8 @@ fn closure_in_body() -> Result<()> {
         f3(); // expect: 4
               // expect: 3
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["4", "1", "4", "2", "4", "3"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["4", "1", "4", "2", "4", "3"]);
     Ok(())
 }
 
@@ -145,8 +145,8 @@ fn return_closure() -> Result<()> {
         var h = f();
         h(); // expect: i
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["i"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["i"]);
     Ok(())
 }
 
@@ -165,7 +165,7 @@ fn return_inside() -> Result<()> {
         print f();
         // expect: i
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["i"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["i"]);
     Ok(())
 }

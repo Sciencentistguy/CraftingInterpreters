@@ -21,8 +21,8 @@ fn block() -> Result<()> {
         var d = b + " d";
         print d; 
     }"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["a", "a b", "a c", "a b d"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["a", "a b", "a c", "a b d"]);
     Ok(())
 }
 
@@ -50,8 +50,8 @@ fn nested_block() -> Result<()> {
             print a;
         }
     }"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["outer"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["outer"]);
     Ok(())
 }
 
@@ -63,8 +63,8 @@ fn redeclare_global() -> Result<()> {
         var a;
         print a;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["nil"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["nil"]);
     Ok(())
 }
 
@@ -76,8 +76,8 @@ fn redefine_global() -> Result<()> {
         var a = "2";
         print a;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["2"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["2"]);
     Ok(())
 }
 
@@ -95,8 +95,8 @@ fn reuse_in_different_blocks() -> Result<()> {
             print a;
         }
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["first", "second"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["first", "second"]);
     Ok(())
 }
 
@@ -111,8 +111,8 @@ fn shadow_and_local() -> Result<()> {
             print a;
         }
     }"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["outer", "inner"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["outer", "inner"]);
     Ok(())
 }
 
@@ -127,8 +127,8 @@ fn shadow_global() -> Result<()> {
         }
         print a;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["shadow", "global"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["shadow", "global"]);
     Ok(())
 }
 
@@ -143,8 +143,8 @@ fn shadow_local() -> Result<()> {
         }
         print a;
     }"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["shadow", "local"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["shadow", "local"]);
     Ok(())
 }
 
@@ -179,8 +179,8 @@ fn uninitialised() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"var a;
     print a;"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["nil"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["nil"]);
     Ok(())
 }
 
@@ -189,8 +189,8 @@ fn unreached_undefined() -> Result<()> {
     let mut vm = VM::new();
     const PROGRAM: &str = r#"if (false) print not_defined;
     print "ok";"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["ok"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["ok"]);
     Ok(())
 }
 
@@ -229,8 +229,8 @@ fn global_in_initialiser() -> Result<()> {
         var a = a;
         print a;
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["value"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["value"]);
     Ok(())
 }
 

@@ -1,6 +1,5 @@
 mod native;
 
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -9,14 +8,32 @@ use crate::compiler::compile;
 use crate::debug;
 use crate::error::RcloxError;
 use crate::instruction::Instruction;
-use crate::lexer::Token;
-use crate::lexer::TokenType;
 use crate::value::LoxClosure;
 use crate::value::NativeFunction;
 use crate::value::RuntimeUpvalue;
 use crate::value::Value;
 
 use crate::Result;
+
+/// Get the current frame
+macro_rules! current_frame {
+    ($self:ident) => {
+        $self
+            .call_stack
+            .last()
+            .expect("Call stack should not be empty")
+    };
+}
+
+/// Get the current frame mutably
+macro_rules! current_frame_mut {
+    ($self:ident) => {
+        $self
+            .call_stack
+            .last_mut()
+            .expect("Call stack should not be empty")
+    };
+}
 
 #[derive(Debug)]
 struct CallFrame {
@@ -56,6 +73,14 @@ impl CallFrameCode {
     //Self::Script(ref mut x) => x,
     //Self::Function(ref mut x) => &mut x.chunk,
     //}
+
+    pub fn as_closure(&self) -> Option<&Rc<LoxClosure>> {
+        if let Self::Closure(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 impl CallFrame {
@@ -78,6 +103,8 @@ pub struct VM {
     stack: Vec<Value>,
     /// The table of global variables
     globals_table: HashMap<Rc<String>, Value>,
+    /// All printed output (for testing purposes)
+    pub print_log: Vec<String>,
 }
 
 impl VM {
@@ -87,11 +114,12 @@ impl VM {
             stack: Vec::with_capacity(256),
             globals_table: HashMap::with_capacity(16),
             call_stack: Vec::with_capacity(64),
+            print_log: Vec::new(),
         }
     }
 
     /// Run a Lox program, from a string
-    pub fn interpret(&mut self, source: &str) -> Result<Vec<String>> {
+    pub fn interpret(&mut self, source: &str) -> Result<()> {
         let targets = compile(source)?;
         assert_eq!(targets.len(), 1);
 
@@ -120,36 +148,6 @@ impl VM {
         let write_string_to_file =
             NativeFunction::new(native::write_string_to_file, "write_string_to_file");
         self.define_native(write_string_to_file);
-    }
-
-    /// Get the current frame
-    fn current_frame(&self) -> &CallFrame {
-        self.call_stack
-            .last()
-            .expect("Call stack should not be empty")
-    }
-
-    /// Get the current frame mutably
-    fn current_frame_mut(&mut self) -> &mut CallFrame {
-        self.call_stack
-            .last_mut()
-            .expect("Call stack should not be empty")
-    }
-
-    /// Produce a vector of tokens from a source str. Only used in testing
-    pub fn lex<'a>(&mut self, source: &'a str) -> Result<Vec<Token<'a>>> {
-        let mut lexer = crate::lexer::Lexer::new(source);
-
-        let mut out = Vec::new();
-        loop {
-            let tok = lexer.lex_token()?;
-            out.push(tok);
-            if out.last().unwrap().kind == TokenType::Eof {
-                break;
-            }
-        }
-
-        Ok(out)
     }
 
     #[inline]
@@ -196,51 +194,62 @@ impl VM {
     fn runtime_error(&self, error_message: &str) -> RcloxError {
         RcloxError::Runtime {
             message: error_message.to_string(),
-            line: self.current_frame().code.chunk()[self.current_frame().program_counter].line,
+            line: current_frame!(self).code.chunk()[current_frame!(self).program_counter].line,
         }
     }
 
     /// Run the VM
     ///
     /// Returns a vector of everything that the VM printed, for testing purposes
-    fn run(&mut self) -> Result<Vec<String>> {
-        println!("Executing program...");
+    fn run(&mut self) -> Result<()> {
+        macro_rules! current_chunk {
+            () => {
+                &current_frame!(self).code.chunk()
+            };
+        }
+        macro_rules! current_pc {
+            () => {
+                &current_frame!(self).program_counter
+            };
+        }
 
-        let mut printed = Vec::new();
+        println!("Executing program...");
 
         loop {
             println!("Stack:\t{:?}", self.stack);
             crate::debug::disassemble_instruction(
-                self.current_frame().code.chunk(),
-                self.current_frame().program_counter,
+                current_frame!(self).code.chunk(),
+                current_frame!(self).program_counter,
                 false,
             );
 
+            let old_pc = current_frame!(self).program_counter;
             // This has to be wrapping because loop instructions can wrap to usize::MAX. See
             // the comment on the match arm for Instruction::Loop.
-            let old_pc = self.current_frame().program_counter;
-            self.call_stack.last_mut().unwrap().program_counter = old_pc.wrapping_add(1);
+            current_frame_mut!(self).program_counter = old_pc.wrapping_add(1);
 
-            match &self.call_stack.last().unwrap().code.chunk()
-                [self.call_stack.last().unwrap().program_counter - 1]
-                .instruction
-            {
+            match &current_chunk!()[current_pc!() - 1].instruction {
                 Instruction::Return => {
                     let result = self.pop();
                     let frame = self.call_stack.pop().unwrap();
 
                     // If this was the outermost scope, exit the interpreter
                     if self.call_stack.is_empty() {
-                        return Ok(printed);
+                        return Ok(());
                     }
 
                     // Pop locals
-                    let arg_count = match frame.code {
-                        CallFrameCode::Closure(c) => c.func.arity,
-                        CallFrameCode::Script(_) => unreachable!(),
-                    };
+                    let arg_count = frame
+                        .code
+                        .as_closure()
+                        .expect("Found script callframe that was not the top level")
+                        .func
+                        .arity;
+                    // let arg_count = match frame.code {
+                    // CallFrameCode::Closure(c) => c.func.arity,
+                    // CallFrameCode::Script(_) => unreachable!(),
+                    // };
 
-                    //let arg_count = self.stack.len().saturating_sub(frame.slots_start);
                     for _ in 0..arg_count {
                         self.pop();
                     }
@@ -333,7 +342,7 @@ impl VM {
                     let a = self.pop();
                     let string = format!("{}", a);
                     println!("{}", string);
-                    printed.push(string);
+                    self.print_log.push(string);
                 }
                 Instruction::Pop => {
                     self.pop();
@@ -374,28 +383,28 @@ impl VM {
                     }
                 }
                 Instruction::GetLocal(slot) => {
-                    let idx = self.current_frame().slots_start + slot;
+                    let idx = current_frame!(self).slots_start + slot;
                     let val = self.stack[idx].clone();
-                    //let val = self.current_frame().slots[*slot].clone();
+                    //let val = current_frame!(self).slots[*slot].clone();
                     //let val = self.stack[*slot].clone();
                     self.push(val);
                 }
                 Instruction::SetLocal(slot) => {
                     //let slot = *slot;
-                    let idx = self.current_frame().slots_start + slot;
+                    let idx = current_frame!(self).slots_start + slot;
                     let val = self.peek(0).clone();
                     self.stack[idx] = val;
-                    //self.current_frame_mut().slots[slot] = val;
+                    //current_frame_mut!(self).slots[slot] = val;
                 }
                 Instruction::JumpIfFalse(offset) => {
                     if !self.peek(0).coerce_bool() {
                         let offset = *offset;
-                        self.current_frame_mut().program_counter += offset;
+                        current_frame_mut!(self).program_counter += offset;
                     }
                 }
                 Instruction::Jump(offset) => {
                     let offset = *offset;
-                    self.current_frame_mut().program_counter += offset;
+                    current_frame_mut!(self).program_counter += offset;
                 }
                 Instruction::Loop(offset) => {
                     // In the C version this is a pointer to an instruction, and is just allowed to
@@ -405,8 +414,8 @@ impl VM {
                     // Using wrapping sub and wrapping add allows this behaviour to be replicated
                     // with indices rather than pointers
                     let offset = *offset;
-                    let new_pc = self.current_frame().program_counter.wrapping_sub(offset);
-                    self.current_frame_mut().program_counter = new_pc;
+                    let new_pc = current_frame!(self).program_counter.wrapping_sub(offset);
+                    current_frame_mut!(self).program_counter = new_pc;
                 }
                 Instruction::Call(arg_count) => {
                     let arg_count = *arg_count;
@@ -429,7 +438,7 @@ impl VM {
                 }
 
                 Instruction::GetUpvalue(slot) => {
-                    let value = match self.current_frame().code {
+                    let value = match current_frame!(self).code {
                         CallFrameCode::Closure(ref x) => {
                             self.dereference_upvalue(&x.upvalues[*slot]).clone()
                         }

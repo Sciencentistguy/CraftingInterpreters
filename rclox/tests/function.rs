@@ -24,8 +24,8 @@ fn empty_body() -> Result<()> {
         fun f () {}
         print f();
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["nil"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["nil"]);
     Ok(())
 }
 
@@ -84,8 +84,8 @@ fn local_recursion() -> Result<()> {
 
         print fib(8); // expect: 21
     }"#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["21"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["21"]);
     Ok(())
 }
 
@@ -135,8 +135,8 @@ fn mutual_recursion() -> Result<()> {
         print isEven(4); // expect: true
         print isOdd(3); // expect: true
     ";
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["true", "true"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["true", "true"]);
     Ok(())
 }
 
@@ -171,8 +171,8 @@ fn parameters() -> Result<()> {
         fun f8(a, b, c, d, e, f, g, h) { return a + b + c + d + e + f + g + h; }
         print f8(1, 2, 3, 4, 5, 6, 7, 8); // expect: 36
     ";
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["0", "1", "3", "6", "10", "15", "21", "28", "36"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["0", "1", "3", "6", "10", "15", "21", "28", "36"]);
     Ok(())
 }
 
@@ -185,8 +185,8 @@ fn print() -> Result<()> {
 
         print clock; // expect: <native fn>
     ";
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["<fn foo>", "<native fn clock>"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["<fn foo>", "<native fn clock>"]);
     Ok(())
 }
 
@@ -201,8 +201,8 @@ fn recursion() -> Result<()> {
 
         print fib(8); // expect: 21
     "#;
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["21"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["21"]);
     Ok(())
 }
 
@@ -219,8 +219,8 @@ fn over_255_arguments() -> Result<()> {
     print \"ok\";
     ";
 
-    let printed = vm.interpret(PROGRAM)?;
-    assert_eq!(printed, &["ok"]);
+    vm.interpret(PROGRAM)?;
+    assert_eq!(vm.print_log, &["ok"]);
 
     Ok(())
 }

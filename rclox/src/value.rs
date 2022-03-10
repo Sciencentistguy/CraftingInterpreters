@@ -49,7 +49,7 @@ pub enum RuntimeUpvalue {
     Heap(Box<Value>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Upvalue {
     pub index: usize,
     pub is_local: bool,
