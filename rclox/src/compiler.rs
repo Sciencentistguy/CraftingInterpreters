@@ -17,6 +17,17 @@ use crate::value::Value;
 use crate::vm::CallFrameCode;
 use crate::Result;
 
+macro_rules! target {
+    ($self:ident) => {
+        $self.targets.last().expect("Internal error: no target")
+    };
+}
+macro_rules! target_mut {
+    ($self:ident) => {
+        $self.targets.last_mut().expect("Internal error: no target")
+    };
+}
+
 /// Compile source code to a chunk.
 pub fn compile(source: &str) -> Result<Vec<Target>> {
     println!("Starting compilation");
@@ -28,15 +39,15 @@ pub fn compile(source: &str) -> Result<Vec<Target>> {
         compiler.declaration()?;
     }
 
-    let last_line_num = compiler.target().chunk().last().map(|x| x.line);
+    let last_line_num = target!(compiler).chunk().last().map(|x| x.line);
 
     // The script returns nothing, but the vm will still attempt to look at the
     // stack to find the return value, so insert a nil
-    compiler.emit_instruction(Instruction::Nil);
+    compiler.emit_instruction(Instruction::Constant(Value::Nil));
     compiler.emit_instruction(Instruction::Return);
 
     if let Some(x) = last_line_num {
-        compiler.target_mut().chunk_mut().last_mut().unwrap().line = x + 1;
+        target_mut!(compiler).chunk_mut().last_mut().unwrap().line = x + 1;
     }
     for target in &targets {
         let name = match target.output {
@@ -209,7 +220,7 @@ impl Target {
         // This is to use up the first stack slot, which is unused until methods are
         // added
         let mut c = Chunk::new();
-        c.write_instruction(Instruction::Nil, 0);
+        c.write_instruction(Instruction::Constant(Value::Nil), 0);
         Self {
             locals,
             upvalues: Vec::with_capacity(u8::MAX as usize),
@@ -267,16 +278,6 @@ impl<'source> Compiler<'source> {
         }
     }
 
-    /// Returns a reference to the top of the target stack
-    fn target(&self) -> &Target {
-        self.targets.last().expect("Internal error: no target")
-    }
-
-    /// Returns a mutable reference to the top of the target stack
-    fn target_mut(&mut self) -> &mut Target {
-        self.targets.last_mut().expect("Internal error: no target")
-    }
-
     /// Consume the next token from the Lexer, and advance `self.previous_token`
     /// and `self.current_token`
     fn advance(&mut self) -> Result<()> {
@@ -299,7 +300,7 @@ impl<'source> Compiler<'source> {
     /// Output an instruction to the chunk
     fn emit_instruction(&mut self, instruction: Instruction) {
         let previous_line = self.previous_token.line;
-        self.target_mut()
+        target_mut!(self)
             .chunk_mut()
             .write_instruction(instruction, previous_line);
     }
@@ -375,9 +376,9 @@ impl<'source> Compiler<'source> {
     /// Compile a literal expression
     fn literal(&mut self) -> Result<()> {
         match self.previous_token.kind {
-            TokenType::False => self.emit_instruction(Instruction::False),
-            TokenType::True => self.emit_instruction(Instruction::True),
-            TokenType::Nil => self.emit_instruction(Instruction::Nil),
+            TokenType::False => self.emit_instruction(Instruction::Constant(Value::Bool(false))),
+            TokenType::True => self.emit_instruction(Instruction::Constant(Value::Bool(true))),
+            TokenType::Nil => self.emit_instruction(Instruction::Constant(Value::Nil)),
             x => unreachable!("{:?} is not a literal", x),
         }
         Ok(())
@@ -484,12 +485,12 @@ impl<'source> Compiler<'source> {
 
     /// Compile a return statement
     fn return_statement(&mut self) -> Result<()> {
-        if matches!(self.target().output, TargetOutput::Script(_)) {
+        if matches!(target!(self).output, TargetOutput::Script(_)) {
             return Err(self.error_at_previous("Cannot return from top-level code"));
         }
 
         if self.advance_if_token_matches(TokenType::Semicolon)? {
-            self.emit_instruction(Instruction::Nil);
+            self.emit_instruction(Instruction::Constant(Value::Nil));
         } else {
             self.expression()?;
             self.expect_token(TokenType::Semicolon, "Expected `;` after return value.")?;
@@ -536,7 +537,7 @@ impl<'source> Compiler<'source> {
 
     /// Compile a while loop
     fn while_statement(&mut self) -> Result<()> {
-        let loop_start_idx = self.target().chunk().len();
+        let loop_start_idx = target!(self).chunk().len();
 
         self.expect_token(TokenType::LeftParen, "Expected '(' after 'while'.")?;
 
@@ -572,7 +573,7 @@ impl<'source> Compiler<'source> {
             self.expression_statement()?;
         }
 
-        let mut loop_start = self.target().chunk().len();
+        let mut loop_start = target!(self).chunk().len();
 
         let mut exit_jump = None;
 
@@ -594,7 +595,7 @@ impl<'source> Compiler<'source> {
         // Increment
         if !self.advance_if_token_matches(TokenType::RightParen)? {
             let body_jump = self.emit_jump_instruction(Instruction::Jump(0));
-            let increment_start = self.target().chunk().len();
+            let increment_start = target!(self).chunk().len();
             self.expression()?;
             self.emit_instruction(Instruction::Pop);
             self.expect_token(TokenType::RightParen, "Expected ')' after 'for' clauses.")?;
@@ -623,7 +624,7 @@ impl<'source> Compiler<'source> {
 
     /// Emit a loop instruction to jump to the given index
     fn emit_loop(&mut self, target_index: usize) {
-        let offset = self.target().chunk().len() - target_index + 1;
+        let offset = target!(self).chunk().len() - target_index + 1;
 
         self.emit_instruction(Instruction::Loop(offset));
     }
@@ -641,7 +642,7 @@ impl<'source> Compiler<'source> {
             }
             _ => unreachable!("Invalid jump instruction"),
         };
-        self.target().chunk().len() - 1
+        target!(self).chunk().len() - 1
     }
 
     /// Patches in the correct destination to a jump instruction.  Takes the
@@ -650,9 +651,9 @@ impl<'source> Compiler<'source> {
     fn patch_jump_target(&mut self, offset: usize) {
         // We have to subtract 1 here because we want to set the pc to the instruction
         // before the one we want executed next
-        let distance = self.target().chunk().len() - offset - 1;
+        let distance = target!(self).chunk().len() - offset - 1;
 
-        match self.target_mut().chunk_mut()[offset].instruction {
+        match target_mut!(self).chunk_mut()[offset].instruction {
             Instruction::Jump(ref mut x) | Instruction::JumpIfFalse(ref mut x) => {
                 // TODO: remove the usize::MAX sentinel value, use the type system
                 assert_eq!(*x, usize::MAX);
@@ -661,7 +662,7 @@ impl<'source> Compiler<'source> {
             _ => {
                 unreachable!(
                     "Cannot patch a non-jump instruction '{:?}'",
-                    self.target().chunk()[offset]
+                    target!(self).chunk()[offset]
                 );
             }
         }
@@ -680,7 +681,7 @@ impl<'source> Compiler<'source> {
     #[inline]
     /// Begin a new scope
     fn begin_scope(&mut self) {
-        self.target_mut().scope_depth += 1;
+        target_mut!(self).scope_depth += 1;
     }
 
     #[inline]
@@ -688,28 +689,26 @@ impl<'source> Compiler<'source> {
     /// to remove all the scope's locals from the stack
     fn end_scope(&mut self) {
         if cfg!(debug_asserts) {
-            self.target_mut().scope_depth = self
-                .target()
+            target_mut!(self).scope_depth = target!(self)
                 .scope_depth
                 .checked_sub(1)
                 .expect("attempted to end the global scope");
         } else {
-            self.target_mut().scope_depth -= 1;
+            target_mut!(self).scope_depth -= 1;
         }
 
-        while self
-            .target()
+        while target!(self)
             .locals
             .last()
             .map(|x| {
                 x.depth
                     .expect("depth should be some after variable is marked as intialised")
             })
-            .map(|x| x > self.target().scope_depth)
+            .map(|x| x > target!(self).scope_depth)
             .unwrap_or(false)
         {
             self.emit_instruction(Instruction::Pop);
-            self.target_mut().locals.pop();
+            target_mut!(self).locals.pop();
         }
     }
 
@@ -752,7 +751,7 @@ impl<'source> Compiler<'source> {
     fn parse_variable(&mut self) -> Result<Option<String>> {
         self.expect_token(TokenType::Identifier, "Expected a variable name.")?;
         self.declare_variable()?;
-        if self.target().scope_depth > 0 {
+        if target!(self).scope_depth > 0 {
             // This is a local
             return Ok(None);
         }
@@ -767,7 +766,7 @@ impl<'source> Compiler<'source> {
         if self.advance_if_token_matches(TokenType::Equal)? {
             self.expression()?;
         } else {
-            self.emit_instruction(Instruction::Nil);
+            self.emit_instruction(Instruction::Constant(Value::Nil));
         }
         self.expect_token(
             TokenType::Semicolon,
@@ -789,7 +788,7 @@ impl<'source> Compiler<'source> {
             Some(name) => self.emit_instruction(Instruction::DefineGlobal(Rc::new(name))),
             None => {
                 // XXX: asserts are slow?
-                assert!(self.target().scope_depth > 0);
+                assert!(target!(self).scope_depth > 0);
                 self.initialise_local_variable();
             }
         }
@@ -800,12 +799,11 @@ impl<'source> Compiler<'source> {
     ///
     /// Does nothing if not in a local scope
     fn initialise_local_variable(&mut self) {
-        if self.target().scope_depth == 0 {
+        if target!(self).scope_depth == 0 {
             return;
         }
-        let depth = self.target().scope_depth;
-        let ptr = &mut self
-            .target_mut()
+        let depth = target!(self).scope_depth;
+        let ptr = &mut target_mut!(self)
             .locals
             .last_mut()
             .unwrap_or_else(|| {
@@ -826,7 +824,7 @@ impl<'source> Compiler<'source> {
 
     /// Declare a variable, checking that its name is not taken.
     fn declare_variable(&mut self) -> Result<()> {
-        if self.target().scope_depth == 0 {
+        if target!(self).scope_depth == 0 {
             // This is a global variable
             return Ok(());
         }
@@ -835,13 +833,13 @@ impl<'source> Compiler<'source> {
 
         // Check that a variable does not already exist with this name in the current
         // scope.
-        for local_var in self.target().locals.iter().rev() {
+        for local_var in target!(self).locals.iter().rev() {
             // If search depth is below current scope depth, we can stop searching, as we
             // have not found a conflict.
             if local_var
                 .depth
                 .expect("depth should be some after variable is marked as intialised")
-                < self.target().scope_depth
+                < target!(self).scope_depth
             {
                 break;
             }
@@ -864,8 +862,8 @@ impl<'source> Compiler<'source> {
 
     /// Add a local variable to the vector of locals.
     fn add_uninitialised_local_variable(&mut self, name: &str) {
-        //let depth = self.target().scope_depth;
-        self.target_mut().locals.push(LocalVariable {
+        //let depth = target!(self).scope_depth;
+        target_mut!(self).locals.push(LocalVariable {
             name: Rc::new(name.to_string()),
             depth: None,
         });
@@ -880,7 +878,7 @@ impl<'source> Compiler<'source> {
     /// Emit the instructions to get the given variable
     fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
         // if stack_slot is None, this is a global variable.
-        let stack_slot = self.get_stack_slot_from_variable_name(self.target(), name.as_str())?;
+        let stack_slot = self.get_stack_slot_from_variable_name(target!(self), name.as_str())?;
 
         let assignable = can_assign && self.advance_if_token_matches(TokenType::Equal)?;
 
@@ -981,7 +979,7 @@ impl<'source> Compiler<'source> {
         if !self.check_current_token_kind(TokenType::RightParen) {
             // compile parameters
             while {
-                self.target_mut().output.as_function_mut().arity += 1;
+                target_mut!(self).output.as_function_mut().arity += 1;
                 let variable_name = self.parse_variable()?;
                 self.define_variable(variable_name);
 
@@ -997,7 +995,7 @@ impl<'source> Compiler<'source> {
 
         self.block()?;
 
-        self.emit_instruction(Instruction::Nil);
+        self.emit_instruction(Instruction::Constant(Value::Nil));
         self.emit_instruction(Instruction::Return);
 
         let target = self.targets.pop().unwrap();
@@ -1009,7 +1007,7 @@ impl<'source> Compiler<'source> {
         self.emit_instruction(Instruction::Closure {
             closure: LoxClosure::new(function),
             // XXX: bad
-            upvalues: self.target().upvalues.clone(),
+            upvalues: target!(self).upvalues.clone(),
         });
 
         Ok(())

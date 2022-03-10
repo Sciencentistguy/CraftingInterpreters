@@ -1,6 +1,5 @@
 use crate::chunk::Chunk;
 use crate::instruction::Instruction;
-use crate::value::Value;
 
 pub fn recurse_functions(chunk: &Chunk) {
     for function in chunk.iter().filter_map(|x| match &x.instruction {
@@ -11,7 +10,7 @@ pub fn recurse_functions(chunk: &Chunk) {
         } => Some(&closure.func),
         _ => None,
     }) {
-        crate::debug::disassemble_chunk(&function.chunk, function.name.as_str());
+        disassemble_chunk(&function.chunk, function.name.as_str());
         recurse_functions(&function.chunk)
     }
 }
@@ -44,85 +43,75 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
         print!("{:04}\t", chunk[offset].line);
     }
 
-    use Instruction::*;
 
     match instruction {
-        Return => {
+        Instruction::Return => {
             println!("Return");
         }
-        Constant(value) => {
+        Instruction::Constant(value) => {
             println!("Constant\t`{}`", value);
         }
-        Negate => {
+        Instruction::Negate => {
             println!("Negate");
         }
-        Add => {
+        Instruction::Add => {
             println!("Add");
         }
-        Subtract => {
+        Instruction::Subtract => {
             println!("Subtract");
         }
-        Multiply => {
+        Instruction::Multiply => {
             println!("Multiply");
         }
-        Divide => {
+        Instruction::Divide => {
             println!("Divide");
         }
-        Nil => {
-            println!("Nil");
-        }
-        True => {
-            println!("True");
-        }
-        False => {
-            println!("False");
-        }
-        Not => {
+        Instruction::Not => {
             println!("Not");
         }
-        Equal => {
+        Instruction::Equal => {
             println!("Equal");
         }
-        Greater => {
+        Instruction::Greater => {
             println!("Greater");
         }
-        Less => {
+        Instruction::Less => {
             println!("Less");
         }
-        Print => {
+        Instruction::Print => {
             println!("Print");
         }
-        Pop => {
+        Instruction::Pop => {
             println!("Pop");
         }
-        DefineGlobal(name) => {
+        Instruction::DefineGlobal(name) => {
             println!("DefineGlobal\t`{}`", name);
         }
-        GetGlobal(name) => {
+        Instruction::GetGlobal(name) => {
             println!("GetGlobal\t`{}`", name);
         }
-        SetGlobal(name) => {
+        Instruction::SetGlobal(name) => {
             println!("SetGlobal\t`{}`", name);
         }
-        GetLocal(slot) => {
+        Instruction::GetLocal(slot) => {
             println!("GetLocal\t{:04}", slot);
         }
-        SetLocal(slot) => {
+        Instruction::SetLocal(slot) => {
             println!("SetLocal\t{:04}", slot);
         }
-        JumpIfFalse(jump) => {
+        Instruction::JumpIfFalse(jump) => {
             // Add 1 here, because it technically jumps to the instruction *before* the next
             // one to be executed, but for debug purposes we want to display the
             // next instruction.
             println!("JumpIfFalse\t{:04} -> {:04}", offset, offset + jump + 1);
         }
-        Jump(jump) => {
+        Instruction::Jump(jump) => {
             // Add 1 here, because it technically jumps to the instruction *before* the next
             // one to be executed, but for debug purposes we want to display the
             // next instruction.
             println!("Jump\t\t{:04} -> {:04}", offset, offset + jump + 1);
         }
-        Loop(jump) => {
+        Instruction::Loop(jump) => {
             // Add 1 here, because it technically jumps to the instruction *before* the next
             // one to be executed, but for debug purposes we want to display the
             // next instruction.
@@ -132,20 +121,20 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
                 offset.wrapping_sub(*jump).wrapping_add(1)
             );
         }
-        Call(arity) => {
+        Instruction::Call(arity) => {
             println!("Call\t\t{:04}", arity);
         }
-        Closure {
+        Instruction::Closure {
             closure,
             upvalues: _,
         } => {
             println!("Closure\t{}", closure.func.name);
             //TODO: print upvalues
         }
-        GetUpvalue(slot) => {
+        Instruction::GetUpvalue(slot) => {
             println!("GetUpvalue\t{:04}", slot);
         }
-        SetUpvalue(slot) => {
+        Instruction::SetUpvalue(slot) => {
             println!("SetUpvalue\t{:04}", slot);
         }
     }

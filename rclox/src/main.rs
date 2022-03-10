@@ -1,9 +1,8 @@
 #![warn(missing_debug_implementations, missing_copy_implementations)]
+#![allow(dead_code)]
 
-use std::error::Error;
 use std::io::Write;
 use std::path::Path;
-use std::result;
 
 mod chunk;
 mod compiler;

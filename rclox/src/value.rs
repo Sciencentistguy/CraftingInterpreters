@@ -198,6 +198,18 @@ impl Value {
     pub fn coerce_bool(&self) -> bool {
         !matches!(self, Self::Nil | Self::Bool(false))
     }
+
+    pub fn typename(&self) -> &'static str {
+        match self {
+            Value::Number(_) => "number",
+            Value::Bool(_) => "bool",
+            Value::String(_) => "string",
+            Value::Nil => "nil",
+            Value::NativeFunction(_) => "native function",
+            Value::Closure(_) => "closure",
+            Value::Upvalue(_) => "upvalue",
+        }
+    }
 }
 
 impl std::ops::Add for Value {

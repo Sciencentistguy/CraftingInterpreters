@@ -7,14 +7,8 @@ use crate::value::{LoxClosure, Upvalue, Value};
 pub enum Instruction {
     /// Return from the current function
     Return,
-    /// Refers to a constant stored in the constants table
+    /// Push a constant to the stack
     Constant(Value),
-    /// Pushes `Nil` to the stack
-    Nil,
-    /// Pushes `true` to the stack.
-    True,
-    /// Pushes `False` to the stack.
-    False,
     /// Negates the value at the top of the stack.
     Negate,
     /// Adds together the two values at the top of the stack, and pushes the
@@ -62,9 +56,10 @@ pub enum Instruction {
     Jump(usize),
     /// Jump backwards `n` instructions unconditionally
     Loop(usize),
-    /// Call the function at the top of the stack
+    /// Call the value at the top of the stack
     Call(usize),
-    /// Make a function object into a closure
+    /// Close over a function
+    /// (Make a function object into a closure)
     Closure {
         closure: LoxClosure,
         upvalues: Vec<Upvalue>,

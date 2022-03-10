@@ -191,9 +191,9 @@ impl VM {
     }
 
     /// Construct a RcloxError::Runtime with the correct line
-    fn runtime_error(&self, error_message: &str) -> RcloxError {
+    fn runtime_error(&self, error_message: String) -> RcloxError {
         RcloxError::Runtime {
-            message: error_message.to_string(),
+            message: error_message,
             line: current_frame!(self).code.chunk()[current_frame!(self).program_counter].line,
         }
     }
@@ -267,9 +267,9 @@ impl VM {
                     match self.peek_mut(0) {
                         Value::Number(x) => *x = -*x,
                         _ => {
-                            return Err(
-                                self.runtime_error("Operand to unary negation must be a number.")
-                            );
+                            return Err(self.runtime_error(
+                                "Operand to unary negation must be a number.".to_string(),
+                            ));
                         }
                     };
                 }
@@ -281,7 +281,8 @@ impl VM {
                         | (Value::String(_), Value::String(_)) => self.push(a + b),
                         _ => {
                             return Err(self.runtime_error(
-                                "Operands to + must be either both numbers or both strings",
+                                "Operands to + must be either both numbers or both strings"
+                                    .to_string(),
                             ));
                         }
                     }
@@ -290,7 +291,9 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to - must be two numbers"));
+                        return Err(
+                            self.runtime_error("Operands to - must be two numbers".to_string())
+                        );
                     }
                     self.push(a - b);
                 }
@@ -298,7 +301,9 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to * must be two numbers"));
+                        return Err(
+                            self.runtime_error("Operands to * must be two numbers".to_string())
+                        );
                     }
                     self.push(a * b);
                 }
@@ -306,13 +311,12 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to / must be two numbers"));
+                        return Err(
+                            self.runtime_error("Operands to / must be two numbers".to_string())
+                        );
                     }
                     self.push(a / b);
                 }
-                Instruction::Nil => self.push(Value::Nil),
-                Instruction::True => self.push(Value::Bool(true)),
-                Instruction::False => self.push(Value::Bool(false)),
                 Instruction::Not => {
                     let v = self.pop();
                     self.push(Value::Bool(!v.coerce_bool()))
@@ -326,7 +330,9 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to > must be two numbers"));
+                        return Err(
+                            self.runtime_error("Operands to > must be two numbers".to_string())
+                        );
                     }
                     self.push(Value::Bool(a > b))
                 }
@@ -334,7 +340,9 @@ impl VM {
                     let b = self.pop();
                     let a = self.pop();
                     if !(a.is_number() && b.is_number()) {
-                        return Err(self.runtime_error("Operands to < must be two numbers"));
+                        return Err(
+                            self.runtime_error("Operands to < must be two numbers".to_string())
+                        );
                     }
                     self.push(Value::Bool(a < b))
                 }
@@ -362,8 +370,9 @@ impl VM {
                     match value {
                         Some(x) => self.push(x),
                         None => {
-                            return Err(self
-                                .runtime_error(format!("Undefined variable '{}'", name).as_str()));
+                            return Err(
+                                self.runtime_error(format!("Undefined variable '{}'", name))
+                            );
                         }
                     }
                 }
@@ -377,9 +386,7 @@ impl VM {
                     if let Some(ptr) = self.globals_table.get_mut(&name) {
                         *ptr = value;
                     } else {
-                        return Err(
-                            self.runtime_error(format!("Undefined variable {}", name).as_str())
-                        );
+                        return Err(self.runtime_error(format!("Undefined variable {}", name)));
                     }
                 }
                 Instruction::GetLocal(slot) => {
@@ -419,10 +426,7 @@ impl VM {
                 }
                 Instruction::Call(arg_count) => {
                     let arg_count = *arg_count;
-                    // XXX: Anti-pattern: clone to shut up the borrow checker
-                    if !self.call_value(self.peek(arg_count).clone(), arg_count)? {
-                        return Err(self.runtime_error("Incorrect number of arguments"));
-                    }
+                    self.call_value(self.peek(arg_count).clone(), arg_count)?;
                 }
                 Instruction::Closure { closure, upvalues } => {
                     let mut closure = closure.clone();
@@ -433,10 +437,8 @@ impl VM {
                             RuntimeUpvalue::Stack(self.stack.len() - 1 - uv.index)
                         })
                         .collect();
-                    // XXX: Cloning here
-                    self.push(Value::Closure(Rc::new(closure.clone())));
+                    self.push(Value::Closure(Rc::new(closure)));
                 }
-
                 Instruction::GetUpvalue(slot) => {
                     let value = match current_frame!(self).code {
                         CallFrameCode::Closure(ref x) => {
@@ -459,7 +461,7 @@ impl VM {
     }
 
     /// Call a value, erroring if it is not callable
-    fn call_value(&mut self, callee: Value, arg_count: usize) -> Result<bool> {
+    fn call_value(&mut self, callee: Value, arg_count: usize) -> Result<()> {
         match callee {
             Value::Closure(c) => self.call(c, arg_count),
             Value::NativeFunction(f) => {
@@ -468,23 +470,19 @@ impl VM {
                     self.pop();
                 }
                 self.push(result);
-                Ok(true)
+                Ok(())
             }
-            _ => Err(self.runtime_error("Can only call functions and classes")),
+            x => Err(self.runtime_error(format!("Cannot call {}", x.typename()))),
         }
     }
 
-    fn capture_upvalue(&mut self, slot: usize) -> RuntimeUpvalue {
-        RuntimeUpvalue::new(slot)
-    }
-
     /// Call a function
-    fn call(&mut self, closure: Rc<LoxClosure>, arg_count: usize) -> Result<bool> {
+    fn call(&mut self, closure: Rc<LoxClosure>, arg_count: usize) -> Result<()> {
         let function = &closure.func;
         if arg_count != function.arity {
             //TODO: two allocations here, should runtime_error take a String bc it always
             // allocates anyway
-            return Err(self.runtime_error(&format!(
+            return Err(self.runtime_error(format!(
                 "Expected {} arguments, but got {}",
                 function.arity, arg_count
             )));
@@ -493,7 +491,7 @@ impl VM {
         let mut frame = CallFrame::new(output);
         frame.slots_start = self.stack.len() - arg_count;
         self.call_stack.push(frame);
-        Ok(true)
+        Ok(())
     }
 
     /// Helper function to add a native function. Used in
