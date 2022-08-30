@@ -43,7 +43,6 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize, grouped_mode: bool)
         print!("{:04}\t", chunk[offset].line);
     }
 
-
     match instruction {
         Instruction::Return => {
             println!("Return");

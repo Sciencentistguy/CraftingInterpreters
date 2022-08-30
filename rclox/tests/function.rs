@@ -172,7 +172,10 @@ fn parameters() -> Result<()> {
         print f8(1, 2, 3, 4, 5, 6, 7, 8); // expect: 36
     ";
     vm.interpret(PROGRAM)?;
-    assert_eq!(vm.print_log, &["0", "1", "3", "6", "10", "15", "21", "28", "36"]);
+    assert_eq!(
+        vm.print_log,
+        &["0", "1", "3", "6", "10", "15", "21", "28", "36"]
+    );
     Ok(())
 }
 

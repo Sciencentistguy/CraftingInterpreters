@@ -59,24 +59,20 @@ pub struct Token<'source_code> {
     pub line: usize,
 }
 
-impl<'source_code> Token<'source_code> {
+impl Token<'_> {
     /// An "eof" token
-    pub fn eof() -> Self {
-        Self {
-            kind: TokenType::Eof,
-            span: "",
-            line: 0,
-        }
-    }
+    pub const EOF: Self = Self {
+        kind: TokenType::Eof,
+        span: "",
+        line: 0,
+    };
 
     /// A "null" token
-    pub fn null() -> Self {
-        Self {
-            kind: TokenType::Null,
-            span: "",
-            line: 0,
-        }
-    }
+    pub const NULL: Self = Self {
+        kind: TokenType::Null,
+        span: "",
+        line: 0,
+    };
 }
 
 /// The lexer state machine
@@ -105,50 +101,48 @@ impl<'source_code> Lexer<'source_code> {
         self.start = self.current;
 
         if self.is_at_end() {
-            return Ok(Token::eof());
+            return Ok(Token::EOF);
         };
 
         let c = self.advance();
-        use TokenType::*;
-
         match c {
-            '(' => Ok(self.make_token(LeftParen)),
-            ')' => Ok(self.make_token(RightParen)),
-            '{' => Ok(self.make_token(LeftBrace)),
-            '}' => Ok(self.make_token(RightBrace)),
-            ';' => Ok(self.make_token(Semicolon)),
-            ',' => Ok(self.make_token(Comma)),
-            '.' => Ok(self.make_token(Dot)),
-            '-' => Ok(self.make_token(Minus)),
-            '+' => Ok(self.make_token(Plus)),
-            '/' => Ok(self.make_token(Slash)),
-            '*' => Ok(self.make_token(Star)),
+            '(' => Ok(self.make_token(TokenType::LeftParen)),
+            ')' => Ok(self.make_token(TokenType::RightParen)),
+            '{' => Ok(self.make_token(TokenType::LeftBrace)),
+            '}' => Ok(self.make_token(TokenType::RightBrace)),
+            ';' => Ok(self.make_token(TokenType::Semicolon)),
+            ',' => Ok(self.make_token(TokenType::Comma)),
+            '.' => Ok(self.make_token(TokenType::Dot)),
+            '-' => Ok(self.make_token(TokenType::Minus)),
+            '+' => Ok(self.make_token(TokenType::Plus)),
+            '/' => Ok(self.make_token(TokenType::Slash)),
+            '*' => Ok(self.make_token(TokenType::Star)),
             '!' => {
                 if self.advance_if_char_matches('=') {
-                    Ok(self.make_token(BangEqual))
+                    Ok(self.make_token(TokenType::BangEqual))
                 } else {
-                    Ok(self.make_token(Bang))
+                    Ok(self.make_token(TokenType::Bang))
                 }
             }
             '=' => {
                 if self.advance_if_char_matches('=') {
-                    Ok(self.make_token(EqualEqual))
+                    Ok(self.make_token(TokenType::EqualEqual))
                 } else {
-                    Ok(self.make_token(Equal))
+                    Ok(self.make_token(TokenType::Equal))
                 }
             }
             '<' => {
                 if self.advance_if_char_matches('=') {
-                    Ok(self.make_token(LessEqual))
+                    Ok(self.make_token(TokenType::LessEqual))
                 } else {
-                    Ok(self.make_token(Less))
+                    Ok(self.make_token(TokenType::Less))
                 }
             }
             '>' => {
                 if self.advance_if_char_matches('=') {
-                    Ok(self.make_token(GreaterEqual))
+                    Ok(self.make_token(TokenType::GreaterEqual))
                 } else {
-                    Ok(self.make_token(Greater))
+                    Ok(self.make_token(TokenType::Greater))
                 }
             }
             '"' => {
@@ -162,49 +156,49 @@ impl<'source_code> Lexer<'source_code> {
                     return Err(RcloxError::Lexer("Unterminated string.".to_string()));
                 }
                 self.advance();
-                Ok(self.make_token(String))
+                Ok(self.make_token(TokenType::String))
             }
             '0'..='9' => {
-                while self.peek().is_digit(10) {
+                while self.peek().is_ascii_digit() {
                     self.advance();
                 }
-                if self.peek() == '.' && self.peek_next().map(|x| x.is_digit(10)).unwrap_or(false) {
+                if self.peek() == '.' && self.peek_next().map(|x| x.is_ascii_digit()).unwrap_or(false) {
                     self.advance();
-                    while self.peek().is_digit(10) {
+                    while self.peek().is_ascii_digit() {
                         self.advance();
                     }
                 }
-                Ok(self.make_token(Number))
+                Ok(self.make_token(TokenType::Number))
             }
             'a'..='z' | 'A'..='Z' | '_' => {
                 while self.peek().is_alphanumeric() || self.peek() == '_' {
                     self.advance();
                 }
-                let mut tok = self.make_token(Identifier);
+                let mut tok = self.make_token(TokenType::Null);
                 tok.kind = match tok.span {
-                    "and" => And,
-                    "class" => Class,
-                    "else" => Else,
-                    "false" => False,
-                    "for" => For,
-                    "fun" => Fun,
-                    "if" => If,
-                    "nil" => Nil,
-                    "or" => Or,
-                    "print" => Print,
-                    "return" => Return,
-                    "super" => Super,
-                    "this" => This,
-                    "true" => True,
-                    "var" => Var,
-                    "while" => While,
+                    "and" => TokenType::And,
+                    "class" => TokenType::Class,
+                    "else" => TokenType::Else,
+                    "false" => TokenType::False,
+                    "for" => TokenType::For,
+                    "fun" => TokenType::Fun,
+                    "if" => TokenType::If,
+                    "nil" => TokenType::Nil,
+                    "or" => TokenType::Or,
+                    "print" => TokenType::Print,
+                    "return" => TokenType::Return,
+                    "super" => TokenType::Super,
+                    "this" => TokenType::This,
+                    "true" => TokenType::True,
+                    "var" => TokenType::Var,
+                    "while" => TokenType::While,
 
-                    _ => Identifier,
+                    _ => TokenType::Identifier,
                 };
                 Ok(tok)
             }
 
-            _ => return Err(RcloxError::Lexer(format!("Unexpected Character '{}'", c))),
+            _ => Err(RcloxError::Lexer(format!("Unexpected Character '{}'", c))),
         }
     }
 
@@ -217,8 +211,7 @@ impl<'source_code> Lexer<'source_code> {
     /// Advance the lexer over whitespace characters
     fn skip_whitespace(&mut self) {
         loop {
-            let c = self.peek();
-            match c {
+            match self.peek() {
                 ' ' | '\r' | '\t' => {
                     self.advance();
                 }

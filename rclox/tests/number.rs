@@ -17,7 +17,10 @@ fn literals() -> Result<()> {
         print -0.001;
     ";
     vm.interpret(PROGRAM)?;
-    assert_eq!(vm.print_log, &["123", "987654", "0", "-0", "123.456", "-0.001"]);
+    assert_eq!(
+        vm.print_log,
+        &["123", "987654", "0", "-0", "123.456", "-0.001"]
+    );
     Ok(())
 }
 

@@ -16,8 +16,8 @@ mod vm;
 use color_eyre::eyre::ContextCompat;
 use vm::VM;
 
-use text_io::read;
 use color_eyre::eyre::eyre;
+use text_io::read;
 
 type Result<T> = std::result::Result<T, error::RcloxError>;
 

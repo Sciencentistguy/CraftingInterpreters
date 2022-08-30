@@ -77,7 +77,10 @@ fn syntax() -> Result<()> {
         for (; false;) for (;;) 1;
     "#;
     vm.interpret(PROGRAM)?;
-    assert_eq!(vm.print_log, &["1", "2", "3", "0", "1", "2", "0", "1", "0", "1"]);
+    assert_eq!(
+        vm.print_log,
+        &["1", "2", "3", "0", "1", "2", "0", "1", "0", "1"]
+    );
     Ok(())
 }
 

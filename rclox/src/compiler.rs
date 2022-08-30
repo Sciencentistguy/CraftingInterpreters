@@ -272,8 +272,8 @@ impl<'source> Compiler<'source> {
     fn new(lexer: Lexer<'source>, targets: &'source mut Vec<Target>) -> Self {
         Self {
             lexer,
-            current_token: Token::null(),
-            previous_token: Token::null(),
+            current_token: Token::NULL,
+            previous_token: Token::NULL,
             targets,
         }
     }
@@ -878,7 +878,7 @@ impl<'source> Compiler<'source> {
     /// Emit the instructions to get the given variable
     fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
         // if stack_slot is None, this is a global variable.
-        let stack_slot = self.get_stack_slot_from_variable_name(target!(self), name.as_str())?;
+        let stack_slot = self.resolve_local_variable(target!(self), name.as_str())?;
 
         let assignable = can_assign && self.advance_if_token_matches(TokenType::Equal)?;
 
@@ -911,14 +911,8 @@ impl<'source> Compiler<'source> {
         Ok(())
     }
 
-    /// Get a stack slot for a local variable
-    ///
-    /// `resolveLocal()``
-    fn get_stack_slot_from_variable_name(
-        &self,
-        target: &Target,
-        name: &str,
-    ) -> Result<Option<usize>> {
+    /// Get a stack slot for a local variable, from its name
+    fn resolve_local_variable(&self, target: &Target, name: &str) -> Result<Option<usize>> {
         for (i, local) in target.locals.iter().enumerate().rev() {
             if name == *local.name {
                 if local.depth.is_none() {
@@ -1044,7 +1038,7 @@ impl<'source> Compiler<'source> {
 
         let target = &self.targets[target_idx];
 
-        if let Some(local) = self.get_stack_slot_from_variable_name(target, name)? {
+        if let Some(local) = self.resolve_local_variable(target, name)? {
             return Ok(Some(self.add_upvalue(target_idx, local, true)?));
         }
 
@@ -1073,9 +1067,7 @@ impl<'source> Compiler<'source> {
 }
 
 /// The pratt parser jump table.
-///
-/// This should be `const`, but https://github.com/rust-lang/rust/issues/51999
-fn get_rule(kind: TokenType) -> ParseRule {
+const fn get_rule(kind: TokenType) -> ParseRule {
     match kind {
         TokenType::LeftParen => ParseRule {
             prefix: Some(ParseFn::Grouping),
