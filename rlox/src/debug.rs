@@ -32,8 +32,28 @@ impl Disassembler {
             Opcode::Return => {
                 println!("Return");
             }
+
             Opcode::Constant(value) => {
                 println!("Constant\t{value}");
+            }
+
+            Opcode::Negate => {
+                println!("Negate");
+            }
+            Opcode::Add => {
+                println!("Add");
+            }
+
+            Opcode::Subtract => {
+                println!("Subtract");
+            }
+
+            Opcode::Multiply => {
+                println!("Multiply");
+            }
+
+            Opcode::Divide => {
+                println!("Divide");
             }
         }
     }

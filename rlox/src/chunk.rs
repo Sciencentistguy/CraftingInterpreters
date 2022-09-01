@@ -21,4 +21,12 @@ impl Chunk {
         self.code.push(opcode);
         self.lines.push(line);
     }
+
+    pub fn code(&self) -> &[Opcode] {
+        self.code.as_ref()
+    }
+
+    pub fn lines(&self) -> &[usize] {
+        self.lines.as_ref()
+    }
 }

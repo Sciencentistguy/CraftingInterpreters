@@ -4,4 +4,10 @@ use crate::value::Value;
 pub enum Opcode {
     Return,
     Constant(Value),
+    Negate,
+
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
