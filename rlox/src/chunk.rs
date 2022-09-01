@@ -1,32 +1,24 @@
-use std::ops::{Deref, DerefMut};
-
-use crate::{debug, opcode::Opcode};
+use crate::{debug::Disassembler, opcode::Opcode};
 
 #[derive(Debug, Default)]
 pub struct Chunk {
     code: Vec<Opcode>,
+    lines: Vec<usize>,
 }
 
 impl Chunk {
     pub fn disassemble(&self, name: &str) {
         println!("== {name} ==");
 
-        for (idx, instruction) in self.code.iter().enumerate() {
-            debug::disassemble(instruction, idx);
+        let mut disassembler = Disassembler::new();
+        for (idx, (instruction, line)) in self.code.iter().zip(&self.lines).enumerate() {
+            let next_line = self.lines.get(idx + 1).copied();
+            disassembler.disassemble(instruction, idx, *line, next_line);
         }
     }
-}
 
-impl Deref for Chunk {
-    type Target = Vec<Opcode>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.code
-    }
-}
-
-impl DerefMut for Chunk {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.code
+    pub fn add_instruction(&mut self, opcode: Opcode, line: usize) {
+        self.code.push(opcode);
+        self.lines.push(line);
     }
 }
