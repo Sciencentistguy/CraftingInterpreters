@@ -85,3 +85,5 @@ test.lox
 .stack-work/
 *~
 fib.lox
+
+history.txt
