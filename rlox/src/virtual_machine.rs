@@ -19,7 +19,7 @@ impl VirtualMachine {
     pub fn init(source: &str) -> Result<Self, LoxError> {
         let mut parser = Parser::new(source);
 
-        let chunk = parser.parse()?;
+        let chunk = parser.compile()?;
 
         Ok(VirtualMachine {
             program_counter: 0,

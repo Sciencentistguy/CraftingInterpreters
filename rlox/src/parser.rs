@@ -1,26 +1,34 @@
-use crate::{chunk::Chunk, error::LoxError, lexer::{Lexer, TokenKind}};
+use crate::{
+    chunk::Chunk,
+    error::LoxError,
+    lexer::{Lexer, Token, TokenKind},
+};
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
+    previous: Option<Token<'a>>,
+    current: Option<Token<'a>>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             lexer: Lexer::new(source),
+            previous: None,
+            current: None,
         }
     }
 
-    pub fn parse(&mut self) -> Result<Chunk, LoxError> {
-
-        loop {
-            let token = self.lexer.next_token()?;
-            if token.kind == TokenKind::Eof {
-                break;
-            }
+    #[allow(dead_code)]
+    pub fn dump_lexer(self) -> Result<(), LoxError> {
+        for token in self.lexer {
+            let token = token?;
             println!("{:?}", token);
         }
-
-        todo!("Compilation NYI, only lexing")
+        Ok(())
+    }
+    pub fn compile(self) -> Result<Chunk, LoxError> {
+        self.dump_lexer()?;
+        todo!();
     }
 }

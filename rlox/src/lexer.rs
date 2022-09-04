@@ -1,8 +1,21 @@
+//! The lexer takes the original input string and produces a series of tokens. A token is the
+//! smallest unit of the Lox language, for example all keywords, punctuation items such as  `(` or
+//! `>=`, and string / number literals
+//!
+//! A string literal may contain any valid unicode. Non-asctii unicode is not allowed anywhere
+//! else (other than comments, which are not lexed).
+//!
+//! A number literal may contain a decimal sectiom e.g. `1` *or* `1.0`
+
+use std::iter::FusedIterator;
+
+use bstr::{BStr, ByteSlice};
+
 use crate::error::LoxError;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
-    source: &'a [u8],
+    source: &'a BStr,
     start: usize,
     current: usize,
     line: usize,
@@ -54,7 +67,6 @@ pub enum TokenKind {
     While,
 
     Null,
-    Eof,
 }
 
 /// The smallest unit of parsing in the Lox language
@@ -68,62 +80,65 @@ pub struct Token<'a> {
 impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            source: source.as_bytes(),
+            source: source.as_bytes().as_bstr(),
             start: 0,
             current: 0,
             line: 0,
         }
     }
 
-    /// Produce the next token from the input. Returns a `TokenKind::EOF` token when the output is
-    /// exhausted.
-    pub fn next_token(&mut self) -> Result<Token<'a>, LoxError> {
+    /// Produce the next token from the input.
+    ///
+    /// Returns `Ok(None)` when the input is exhausted.
+    pub fn next_token(&mut self) -> Result<Option<Token<'a>>, LoxError> {
+        self.skip_whitespace();
+
         self.start = self.current;
 
         if self.is_at_end() {
-            return Ok(self.make_token(TokenKind::Eof));
+            return Ok(None);
         }
 
         let c = self.consume();
 
         match c {
-            '(' => Ok(self.make_token(TokenKind::LeftParen)),
-            ')' => Ok(self.make_token(TokenKind::RightParen)),
-            '{' => Ok(self.make_token(TokenKind::LeftBrace)),
-            '}' => Ok(self.make_token(TokenKind::RightBrace)),
-            ';' => Ok(self.make_token(TokenKind::Semicolon)),
-            ',' => Ok(self.make_token(TokenKind::Comma)),
-            '.' => Ok(self.make_token(TokenKind::Dot)),
-            '-' => Ok(self.make_token(TokenKind::Minus)),
-            '+' => Ok(self.make_token(TokenKind::Plus)),
-            '/' => Ok(self.make_token(TokenKind::Slash)),
-            '*' => Ok(self.make_token(TokenKind::Star)),
+            '(' => Ok(Some(self.make_token(TokenKind::LeftParen))),
+            ')' => Ok(Some(self.make_token(TokenKind::RightParen))),
+            '{' => Ok(Some(self.make_token(TokenKind::LeftBrace))),
+            '}' => Ok(Some(self.make_token(TokenKind::RightBrace))),
+            ';' => Ok(Some(self.make_token(TokenKind::Semicolon))),
+            ',' => Ok(Some(self.make_token(TokenKind::Comma))),
+            '.' => Ok(Some(self.make_token(TokenKind::Dot))),
+            '-' => Ok(Some(self.make_token(TokenKind::Minus))),
+            '+' => Ok(Some(self.make_token(TokenKind::Plus))),
+            '/' => Ok(Some(self.make_token(TokenKind::Slash))),
+            '*' => Ok(Some(self.make_token(TokenKind::Star))),
             '!' => {
                 if self.consume_if_matches('=') {
-                    Ok(self.make_token(TokenKind::BangEqual))
+                    Ok(Some(self.make_token(TokenKind::BangEqual)))
                 } else {
-                    Ok(self.make_token(TokenKind::Bang))
+                    Ok(Some(self.make_token(TokenKind::Bang)))
                 }
             }
             '=' => {
                 if self.consume_if_matches('=') {
-                    Ok(self.make_token(TokenKind::EqualEqual))
+                    Ok(Some(self.make_token(TokenKind::EqualEqual)))
                 } else {
-                    Ok(self.make_token(TokenKind::Equal))
+                    Ok(Some(self.make_token(TokenKind::Equal)))
                 }
             }
             '<' => {
                 if self.consume_if_matches('=') {
-                    Ok(self.make_token(TokenKind::LessEqual))
+                    Ok(Some(self.make_token(TokenKind::LessEqual)))
                 } else {
-                    Ok(self.make_token(TokenKind::Less))
+                    Ok(Some(self.make_token(TokenKind::Less)))
                 }
             }
             '>' => {
                 if self.consume_if_matches('=') {
-                    Ok(self.make_token(TokenKind::GreaterEqual))
+                    Ok(Some(self.make_token(TokenKind::GreaterEqual)))
                 } else {
-                    Ok(self.make_token(TokenKind::Greater))
+                    Ok(Some(self.make_token(TokenKind::Greater)))
                 }
             }
             '"' => {
@@ -137,7 +152,7 @@ impl<'a> Lexer<'a> {
                     Err(LoxError::UnterminatedString)
                 } else {
                     self.consume();
-                    Ok(self.make_token(TokenKind::String))
+                    Ok(Some(self.make_token(TokenKind::String)))
                 }
             }
             '0'..='9' => {
@@ -155,13 +170,11 @@ impl<'a> Lexer<'a> {
                         self.consume();
                     }
                 }
-                Ok(self.make_token(TokenKind::Number))
+                Ok(Some(self.make_token(TokenKind::Number)))
             }
             'a'..='z' | 'A'..='Z' | '_' => {
-                while {
-                    let p = self.peek();
-                    p.is_ascii_alphanumeric() || p == '_'
-                } {
+                // char::is_ascii_alphanumeric + '_'
+                while matches!(self.peek(), '0'..='9' | 'A'..='Z' | 'a'..='z' | '_') {
                     self.consume();
                 }
 
@@ -187,7 +200,7 @@ impl<'a> Lexer<'a> {
                     _ => TokenKind::Identifier,
                 };
 
-                Ok(token)
+                Ok(Some(token))
             }
 
             c => Err(LoxError::UnexpectedToken(c)),
@@ -270,8 +283,9 @@ impl<'a> Lexer<'a> {
 
     /// Produce a `&str` of the lexer's `start..current` ranage
     fn span(&'_ self) -> &'a str {
-        let bytes = &self.source[self.start..self.current];
-        std::str::from_utf8(bytes).unwrap()
+        self.source[self.start..self.current]
+            .to_str()
+            .expect("`start` and `current` should never not be on codepoint boundaries")
     }
 
     /// Emit a token from the lexer with the specified kind
@@ -283,3 +297,13 @@ impl<'a> Lexer<'a> {
         }
     }
 }
+
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Result<Token<'a>, LoxError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_token().transpose()
+    }
+}
+
+impl FusedIterator for Lexer<'_> {}
