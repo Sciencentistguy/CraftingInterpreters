@@ -21,7 +21,7 @@ pub struct Lexer<'a> {
     line: usize,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenKind {
     // Single-character tokens.
     LeftParen,
@@ -66,6 +66,7 @@ pub enum TokenKind {
     Var,
     While,
 
+    Eof,
     Null,
 }
 
@@ -75,6 +76,14 @@ pub struct Token<'a> {
     pub kind: TokenKind,
     pub span: &'a str,
     pub line: usize,
+}
+
+impl Token<'_> {
+    pub const NULL: Self = Self {
+        kind: TokenKind::Null,
+        span: "",
+        line: usize::MAX,
+    };
 }
 
 impl<'a> Lexer<'a> {
@@ -90,55 +99,55 @@ impl<'a> Lexer<'a> {
     /// Produce the next token from the input.
     ///
     /// Returns `Ok(None)` when the input is exhausted.
-    pub fn next_token(&mut self) -> Result<Option<Token<'a>>, LoxError> {
+    pub fn next_token(&mut self) -> Result<Token<'a>, LoxError> {
         self.skip_whitespace();
 
         self.start = self.current;
 
         if self.is_at_end() {
-            return Ok(None);
+            return Ok(self.make_token(TokenKind::Eof));
         }
 
         let c = self.consume();
 
         match c {
-            '(' => Ok(Some(self.make_token(TokenKind::LeftParen))),
-            ')' => Ok(Some(self.make_token(TokenKind::RightParen))),
-            '{' => Ok(Some(self.make_token(TokenKind::LeftBrace))),
-            '}' => Ok(Some(self.make_token(TokenKind::RightBrace))),
-            ';' => Ok(Some(self.make_token(TokenKind::Semicolon))),
-            ',' => Ok(Some(self.make_token(TokenKind::Comma))),
-            '.' => Ok(Some(self.make_token(TokenKind::Dot))),
-            '-' => Ok(Some(self.make_token(TokenKind::Minus))),
-            '+' => Ok(Some(self.make_token(TokenKind::Plus))),
-            '/' => Ok(Some(self.make_token(TokenKind::Slash))),
-            '*' => Ok(Some(self.make_token(TokenKind::Star))),
+            '(' => Ok(self.make_token(TokenKind::LeftParen)),
+            ')' => Ok(self.make_token(TokenKind::RightParen)),
+            '{' => Ok(self.make_token(TokenKind::LeftBrace)),
+            '}' => Ok(self.make_token(TokenKind::RightBrace)),
+            ';' => Ok(self.make_token(TokenKind::Semicolon)),
+            ',' => Ok(self.make_token(TokenKind::Comma)),
+            '.' => Ok(self.make_token(TokenKind::Dot)),
+            '-' => Ok(self.make_token(TokenKind::Minus)),
+            '+' => Ok(self.make_token(TokenKind::Plus)),
+            '/' => Ok(self.make_token(TokenKind::Slash)),
+            '*' => Ok(self.make_token(TokenKind::Star)),
             '!' => {
                 if self.consume_if_matches('=') {
-                    Ok(Some(self.make_token(TokenKind::BangEqual)))
+                    Ok(self.make_token(TokenKind::BangEqual))
                 } else {
-                    Ok(Some(self.make_token(TokenKind::Bang)))
+                    Ok(self.make_token(TokenKind::Bang))
                 }
             }
             '=' => {
                 if self.consume_if_matches('=') {
-                    Ok(Some(self.make_token(TokenKind::EqualEqual)))
+                    Ok(self.make_token(TokenKind::EqualEqual))
                 } else {
-                    Ok(Some(self.make_token(TokenKind::Equal)))
+                    Ok(self.make_token(TokenKind::Equal))
                 }
             }
             '<' => {
                 if self.consume_if_matches('=') {
-                    Ok(Some(self.make_token(TokenKind::LessEqual)))
+                    Ok(self.make_token(TokenKind::LessEqual))
                 } else {
-                    Ok(Some(self.make_token(TokenKind::Less)))
+                    Ok(self.make_token(TokenKind::Less))
                 }
             }
             '>' => {
                 if self.consume_if_matches('=') {
-                    Ok(Some(self.make_token(TokenKind::GreaterEqual)))
+                    Ok(self.make_token(TokenKind::GreaterEqual))
                 } else {
-                    Ok(Some(self.make_token(TokenKind::Greater)))
+                    Ok(self.make_token(TokenKind::Greater))
                 }
             }
             '"' => {
@@ -152,7 +161,7 @@ impl<'a> Lexer<'a> {
                     Err(LoxError::UnterminatedString)
                 } else {
                     self.consume();
-                    Ok(Some(self.make_token(TokenKind::String)))
+                    Ok(self.make_token(TokenKind::String))
                 }
             }
             '0'..='9' => {
@@ -170,7 +179,7 @@ impl<'a> Lexer<'a> {
                         self.consume();
                     }
                 }
-                Ok(Some(self.make_token(TokenKind::Number)))
+                Ok(self.make_token(TokenKind::Number))
             }
             'a'..='z' | 'A'..='Z' | '_' => {
                 // char::is_ascii_alphanumeric + '_'
@@ -200,7 +209,7 @@ impl<'a> Lexer<'a> {
                     _ => TokenKind::Identifier,
                 };
 
-                Ok(Some(token))
+                Ok(token)
             }
 
             c => Err(LoxError::UnexpectedToken(c)),
@@ -297,13 +306,3 @@ impl<'a> Lexer<'a> {
         }
     }
 }
-
-impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token<'a>, LoxError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_token().transpose()
-    }
-}
-
-impl FusedIterator for Lexer<'_> {}

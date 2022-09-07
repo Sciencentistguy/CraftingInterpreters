@@ -8,11 +8,11 @@ use rustyline::{error::ReadlineError, Editor};
 use virtual_machine::VirtualMachine;
 
 mod chunk;
+mod compiler;
 mod debug;
 mod error;
 mod lexer;
 mod opcode;
-mod parser;
 mod value;
 mod virtual_machine;
 
@@ -44,17 +44,17 @@ fn repl() -> Result<(), LoxError> {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                println!("Line: {}", line);
+                // println!("Line: {}", line);
 
                 let mut vm = VirtualMachine::init(&line)?;
                 vm.start()?;
             }
             Err(ReadlineError::Interrupted) => {
-                println!("CTRL-C");
+                println!("Ctrl-C");
                 break;
             }
             Err(ReadlineError::Eof) => {
-                println!("CTRL-D");
+                println!("Ctrl-D");
                 break;
             }
             Err(err) => {

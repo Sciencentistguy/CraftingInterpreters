@@ -1,5 +1,5 @@
 use crate::{
-    chunk::Chunk, debug::Disassembler, error::LoxError, opcode::Opcode, parser::Parser,
+    chunk::Chunk, compiler::Parser, debug::Disassembler, error::LoxError, opcode::Opcode,
     value::Value,
 };
 
@@ -19,7 +19,9 @@ impl VirtualMachine {
     pub fn init(source: &str) -> Result<Self, LoxError> {
         let mut parser = Parser::new(source);
 
-        let chunk = parser.compile()?;
+        parser.compile()?;
+
+        let chunk = parser.finalise();
 
         Ok(VirtualMachine {
             program_counter: 0,
@@ -34,6 +36,8 @@ impl VirtualMachine {
 
             if DEBUG_TRACE_EXECUTION {
                 let mut debugger = Disassembler::new();
+
+                print!("Executing: ");
                 debugger.disassemble(
                     opcode,
                     self.program_counter,

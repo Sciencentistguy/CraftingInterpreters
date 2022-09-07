@@ -1,3 +1,5 @@
+use std::num::ParseFloatError;
+
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
@@ -20,8 +22,14 @@ pub enum LoxError {
     #[error("Lexer error: Encountered unterminated string literal")]
     UnterminatedString,
 
+    #[error("Syntax error [Line {line}]: {msg}")]
+    SyntaxError { line: usize, msg: String },
+
     #[error("Readline error: {0}")]
     ReadlineError(#[from] ReadlineError),
+
+    #[error("ParseFloat error: {0}")]
+    ParseFloatError(#[from] ParseFloatError),
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
