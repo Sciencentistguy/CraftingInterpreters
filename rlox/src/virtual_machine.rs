@@ -82,6 +82,37 @@ impl VirtualMachine {
 
                     self.stack.push(a.div(&b)?);
                 }
+                Opcode::Nil => {
+                    self.stack.push(Value::Nil);
+                }
+                Opcode::True => {
+                    self.stack.push(Value::Boolean(true));
+                }
+                Opcode::False => {
+                    self.stack.push(Value::Boolean(false));
+                }
+                Opcode::Not => {
+                    let a = self.stack.pop().expect("stack should not be empty");
+                    self.stack.push(a.not());
+                }
+                Opcode::Equal => {
+                    let b = self.stack.pop().expect("stack should not be empty");
+                    let a = self.stack.pop().expect("stack should not be empty");
+
+                    self.stack.push(Value::Boolean(a.eq(&b)));
+                }
+                Opcode::Greater => {
+                    let b = self.stack.pop().expect("stack should not be empty");
+                    let a = self.stack.pop().expect("stack should not be empty");
+
+                    self.stack.push(Value::Boolean(a.gt(&b)));
+                }
+                Opcode::Less => {
+                    let b = self.stack.pop().expect("stack should not be empty");
+                    let a = self.stack.pop().expect("stack should not be empty");
+
+                    self.stack.push(Value::Boolean(a.lt(&b)));
+                }
             }
 
             self.program_counter += 1;

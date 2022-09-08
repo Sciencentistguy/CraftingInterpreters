@@ -3,14 +3,12 @@ use std::num::ParseFloatError;
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
-use crate::value::ValueKind;
-
 #[derive(Debug, Error)]
 pub enum LoxError {
     #[error("Runtime error: Type error: Expected '{expected}', found '{actual}'")]
     TypeError {
-        expected: ValueKind,
-        actual: ValueKind,
+        expected: &'static str,
+        actual: &'static str,
     },
 
     #[error("Runtime error: Attempted to divide by zero")]
@@ -21,6 +19,9 @@ pub enum LoxError {
 
     #[error("Lexer error: Encountered unterminated string literal")]
     UnterminatedString,
+
+    #[error("Runtime error: {0}")]
+    RuntimeError(String),
 
     #[error("Syntax error [Line {line}]: {msg}")]
     SyntaxError { line: usize, msg: String },

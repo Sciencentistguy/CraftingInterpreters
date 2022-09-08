@@ -49,7 +49,7 @@ impl<'a> Parser<'a> {
     fn advance(&mut self) -> Result<(), LoxError> {
         std::mem::swap(&mut self.current, &mut self.previous);
 
-        let token = dbg!(self.lexer.next_token()?);
+        let token = self.lexer.next_token()?;
 
         self.current = token;
 
@@ -151,6 +151,7 @@ impl<'a> Parser<'a> {
         // token
         match kind {
             TokenKind::Minus => self.emit(Opcode::Negate),
+            TokenKind::Bang => self.emit(Opcode::Not),
 
             _ => unreachable!("'-' is the only unary operator"),
         }
@@ -162,7 +163,6 @@ impl<'a> Parser<'a> {
     ///
     /// This is the core of the Pratt parser.
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), LoxError> {
-        dbg!(precedence);
         self.advance()?;
         let prefix_rule = parse_rule(self.previous.kind).prefix;
 
@@ -195,7 +195,36 @@ impl<'a> Parser<'a> {
             TokenKind::Slash => self.emit(Opcode::Divide),
             TokenKind::Star => self.emit(Opcode::Multiply),
 
+            TokenKind::EqualEqual => self.emit(Opcode::Equal),
+            TokenKind::BangEqual => {
+                self.emit(Opcode::Equal);
+                self.emit(Opcode::Not);
+            }
+
+            TokenKind::Greater => self.emit(Opcode::Greater),
+            TokenKind::GreaterEqual => {
+                self.emit(Opcode::Less);
+                self.emit(Opcode::Not);
+            }
+            TokenKind::Less => self.emit(Opcode::Less),
+            TokenKind::LessEqual => {
+                self.emit(Opcode::Greater);
+                self.emit(Opcode::Not);
+            }
+
             _ => unreachable!("All binary ops are covered"),
+        }
+
+        Ok(())
+    }
+
+    fn literal(&mut self) -> Result<(), LoxError> {
+        match self.previous.kind {
+            TokenKind::False => self.emit(Opcode::False),
+            TokenKind::True => self.emit(Opcode::True),
+            TokenKind::Nil => self.emit(Opcode::Nil),
+
+            _ => unreachable!("All literal tokens are covered"),
         }
 
         Ok(())
@@ -279,7 +308,7 @@ impl ParseFn {
             ParseFn::Unary => parser.unary(),
             ParseFn::Binary => parser.binary(),
             ParseFn::Number => parser.number(),
-            ParseFn::Literal => todo!(),
+            ParseFn::Literal => parser.literal(),
             ParseFn::String => todo!(),
             ParseFn::Variable => todo!(),
             ParseFn::And => todo!(),
@@ -356,14 +385,14 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
             precedence: Precedence::Factor,
         },
         TokenKind::Bang => ParseRule {
-            prefix: None,
+            prefix: Some(ParseFn::Unary),
             infix: None,
             precedence: Precedence::None,
         },
         TokenKind::BangEqual => ParseRule {
             prefix: None,
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::Binary),
+            precedence: Precedence::Equality,
         },
         TokenKind::Equal => ParseRule {
             prefix: None,
@@ -372,28 +401,28 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
         },
         TokenKind::EqualEqual => ParseRule {
             prefix: None,
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::Binary),
+            precedence: Precedence::Equality,
         },
         TokenKind::Greater => ParseRule {
             prefix: None,
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::Binary),
+            precedence: Precedence::Comparison,
         },
         TokenKind::GreaterEqual => ParseRule {
             prefix: None,
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::Binary),
+            precedence: Precedence::Comparison,
         },
         TokenKind::Less => ParseRule {
             prefix: None,
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::Binary),
+            precedence: Precedence::Comparison,
         },
         TokenKind::LessEqual => ParseRule {
             prefix: None,
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::Binary),
+            precedence: Precedence::Comparison,
         },
         TokenKind::Identifier => ParseRule {
             prefix: None,
@@ -426,7 +455,7 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
             precedence: Precedence::None,
         },
         TokenKind::False => ParseRule {
-            prefix: None,
+            prefix: Some(ParseFn::Literal),
             infix: None,
             precedence: Precedence::None,
         },
@@ -446,7 +475,7 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
             precedence: Precedence::None,
         },
         TokenKind::Nil => ParseRule {
-            prefix: None,
+            prefix: Some(ParseFn::Literal),
             infix: None,
             precedence: Precedence::None,
         },
@@ -476,7 +505,7 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
             precedence: Precedence::None,
         },
         TokenKind::True => ParseRule {
-            prefix: None,
+            prefix: Some(ParseFn::Literal),
             infix: None,
             precedence: Precedence::None,
         },

@@ -44,10 +44,18 @@ fn repl() -> Result<(), LoxError> {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                // println!("Line: {}", line);
 
-                let mut vm = VirtualMachine::init(&line)?;
-                vm.start()?;
+                let mut vm = match VirtualMachine::init(&line) {
+                    Ok(vm) => vm,
+                    Err(err) => {
+                        eprintln!("{err}");
+                        continue;
+                    }
+                };
+
+                if let Err(err) = vm.start() {
+                    eprintln!("{err}");
+                }
             }
             Err(ReadlineError::Interrupted) => {
                 println!("Ctrl-C");

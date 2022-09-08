@@ -7,8 +7,6 @@
 //!
 //! A number literal may contain a decimal sectiom e.g. `1` *or* `1.0`
 
-use std::iter::FusedIterator;
-
 use bstr::{BStr, ByteSlice};
 
 use crate::error::LoxError;

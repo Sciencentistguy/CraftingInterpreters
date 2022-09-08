@@ -55,6 +55,34 @@ impl Disassembler {
             Opcode::Divide => {
                 println!("Divide");
             }
+
+            Opcode::Nil => {
+                println!("Nil");
+            }
+
+            Opcode::True => {
+                println!("True");
+            }
+
+            Opcode::False => {
+                println!("False");
+            }
+
+            Opcode::Not => {
+                println!("Not");
+            }
+
+            Opcode::Equal => {
+                println!("Equal");
+            }
+
+            Opcode::Greater => {
+                println!("Greater");
+            }
+
+            Opcode::Less => {
+                println!("Less");
+            }
         }
     }
 
