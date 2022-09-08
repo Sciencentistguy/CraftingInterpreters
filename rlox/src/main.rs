@@ -51,13 +51,17 @@ fn repl() -> Result<(), LoxError> {
 
     let mut vm = VirtualMachine::new();
 
+    let mut line = 0;
+
     loop {
         let readline = rl.readline(">> ");
         match readline {
-            Ok(line) => {
-                rl.add_history_entry(line.as_str());
+            Ok(source) => {
+                rl.add_history_entry(source.as_str());
 
-                if let Err(err) = vm.reset(&line) {
+                line += 1;
+
+                if let Err(err) = vm.reset(&source, line - 1) {
                     eprintln!("{err}");
                     continue;
                 }
@@ -68,7 +72,7 @@ fn repl() -> Result<(), LoxError> {
             }
             Err(ReadlineError::Interrupted) => {
                 println!("Ctrl-C");
-                break;
+                continue;
             }
             Err(ReadlineError::Eof) => {
                 println!("Ctrl-D");
@@ -89,7 +93,7 @@ fn file(path: &Path) -> Result<(), LoxError> {
 
     let mut vm = VirtualMachine::new();
 
-    vm.reset(&source)?;
+    vm.reset(&source, 0)?;
 
     vm.start()
 }

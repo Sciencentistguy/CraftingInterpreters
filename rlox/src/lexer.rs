@@ -94,6 +94,15 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    pub fn with_line(source: &'a str, line: usize) -> Self {
+        Self {
+            source: source.as_bytes().as_bstr(),
+            start: 0,
+            current: 0,
+            line,
+        }
+    }
+
     /// Produce the next token from the input.
     ///
     /// Returns `Ok(None)` when the input is exhausted.

@@ -1,6 +1,10 @@
+use std::collections::{hash_map::Entry, HashMap};
+
+use string_interner::symbol::SymbolUsize;
+
 use crate::{
     chunk::Chunk, compiler::Parser, debug::Disassembler, error::LoxError, opcode::Opcode,
-    value::Value,
+    value::Value, INTERNER,
 };
 
 struct Uninit;
@@ -10,6 +14,7 @@ struct Init;
 pub struct VirtualMachine {
     program_counter: usize,
     stack: Vec<Value>,
+    globals: HashMap<SymbolUsize, Value>,
     current_chunk: Chunk,
 }
 
@@ -20,12 +25,13 @@ impl VirtualMachine {
         Self {
             program_counter: 0,
             stack: Vec::new(),
+            globals: HashMap::new(),
             current_chunk: Chunk::default(),
         }
     }
 
-    pub fn reset(&mut self, source: &str) -> Result<(), LoxError> {
-        let mut parser = Parser::new(source);
+    pub fn reset(&mut self, source: &str, line: usize) -> Result<(), LoxError> {
+        let mut parser = Parser::with_line(source, line);
 
         parser.compile()?;
 
@@ -54,7 +60,7 @@ impl VirtualMachine {
 
             match opcode {
                 Opcode::Return => {
-                    println!("{}", self.stack.pop().expect("stack should not be empty"));
+                    // Exit interpreter
                     return Ok(());
                 }
                 Opcode::Constant(constant) => {
@@ -119,6 +125,38 @@ impl VirtualMachine {
 
                     self.stack.push(Value::Boolean(a.lt(&b)));
                 }
+                Opcode::Print => {
+                    println!("{}", self.stack.pop().expect("stack should not be empty"));
+                }
+                Opcode::Pop => {
+                    self.stack.pop().expect("stack should not be empty");
+                }
+                Opcode::DefineGlobal(name) => {
+                    self.globals
+                        .insert(*name, self.stack.pop().expect("stack should not be empty"));
+                }
+                Opcode::GetGlobal(name) => {
+                    let val = self.globals.get(name).cloned().ok_or_else(|| {
+                        let interner = INTERNER.lock();
+                        LoxError::UndefinedVariable(interner.resolve(*name).unwrap().to_owned())
+                    })?;
+                    self.stack.push(val);
+                }
+                Opcode::SetGlobal(name) => match self.globals.get_mut(name) {
+                    Some(x) => {
+                        *x = self
+                            .stack
+                            .last()
+                            .cloned()
+                            .expect("stack should not be empty");
+                    }
+                    None => {
+                        let interner = INTERNER.lock();
+                        return Err(LoxError::UndefinedVariable(
+                            interner.resolve(*name).unwrap().to_owned(),
+                        ));
+                    }
+                },
             }
 
             self.program_counter += 1;

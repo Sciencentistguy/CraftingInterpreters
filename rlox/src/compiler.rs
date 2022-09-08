@@ -27,6 +27,15 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn with_line(source: &'a str, line: usize) -> Self {
+        Self {
+            lexer: Lexer::with_line(source, line),
+            chunk: Chunk::default(),
+            previous: Token::NULL,
+            current: Token::NULL,
+        }
+    }
+
     /// Extract the completed chunk
     pub fn finalise(self) -> Chunk {
         self.chunk
@@ -102,6 +111,18 @@ impl<'a> Parser<'a> {
             self.current_chunk_mut().disassemble("code");
         }
     }
+
+    fn matches(&mut self, kind: TokenKind) -> Result<bool, LoxError> {
+        if !self.check(kind) {
+            return Ok(false);
+        }
+        self.advance()?;
+        Ok(true)
+    }
+
+    fn check(&self, kind: TokenKind) -> bool {
+        self.current.kind == kind
+    }
 }
 
 impl<'a> Parser<'a> {
@@ -109,12 +130,71 @@ impl<'a> Parser<'a> {
     pub fn compile(&mut self) -> Result<(), LoxError> {
         self.advance()?;
 
-        self.expression()?;
+        while !self.matches(TokenKind::Eof)? {
+            self.declaration()?;
+        }
 
         self.consume(TokenKind::Eof, "Expected end of expression".to_owned())?;
 
         self.end_compiler();
 
+        Ok(())
+    }
+
+    fn declaration(&mut self) -> Result<(), LoxError> {
+        if self.matches(TokenKind::Var)? {
+            self.variable_declaration()?;
+        } else {
+            self.statement()?;
+        }
+
+        Ok(())
+    }
+
+    fn variable_declaration(&mut self) -> Result<(), LoxError> {
+        self.consume(
+            TokenKind::Identifier,
+            "Expected a variable name after `var`".to_owned(),
+        )?;
+        let name = self.previous.span;
+        let name = INTERNER.lock().get_or_intern(name);
+
+        if self.matches(TokenKind::Equal)? {
+            self.expression()?;
+        } else {
+            self.emit(Opcode::Nil);
+        }
+
+        self.consume(
+            TokenKind::Semicolon,
+            "Expected ';' after variable declaration".to_owned(),
+        )?;
+
+        self.emit(Opcode::DefineGlobal(name));
+
+        Ok(())
+    }
+
+    fn statement(&mut self) -> Result<(), LoxError> {
+        if self.matches(TokenKind::Print)? {
+            self.print_statement()?;
+        } else {
+            self.expression_statement()?;
+        }
+
+        Ok(())
+    }
+
+    fn print_statement(&mut self) -> Result<(), LoxError> {
+        self.expression()?;
+        self.consume(TokenKind::Semicolon, "Expected ';' after value".to_owned())?;
+        self.emit(Opcode::Print);
+        Ok(())
+    }
+    fn expression_statement(&mut self) -> Result<(), LoxError> {
+        self.expression()?;
+        self.consume(TokenKind::Semicolon, "Expected ';' after value".to_owned())?;
+        self.emit(Opcode::Pop);
         Ok(())
     }
 
@@ -166,9 +246,10 @@ impl<'a> Parser<'a> {
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), LoxError> {
         self.advance()?;
         let prefix_rule = parse_rule(self.previous.kind).prefix;
+        let can_assign = precedence.can_assign();
 
         if let Some(prefix_rule) = prefix_rule {
-            prefix_rule.call(self)?;
+            prefix_rule.call(self, can_assign)?;
         } else {
             return Err(self.error(ErrorLocation::Previous, "Expected expression".to_owned()));
         }
@@ -177,7 +258,7 @@ impl<'a> Parser<'a> {
             self.advance()?;
             let infix_rule = parse_rule(self.previous.kind).infix;
             // clox omits the null check, so unwrap
-            infix_rule.unwrap().call(self)?;
+            infix_rule.unwrap().call(self, can_assign)?;
         }
 
         Ok(())
@@ -241,6 +322,24 @@ impl<'a> Parser<'a> {
 
         Ok(())
     }
+
+    fn variable(&mut self, can_assign: bool) -> Result<(), LoxError> {
+        self.named_variable(can_assign)
+    }
+
+    fn named_variable(&mut self, can_assign: bool) -> Result<(), LoxError> {
+        let name = self.previous.span;
+        let name = INTERNER.lock().get_or_intern(name);
+
+        if can_assign && self.matches(TokenKind::Equal)? {
+            self.expression()?;
+            self.emit(Opcode::SetGlobal(name));
+        } else {
+            self.emit(Opcode::GetGlobal(name));
+        }
+
+        Ok(())
+    }
 }
 
 /// Marker for which token (previous or current) to use when reporting an error.
@@ -295,6 +394,10 @@ impl Precedence {
             Precedence::Primary => unreachable!("Primary has no next precedence"),
         }
     }
+
+    fn can_assign(&self) -> bool {
+        self <= &Self::Assignment
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -314,7 +417,7 @@ enum ParseFn {
 impl ParseFn {
     /// Dispatch to the correct compilation method. A trick to avoid storing strust methods as
     /// function pointers, which is a pain in Rust.
-    fn call(self, parser: &mut Parser) -> Result<(), LoxError> {
+    fn call(self, parser: &mut Parser, can_assign: bool) -> Result<(), LoxError> {
         match self {
             ParseFn::Grouping => parser.grouping(),
             ParseFn::Unary => parser.unary(),
@@ -322,7 +425,7 @@ impl ParseFn {
             ParseFn::Number => parser.number(),
             ParseFn::Literal => parser.literal(),
             ParseFn::String => parser.string(),
-            ParseFn::Variable => todo!(),
+            ParseFn::Variable => parser.variable(can_assign),
             ParseFn::And => todo!(),
             ParseFn::Or => todo!(),
             ParseFn::Call => todo!(),
@@ -437,7 +540,7 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
             precedence: Precedence::Comparison,
         },
         TokenKind::Identifier => ParseRule {
-            prefix: None,
+            prefix: Some(ParseFn::Variable),
             infix: None,
             precedence: Precedence::None,
         },

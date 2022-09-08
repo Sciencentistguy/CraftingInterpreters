@@ -1,4 +1,4 @@
-use crate::opcode::Opcode;
+use crate::{opcode::Opcode, INTERNER};
 
 pub struct Disassembler {
     last_line: Option<usize>,
@@ -82,6 +82,32 @@ impl Disassembler {
 
             Opcode::Less => {
                 println!("Less");
+            }
+
+            Opcode::Print => {
+                println!("Print");
+            }
+
+            Opcode::Pop => {
+                println!("Pop");
+            }
+
+            Opcode::DefineGlobal(value) => {
+                let interner = INTERNER.lock();
+                let value = interner.resolve(*value).unwrap();
+                println!("DefineGlobal\t{value}");
+            }
+
+            Opcode::GetGlobal(value) => {
+                let interner = INTERNER.lock();
+                let value = interner.resolve(*value).unwrap();
+                println!("GetGlobal\t{value}");
+            }
+
+            Opcode::SetGlobal(value) => {
+                let interner = INTERNER.lock();
+                let value = interner.resolve(*value).unwrap();
+                println!("SetGlobal\t{value}");
             }
         }
     }

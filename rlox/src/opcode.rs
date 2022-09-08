@@ -1,3 +1,5 @@
+use string_interner::symbol::SymbolUsize;
+
 use crate::value::Value;
 
 #[derive(Debug)]
@@ -20,4 +22,11 @@ pub enum Opcode {
     Equal,
     Greater,
     Less,
+
+    Print,
+    Pop,
+
+    DefineGlobal(SymbolUsize),
+    GetGlobal(SymbolUsize),
+    SetGlobal(SymbolUsize),
 }
