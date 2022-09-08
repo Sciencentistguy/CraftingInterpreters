@@ -1,6 +1,7 @@
 use std::num::ParseFloatError;
 
 use rustyline::error::ReadlineError;
+use string_interner::symbol::SymbolUsize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -34,4 +35,7 @@ pub enum LoxError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Failed to resolve string")]
+    MissingString(SymbolUsize),
 }

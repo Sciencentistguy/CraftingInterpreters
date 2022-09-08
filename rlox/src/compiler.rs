@@ -4,6 +4,7 @@ use crate::{
     lexer::{Lexer, Token, TokenKind},
     opcode::Opcode,
     value::Value,
+    INTERNER,
 };
 
 /// Disassemble the chunk once it is compiled
@@ -229,6 +230,17 @@ impl<'a> Parser<'a> {
 
         Ok(())
     }
+
+    fn string(&mut self) -> Result<(), LoxError> {
+        let span = self.previous.span;
+        let span = &span[1..];
+        let span = &span[..span.len() - 1];
+        let value = Value::String(INTERNER.lock().get_or_intern(span));
+
+        self.emit(Opcode::Constant(value));
+
+        Ok(())
+    }
 }
 
 /// Marker for which token (previous or current) to use when reporting an error.
@@ -309,7 +321,7 @@ impl ParseFn {
             ParseFn::Binary => parser.binary(),
             ParseFn::Number => parser.number(),
             ParseFn::Literal => parser.literal(),
-            ParseFn::String => todo!(),
+            ParseFn::String => parser.string(),
             ParseFn::Variable => todo!(),
             ParseFn::And => todo!(),
             ParseFn::Or => todo!(),
@@ -430,7 +442,7 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
             precedence: Precedence::None,
         },
         TokenKind::String => ParseRule {
-            prefix: None,
+            prefix: Some(ParseFn::String),
             infix: None,
             precedence: Precedence::None,
         },

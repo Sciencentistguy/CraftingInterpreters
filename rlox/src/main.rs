@@ -1,10 +1,16 @@
 #![allow(dead_code)]
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use clap::Parser;
 use error::LoxError;
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use rustyline::{error::ReadlineError, Editor};
+use string_interner::{backend::BufferBackend, symbol::SymbolUsize, StringInterner};
 use virtual_machine::VirtualMachine;
 
 mod chunk;
@@ -15,6 +21,10 @@ mod lexer;
 mod opcode;
 mod value;
 mod virtual_machine;
+
+type Interner = StringInterner<BufferBackend<SymbolUsize>>;
+
+static INTERNER: Lazy<Arc<Mutex<Interner>>> = Lazy::new(|| Arc::new(Mutex::new(Interner::new())));
 
 #[derive(Parser, Debug)]
 struct Opt {
@@ -39,19 +49,18 @@ fn repl() -> Result<(), LoxError> {
         println!("No previous history.");
     }
 
+    let mut vm = VirtualMachine::new();
+
     loop {
         let readline = rl.readline(">> ");
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
 
-                let mut vm = match VirtualMachine::init(&line) {
-                    Ok(vm) => vm,
-                    Err(err) => {
-                        eprintln!("{err}");
-                        continue;
-                    }
-                };
+                if let Err(err) = vm.reset(&line) {
+                    eprintln!("{err}");
+                    continue;
+                }
 
                 if let Err(err) = vm.start() {
                     eprintln!("{err}");
@@ -78,7 +87,9 @@ fn repl() -> Result<(), LoxError> {
 fn file(path: &Path) -> Result<(), LoxError> {
     let source = std::fs::read_to_string(path)?;
 
-    let mut vm = VirtualMachine::init(&source)?;
+    let mut vm = VirtualMachine::new();
+
+    vm.reset(&source)?;
 
     vm.start()
 }

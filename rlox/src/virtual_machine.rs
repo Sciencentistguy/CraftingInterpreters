@@ -16,18 +16,24 @@ pub struct VirtualMachine {
 const DEBUG_TRACE_EXECUTION: bool = true;
 
 impl VirtualMachine {
-    pub fn init(source: &str) -> Result<Self, LoxError> {
+    pub fn new() -> Self {
+        Self {
+            program_counter: 0,
+            stack: Vec::new(),
+            current_chunk: Chunk::default(),
+        }
+    }
+
+    pub fn reset(&mut self, source: &str) -> Result<(), LoxError> {
         let mut parser = Parser::new(source);
 
         parser.compile()?;
 
-        let chunk = parser.finalise();
+        self.program_counter = 0;
+        self.stack.clear();
+        self.current_chunk = parser.finalise();
 
-        Ok(VirtualMachine {
-            program_counter: 0,
-            stack: Vec::new(),
-            current_chunk: chunk,
-        })
+        Ok(())
     }
 
     pub fn start(&mut self) -> Result<(), LoxError> {
