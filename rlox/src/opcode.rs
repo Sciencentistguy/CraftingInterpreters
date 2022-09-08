@@ -29,4 +29,7 @@ pub enum Opcode {
     DefineGlobal(SymbolUsize),
     GetGlobal(SymbolUsize),
     SetGlobal(SymbolUsize),
+
+    GetLocal(usize),
+    SetLocal(usize),
 }

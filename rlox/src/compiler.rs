@@ -1,3 +1,5 @@
+use string_interner::symbol::SymbolUsize;
+
 use crate::{
     chunk::Chunk,
     error::LoxError,
@@ -15,6 +17,12 @@ pub struct Parser<'a> {
     chunk: Chunk,
     previous: Token<'a>,
     current: Token<'a>,
+    compiler: Compiler,
+}
+
+struct Compiler {
+    locals: Vec<Local>,
+    scope_depth: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -24,6 +32,7 @@ impl<'a> Parser<'a> {
             chunk: Chunk::default(),
             previous: Token::NULL,
             current: Token::NULL,
+            compiler: Compiler::new(0),
         }
     }
 
@@ -33,6 +42,7 @@ impl<'a> Parser<'a> {
             chunk: Chunk::default(),
             previous: Token::NULL,
             current: Token::NULL,
+            compiler: Compiler::new(0),
         }
     }
 
@@ -123,6 +133,28 @@ impl<'a> Parser<'a> {
     fn check(&self, kind: TokenKind) -> bool {
         self.current.kind == kind
     }
+
+    fn begin_scope(&mut self) {
+        self.compiler.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) {
+        self.compiler
+            .scope_depth
+            .checked_sub(1)
+            .expect("Internal error: went into negative scope");
+
+        while self
+            .compiler
+            .locals
+            .last()
+            .map(|x| x.depth.unwrap() > self.compiler.scope_depth)
+            .unwrap_or(false)
+        {
+            self.emit(Opcode::Pop);
+            self.compiler.locals.pop();
+        }
+    }
 }
 
 impl<'a> Parser<'a> {
@@ -152,12 +184,7 @@ impl<'a> Parser<'a> {
     }
 
     fn variable_declaration(&mut self) -> Result<(), LoxError> {
-        self.consume(
-            TokenKind::Identifier,
-            "Expected a variable name after `var`".to_owned(),
-        )?;
-        let name = self.previous.span;
-        let name = INTERNER.lock().get_or_intern(name);
+        let name = self.parse_variable("Expected a variable name after `var`".to_owned())?;
 
         if self.matches(TokenKind::Equal)? {
             self.expression()?;
@@ -170,17 +197,80 @@ impl<'a> Parser<'a> {
             "Expected ';' after variable declaration".to_owned(),
         )?;
 
-        self.emit(Opcode::DefineGlobal(name));
+        if let Some(name) = name {
+            self.emit(Opcode::DefineGlobal(name));
+        } else {
+            self.compiler.locals.last_mut().unwrap().depth = Some(self.compiler.scope_depth);
+        }
 
         Ok(())
+    }
+
+    /// Returns Some(name) if the variable is global, else None
+    fn parse_variable(&mut self, msg: String) -> Result<Option<SymbolUsize>, LoxError> {
+        self.consume(TokenKind::Identifier, msg)?;
+
+        self.declare_variable()?;
+
+        if self.compiler.scope_depth != 0 {
+            return Ok(None);
+        }
+
+        let name = self.previous.span;
+        let name = INTERNER.lock().get_or_intern(name);
+        Ok(Some(name))
+    }
+
+    fn declare_variable(&mut self) -> Result<(), LoxError> {
+        if self.compiler.scope_depth == 0 {
+            return Ok(());
+        }
+
+        let name = self.previous.span;
+        let name = INTERNER.lock().get_or_intern(name);
+
+        for local in self.compiler.locals.iter().rev() {
+            if local.is_defined() && local.depth < Some(self.compiler.scope_depth) {
+                break;
+            }
+
+            if local.name == name {
+                return Err(self.error(
+                    ErrorLocation::Previous,
+                    "Already a variable with this name in this scope".to_owned(),
+                ));
+            }
+        }
+
+        self.add_local(name);
+
+        Ok(())
+    }
+
+    fn add_local(&mut self, name: SymbolUsize) {
+        self.compiler.locals.push(Local { name, depth: None });
     }
 
     fn statement(&mut self) -> Result<(), LoxError> {
         if self.matches(TokenKind::Print)? {
             self.print_statement()?;
+        } else if self.matches(TokenKind::LeftBrace)? {
+            self.begin_scope();
+            self.block()?;
+            self.end_scope();
         } else {
             self.expression_statement()?;
         }
+
+        Ok(())
+    }
+
+    fn block(&mut self) -> Result<(), LoxError> {
+        while !self.check(TokenKind::RightBrace) && !self.check(TokenKind::Eof) {
+            self.declaration()?;
+        }
+
+        self.consume(TokenKind::RightBrace, "Expected '}' after block".to_owned())?;
 
         Ok(())
     }
@@ -331,14 +421,61 @@ impl<'a> Parser<'a> {
         let name = self.previous.span;
         let name = INTERNER.lock().get_or_intern(name);
 
+        let get_op;
+        let set_op;
+
+        let arg = self.resolve_local(name)?;
+
+        if let Some(arg) = arg {
+            get_op = Opcode::GetLocal(arg);
+            set_op = Opcode::SetLocal(arg);
+        } else {
+            get_op = Opcode::GetGlobal(name);
+            set_op = Opcode::SetGlobal(name);
+        }
+
         if can_assign && self.matches(TokenKind::Equal)? {
             self.expression()?;
-            self.emit(Opcode::SetGlobal(name));
+            self.emit(set_op);
         } else {
-            self.emit(Opcode::GetGlobal(name));
+            self.emit(get_op);
         }
 
         Ok(())
+    }
+
+    fn resolve_local(&mut self, name: SymbolUsize) -> Result<Option<usize>, LoxError> {
+        for (i, local) in self.compiler.locals.iter().enumerate().rev() {
+            {
+                let interner = INTERNER.lock();
+                let local_name = interner.resolve(local.name).unwrap();
+                dbg!(local_name);
+                let passed_name = interner.resolve(name).unwrap();
+                dbg!(passed_name);
+            }
+            if local.name == name {
+                eprintln!("so got in");
+                if local.depth.is_none() {
+                    return Err(self.error(
+                        ErrorLocation::Previous,
+                        "Cannot read local variable in its own initializer".to_owned(),
+                    ));
+                }
+
+                return Ok(Some(i));
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+impl Compiler {
+    fn new(scope_depth: usize) -> Self {
+        Self {
+            locals: Vec::new(),
+            scope_depth,
+        }
     }
 }
 
@@ -437,6 +574,11 @@ struct ParseRule {
     prefix: Option<ParseFn>,
     infix: Option<ParseFn>,
     precedence: Precedence,
+}
+
+struct Local {
+    name: SymbolUsize,
+    depth: Option<usize>,
 }
 
 /// The main Pratt parser lookup table.
@@ -646,5 +788,11 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
             infix: None,
             precedence: Precedence::None,
         },
+    }
+}
+
+impl Local {
+    fn is_defined(&self) -> bool {
+        self.depth.is_some()
     }
 }

@@ -109,6 +109,14 @@ impl Disassembler {
                 let value = interner.resolve(*value).unwrap();
                 println!("SetGlobal\t{value}");
             }
+
+            Opcode::GetLocal(slot) => {
+                println!("GetLocal\t{slot}");
+            }
+            Opcode::SetLocal(slot) => {
+                println!("SetLocal\t{slot}");
+            }
+
         }
     }
 

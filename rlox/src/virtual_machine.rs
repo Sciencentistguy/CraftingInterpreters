@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashMap;
 
 use string_interner::symbol::SymbolUsize;
 
@@ -157,6 +157,16 @@ impl VirtualMachine {
                         ));
                     }
                 },
+                Opcode::GetLocal(slot) => {
+                    self.stack.push(self.stack[*slot].clone());
+                }
+                Opcode::SetLocal(slot) => {
+                    self.stack[*slot] = self
+                        .stack
+                        .last()
+                        .cloned()
+                        .expect("stack should not be empty");
+                }
             }
 
             self.program_counter += 1;
