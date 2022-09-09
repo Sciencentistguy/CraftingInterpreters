@@ -34,18 +34,17 @@ impl Value {
         }
     }
 
-    fn to_bool(&self) -> Value {
+    pub fn to_bool(&self) -> bool {
+        // I prefer it
+        #[allow(clippy::match_like_matches_macro)]
         match self {
-            Value::Boolean(false) | Value::Nil => Value::Boolean(false),
-            _ => Value::Boolean(true),
+            Value::Boolean(false) | Value::Nil => false,
+            _ => true,
         }
     }
 
     pub fn not(&self) -> Value {
-        match self.to_bool() {
-            Value::Boolean(a) => Value::Boolean(a.not()),
-            _ => unreachable!(),
-        }
+        Value::Boolean(self.to_bool().not())
     }
 
     pub fn add(&self, other: &Value) -> Result<Value, LoxError> {

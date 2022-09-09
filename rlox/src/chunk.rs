@@ -29,4 +29,8 @@ impl Chunk {
     pub fn lines(&self) -> &[usize] {
         self.lines.as_ref()
     }
+
+    pub fn code_mut(&mut self) -> &mut Vec<Opcode> {
+        &mut self.code
+    }
 }

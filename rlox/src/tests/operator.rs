@@ -1,4 +1,4 @@
-use crate::{check_error_msg, virtual_machine::VirtualMachine};
+use crate::virtual_machine::VirtualMachine;
 
 use super::Result;
 
@@ -76,9 +76,9 @@ fn divide_invalid_operands() -> Result<()> {
         vm.reset(program, 0)?;
         assert!(vm.start().is_err());
         // check_error_msg!(
-            // vm.start(),
-            // "<Runtime> [Line 0] Error: Operands to / must be two numbers",
-            // "Dividing two values together of incompatible types should be a runtime error."
+        // vm.start(),
+        // "<Runtime> [Line 0] Error: Operands to / must be two numbers",
+        // "Dividing two values together of incompatible types should be a runtime error."
         // );
     }
     Ok(())
@@ -174,9 +174,9 @@ fn multiply_invalid_operands() -> Result<()> {
         vm.reset(program, 0)?;
         assert!(vm.start().is_err());
         // check_error_msg!(
-            // vm.start(),
-            // "<Runtime> [Line 0] Error: Operands to * must be two numbers",
-            // "Multiplying two values together of incompatible types should be a runtime error."
+        // vm.start(),
+        // "<Runtime> [Line 0] Error: Operands to * must be two numbers",
+        // "Multiplying two values together of incompatible types should be a runtime error."
         // );
     }
     Ok(())
@@ -215,9 +215,9 @@ fn subtract_invalid_operands() -> Result<()> {
         vm.reset(program, 0)?;
         assert!(vm.start().is_err());
         // check_error_msg!(
-            // vm.start(),
-            // "<Runtime> [Line 0] Error: Operands to - must be two numbers",
-            // "Subtracting two values of incompatible types should be a runtime error."
+        // vm.start(),
+        // "<Runtime> [Line 0] Error: Operands to - must be two numbers",
+        // "Subtracting two values of incompatible types should be a runtime error."
         // );
     }
     Ok(())
@@ -242,9 +242,9 @@ fn less_than_invalid_operands() -> Result<()> {
         vm.reset(program, 0)?;
         assert!(vm.start().is_err());
         // check_error_msg!(
-            // vm.start(),
-            // "",
-            // "Comparing two values of incompatible types should be a runtime error."
+        // vm.start(),
+        // "",
+        // "Comparing two values of incompatible types should be a runtime error."
         // );
     }
     Ok(())
@@ -269,9 +269,9 @@ fn greater_than_invalid_operands() -> Result<()> {
         vm.reset(program, 0)?;
         assert!(vm.start().is_err());
         // check_error_msg!(
-            // vm.start(),
-            // "<Runtime> [Line 0] Error: Operands to > must be two numbers",
-            // "Comparing two values of incompatible types should be a runtime error."
+        // vm.start(),
+        // "<Runtime> [Line 0] Error: Operands to > must be two numbers",
+        // "Comparing two values of incompatible types should be a runtime error."
         // );
     }
     Ok(())
@@ -343,9 +343,9 @@ fn negate_invalid_operands() -> Result<()> {
         vm.reset(program, 0)?;
         assert!(vm.start().is_err());
         // check_error_msg!(
-            // vm.start(),
-            // "<Runtime> [Line 0] Error: Operand to unary negation must be a number.",
-            // "Negation of an invalid type is a runtime error."
+        // vm.start(),
+        // "<Runtime> [Line 0] Error: Operand to unary negation must be a number.",
+        // "Negation of an invalid type is a runtime error."
         // );
     }
     Ok(())

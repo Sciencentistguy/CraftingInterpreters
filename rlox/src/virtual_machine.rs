@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Not};
 
 use string_interner::symbol::SymbolUsize;
 
@@ -181,6 +181,20 @@ impl VirtualMachine {
                         .last()
                         .cloned()
                         .expect("stack should not be empty");
+                }
+                Opcode::JumpIfFalse(distance) => {
+                    if self
+                        .stack
+                        .last()
+                        .expect("stack should not be empty")
+                        .to_bool()
+                        .not()
+                    {
+                        self.program_counter += distance;
+                    }
+                }
+                Opcode::Jump(distance) => {
+                    self.program_counter += distance;
                 }
             }
 

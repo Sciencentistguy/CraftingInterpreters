@@ -254,6 +254,8 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> Result<(), LoxError> {
         if self.matches(TokenKind::Print)? {
             self.print_statement()?;
+        } else if self.matches(TokenKind::If)? {
+            self.if_statement()?;
         } else if self.matches(TokenKind::LeftBrace)? {
             self.begin_scope();
             self.block()?;
@@ -263,6 +265,66 @@ impl<'a> Parser<'a> {
         }
 
         Ok(())
+    }
+
+    fn if_statement(&mut self) -> Result<(), LoxError> {
+        self.consume(TokenKind::LeftParen, "Expected '(' after `if`".to_owned())?;
+        self.expression()?;
+        self.consume(
+            TokenKind::RightParen,
+            "Expected ')' after condition".to_owned(),
+        )?;
+
+        let then_jump = self.emit_jump(Opcode::JumpIfFalse(usize::MAX));
+
+        self.emit(Opcode::Pop);
+
+        self.statement()?;
+
+        let else_jump = self.emit_jump(Opcode::Jump(usize::MAX));
+
+        self.patch_jump(then_jump);
+
+        if self.matches(TokenKind::Else)? {
+            self.statement()?
+        }
+
+        self.patch_jump(else_jump);
+        
+/*
+ *             let else_jump = self.emit_jump(Opcode::Jump(usize::MAX));
+ * 
+ *             self.patch_jump(then_jump);
+ *             self.emit(Opcode::Pop);
+ * 
+ *             self.statement()?;
+ * 
+ *             self.patch_jump(else_jump);
+ *         } else {
+ *             self.patch_jump(then_jump);
+ *             self.emit(Opcode::Pop);
+ *         }
+ */
+
+        Ok(())
+    }
+
+    fn emit_jump(&mut self, opcode: Opcode) -> usize {
+        self.emit(opcode);
+        self.current_chunk_mut().code().len() - 1
+    }
+
+    fn patch_jump(&mut self, ptr: usize) {
+        let offset = self.current_chunk_mut().code().len() - ptr - 1;
+
+        let instruction = &mut self.current_chunk_mut().code_mut()[ptr];
+
+        match instruction {
+            Opcode::JumpIfFalse(x) => *x = offset,
+            Opcode::Jump(x) => *x = offset,
+
+            _ => unreachable!("Cannot patch non-jump instruction"),
+        }
     }
 
     fn block(&mut self) -> Result<(), LoxError> {
@@ -447,7 +509,6 @@ impl<'a> Parser<'a> {
     fn resolve_local(&mut self, name: SymbolUsize) -> Result<Option<usize>, LoxError> {
         for (i, local) in self.compiler.locals.iter().enumerate().rev() {
             if local.name == name {
-                eprintln!("so got in");
                 if local.depth.is_none() {
                     return Err(self.error(
                         ErrorLocation::Previous,

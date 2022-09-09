@@ -6,6 +6,7 @@ mod comment;
 mod expression;
 mod r#for;
 mod function;
+mod r#if;
 mod nil;
 mod number;
 mod operator;

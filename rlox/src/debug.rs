@@ -113,8 +113,16 @@ impl Disassembler {
             Opcode::GetLocal(slot) => {
                 println!("GetLocal\t{slot}");
             }
+
             Opcode::SetLocal(slot) => {
                 println!("SetLocal\t{slot}");
+            }
+
+            Opcode::JumpIfFalse(distance) => {
+                println!("JumpIfFalse\t{distance}");
+            }
+            Opcode::Jump(distance) => {
+                println!("Jump\t{distance}");
             }
 
         }

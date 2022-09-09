@@ -32,4 +32,6 @@ pub enum Opcode {
 
     GetLocal(usize),
     SetLocal(usize),
+    JumpIfFalse(usize),
+    Jump(usize),
 }
