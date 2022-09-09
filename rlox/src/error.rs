@@ -39,6 +39,6 @@ pub enum LoxError {
     #[error("Failed to resolve string")]
     MissingString(SymbolUsize),
 
-    #[error("Runtime error: Global variable  '{0}' not defined")]
+    #[error("Runtime error: Variable '{0}' not defined")]
     UndefinedVariable(String),
 }

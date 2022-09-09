@@ -92,7 +92,6 @@ impl Value {
 
     pub fn div(&self, other: &Value) -> Result<Value, LoxError> {
         match (self, other) {
-            (_, Value::Number(b)) if *b == 0.0 => Err(LoxError::DivByZero),
             (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a / b)),
             _ => Err(LoxError::RuntimeError(format!(
                 "Type error: Cannot divide value of type {} by {}",

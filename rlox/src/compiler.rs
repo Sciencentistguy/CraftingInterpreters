@@ -139,7 +139,8 @@ impl<'a> Parser<'a> {
     }
 
     fn end_scope(&mut self) {
-        self.compiler
+        self.compiler.scope_depth = self
+            .compiler
             .scope_depth
             .checked_sub(1)
             .expect("Internal error: went into negative scope");
@@ -197,7 +198,7 @@ impl<'a> Parser<'a> {
             "Expected ';' after variable declaration".to_owned(),
         )?;
 
-        if let Some(name) = name {
+        if let VariableLocation::Local(name) = name {
             self.emit(Opcode::DefineGlobal(name));
         } else {
             self.compiler.locals.last_mut().unwrap().depth = Some(self.compiler.scope_depth);
@@ -206,19 +207,18 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    /// Returns Some(name) if the variable is global, else None
-    fn parse_variable(&mut self, msg: String) -> Result<Option<SymbolUsize>, LoxError> {
+    fn parse_variable(&mut self, msg: String) -> Result<VariableLocation, LoxError> {
         self.consume(TokenKind::Identifier, msg)?;
 
         self.declare_variable()?;
 
         if self.compiler.scope_depth != 0 {
-            return Ok(None);
+            return Ok(VariableLocation::Global);
         }
 
         let name = self.previous.span;
         let name = INTERNER.lock().get_or_intern(name);
-        Ok(Some(name))
+        Ok(VariableLocation::Local(name))
     }
 
     fn declare_variable(&mut self) -> Result<(), LoxError> {
@@ -446,13 +446,6 @@ impl<'a> Parser<'a> {
 
     fn resolve_local(&mut self, name: SymbolUsize) -> Result<Option<usize>, LoxError> {
         for (i, local) in self.compiler.locals.iter().enumerate().rev() {
-            {
-                let interner = INTERNER.lock();
-                let local_name = interner.resolve(local.name).unwrap();
-                dbg!(local_name);
-                let passed_name = interner.resolve(name).unwrap();
-                dbg!(passed_name);
-            }
             if local.name == name {
                 eprintln!("so got in");
                 if local.depth.is_none() {
@@ -579,6 +572,17 @@ struct ParseRule {
 struct Local {
     name: SymbolUsize,
     depth: Option<usize>,
+}
+
+impl std::fmt::Debug for Local {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let interner = INTERNER.lock();
+        let name = interner.resolve(self.name).unwrap();
+        f.debug_struct("Local")
+            .field("name", &name)
+            .field("depth", &self.depth)
+            .finish()
+    }
 }
 
 /// The main Pratt parser lookup table.
@@ -795,4 +799,9 @@ impl Local {
     fn is_defined(&self) -> bool {
         self.depth.is_some()
     }
+}
+
+enum VariableLocation {
+    Global,
+    Local(SymbolUsize),
 }

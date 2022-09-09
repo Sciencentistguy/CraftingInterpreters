@@ -22,6 +22,9 @@ mod opcode;
 mod value;
 mod virtual_machine;
 
+#[cfg(test)]
+mod tests;
+
 type Interner = StringInterner<BufferBackend<SymbolUsize>>;
 
 static INTERNER: Lazy<Arc<Mutex<Interner>>> = Lazy::new(|| Arc::new(Mutex::new(Interner::new())));

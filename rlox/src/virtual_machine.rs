@@ -16,6 +16,9 @@ pub struct VirtualMachine {
     stack: Vec<Value>,
     globals: HashMap<SymbolUsize, Value>,
     current_chunk: Chunk,
+
+    #[cfg(test)]
+    pub print_log: Vec<String>,
 }
 
 const DEBUG_TRACE_EXECUTION: bool = true;
@@ -27,6 +30,9 @@ impl VirtualMachine {
             stack: Vec::new(),
             globals: HashMap::new(),
             current_chunk: Chunk::default(),
+
+            #[cfg(test)]
+            print_log: Vec::new(),
         }
     }
 
@@ -126,7 +132,16 @@ impl VirtualMachine {
                     self.stack.push(Value::Boolean(a.lt(&b)));
                 }
                 Opcode::Print => {
-                    println!("{}", self.stack.pop().expect("stack should not be empty"));
+                    #[cfg(test)]
+                    {
+                        let s = format!("{}", self.stack.pop().expect("stack should not be empty"));
+                        self.print_log.push(s.clone());
+                        println!("{s}");
+                    }
+                    #[cfg(not(test))]
+                    {
+                        println!("{}", self.stack.pop().expect("stack should not be empty"));
+                    }
                 }
                 Opcode::Pop => {
                     self.stack.pop().expect("stack should not be empty");
