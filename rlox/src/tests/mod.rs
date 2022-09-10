@@ -12,6 +12,7 @@ mod number;
 mod operator;
 mod print;
 mod variable;
+mod logical_operators;
 
 #[macro_export]
 macro_rules! check_error_msg {

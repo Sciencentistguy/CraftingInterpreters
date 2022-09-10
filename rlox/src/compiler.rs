@@ -267,6 +267,40 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn and(&mut self) -> Result<(), LoxError> {
+        let end_jump = self.emit_jump(Opcode::JumpIfFalse(usize::MAX));
+
+        self.emit(Opcode::Pop);
+
+        self.parse_precedence(Precedence::And)?;
+        self.patch_jump(end_jump);
+
+        Ok(())
+    }
+
+    fn or(&mut self) -> Result<(), LoxError> {
+        /*
+        int elseJump = emitJump(OP_JUMP_IF_FALSE);
+        int endJump = emitJump(OP_JUMP);
+
+        patchJump(elseJump);
+        emitByte(OP_POP);
+
+        parsePrecedence(PREC_OR);
+        patchJump(endJump);
+        */
+        let else_jump = self.emit_jump(Opcode::JumpIfFalse(usize::MAX));
+        let end_jump = self.emit_jump(Opcode::Jump(usize::MAX));
+
+        self.patch_jump(else_jump);
+        self.emit(Opcode::Pop);
+
+        self.parse_precedence(Precedence::Or)?;
+        self.patch_jump(end_jump);
+
+        Ok(())
+    }
+
     fn if_statement(&mut self) -> Result<(), LoxError> {
         self.consume(TokenKind::LeftParen, "Expected '(' after `if`".to_owned())?;
         self.expression()?;
@@ -290,21 +324,6 @@ impl<'a> Parser<'a> {
         }
 
         self.patch_jump(else_jump);
-        
-/*
- *             let else_jump = self.emit_jump(Opcode::Jump(usize::MAX));
- * 
- *             self.patch_jump(then_jump);
- *             self.emit(Opcode::Pop);
- * 
- *             self.statement()?;
- * 
- *             self.patch_jump(else_jump);
- *         } else {
- *             self.patch_jump(then_jump);
- *             self.emit(Opcode::Pop);
- *         }
- */
 
         Ok(())
     }
@@ -617,8 +636,8 @@ impl ParseFn {
             ParseFn::Literal => parser.literal(),
             ParseFn::String => parser.string(),
             ParseFn::Variable => parser.variable(can_assign),
-            ParseFn::And => todo!(),
-            ParseFn::Or => todo!(),
+            ParseFn::And => parser.and(),
+            ParseFn::Or => parser.or(),
             ParseFn::Call => todo!(),
         }
     }
@@ -763,8 +782,8 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
         },
         TokenKind::And => ParseRule {
             prefix: None,
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::And),
+            precedence: Precedence::And,
         },
         TokenKind::Class => ParseRule {
             prefix: None,
@@ -803,8 +822,8 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
         },
         TokenKind::Or => ParseRule {
             prefix: None,
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::Or),
+            precedence: Precedence::Or,
         },
         TokenKind::Print => ParseRule {
             prefix: None,
