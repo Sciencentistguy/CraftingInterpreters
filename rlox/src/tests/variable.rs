@@ -216,7 +216,6 @@ fn uninitialised() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn unreached_undefined() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"if (false) print not_defined;

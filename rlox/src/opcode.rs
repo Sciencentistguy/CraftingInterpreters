@@ -2,7 +2,7 @@ use string_interner::symbol::SymbolUsize;
 
 use crate::value::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Opcode {
     Return,
     Constant(Value),

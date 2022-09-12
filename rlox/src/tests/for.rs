@@ -3,7 +3,6 @@ use crate::{virtual_machine::VirtualMachine, check_error_msg};
 use super::Result;
 
 #[test]
-#[ignore = "NYI"]
 fn scope() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"{
@@ -41,7 +40,6 @@ fn scope() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn syntax() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"

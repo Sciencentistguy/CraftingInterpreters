@@ -261,6 +261,8 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> Result<(), LoxError> {
         if self.matches(TokenKind::Print)? {
             self.print_statement()?;
+        } else if self.matches(TokenKind::For)? {
+            self.for_statement()?;
         } else if self.matches(TokenKind::If)? {
             self.if_statement()?;
         } else if self.matches(TokenKind::While)? {
@@ -272,6 +274,81 @@ impl<'a> Parser<'a> {
         } else {
             self.expression_statement()?;
         }
+
+        Ok(())
+    }
+
+    fn for_statement(&mut self) -> Result<(), LoxError> {
+        self.begin_scope();
+        self.consume(TokenKind::LeftParen, "Expected '(' after 'for'".to_owned())?;
+
+        // Initialiser clause:
+        if self.matches(TokenKind::Semicolon)? {
+            // No initialiser
+        } else if self.matches(TokenKind::Var)? {
+            self.variable_declaration()?;
+        } else {
+            self.expression_statement()?;
+        }
+
+        let loop_start = self.current_chunk().code().len();
+
+        let exit_jump = if !self.matches(TokenKind::Semicolon)? {
+            self.expression()?;
+            self.consume(
+                TokenKind::Semicolon,
+                "Expected ';' after loop condition".to_owned(),
+            )?;
+
+            // Jump out of the loop if the condition is false
+            let exit_jump = self.emit_jump(Opcode::JumpIfFalse(usize::MAX));
+            self.emit(Opcode::Pop);
+            Some(exit_jump)
+        } else {
+            None
+        };
+
+        // The increment clause is executed at the end of each iteration. In clox, this is achieved
+        // with a cursed loop-back-twice thing that needs a whole *diagram* to make sense.
+        //
+        // Here, just compile it as normal, move those instructions into a local vec, and put them
+        // back at the end 🙂.
+        //
+        // One (1) heap-allocation at compile-time is a small price to pay for sanity.
+        let increment_clause = if !self.matches(TokenKind::RightParen)? {
+            let end = self.current_chunk().code().len();
+            self.expression()?;
+            self.emit(Opcode::Pop);
+            self.consume(
+                TokenKind::RightParen,
+                "Expected ')' after for clauses".to_owned(),
+            )?;
+
+            let v = self.current_chunk().code()[end..].to_owned();
+
+            self.current_chunk_mut().code_mut().truncate(end);
+
+            Some(v)
+        } else {
+            None
+        };
+
+        self.statement()?;
+
+        if let Some(increment_clause) = increment_clause {
+            self.current_chunk_mut()
+                .code_mut()
+                .extend_from_slice(&increment_clause);
+        }
+
+        self.emit_loop(loop_start);
+
+        if let Some(exit_jump) = exit_jump {
+            self.patch_jump(exit_jump);
+            self.emit(Opcode::Pop);
+        }
+
+        self.end_scope();
 
         Ok(())
     }

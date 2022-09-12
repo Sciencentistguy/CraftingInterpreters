@@ -3,7 +3,6 @@ use crate::virtual_machine::VirtualMachine;
 use  super::Result;
 
 #[test]
-#[ignore = "NYI"]
 fn empty() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"

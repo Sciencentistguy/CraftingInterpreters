@@ -27,7 +27,7 @@ fn r#while() -> Result<()> {
         // Statement bodies.
         while (false) if (true) 1; else 2;
         while (false) while (true) 1;
-        // while (false) for (;;) 1;
+        while (false) for (;;) 1;
     "#;
 
     vm.reset(PROGRAM, 0)?;
