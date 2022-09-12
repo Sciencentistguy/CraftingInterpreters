@@ -6,7 +6,7 @@ use std::{
 
 use string_interner::symbol::SymbolUsize;
 
-use crate::{error::LoxError, INTERNER};
+use crate::{chunk::Chunk, error::LoxError, INTERNER};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -14,6 +14,26 @@ pub enum Value {
     Boolean(bool),
     Nil,
     String(SymbolUsize),
+    Function(Box<LoxFunction>),
+}
+
+#[derive(Debug, Clone)]
+pub struct LoxFunction {
+    arity: usize,
+    pub chunk: Chunk,
+    pub name: SymbolUsize,
+}
+
+impl LoxFunction {
+    pub fn new(arity: usize, chunk: Chunk, name: SymbolUsize) -> Self {
+        Self { arity, chunk, name }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum FunctionKind {
+    Function,
+    Script,
 }
 
 mod kind {
@@ -21,6 +41,7 @@ mod kind {
     pub(super) const BOOLEAN: &str = "boolean";
     pub(super) const NIL: &str = "nil";
     pub(super) const STRING: &str = "string";
+    pub(super) const FUNCTION: &str = "function";
 }
 
 impl Value {
@@ -106,6 +127,7 @@ impl Value {
             Value::Boolean(_) => kind::BOOLEAN,
             Value::Nil => kind::NIL,
             Value::String(_) => kind::STRING,
+            Value::Function(_) => kind::FUNCTION,
         }
     }
 }
@@ -117,6 +139,9 @@ impl Display for Value {
             Value::Boolean(n) => write!(f, "{n}"),
             Value::Nil => write!(f, "Nil"),
             Value::String(n) => write!(f, "{}", INTERNER.lock().resolve(*n).unwrap()),
+            Value::Function(func) => {
+                write!(f, "<fn {}>", INTERNER.lock().resolve(func.name).unwrap())
+            }
         }
     }
 }

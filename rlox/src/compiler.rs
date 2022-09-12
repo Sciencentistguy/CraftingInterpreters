@@ -5,7 +5,7 @@ use crate::{
     error::LoxError,
     lexer::{Lexer, Token, TokenKind},
     opcode::Opcode,
-    value::Value,
+    value::{FunctionKind, LoxFunction, Value},
     INTERNER,
 };
 
@@ -14,13 +14,14 @@ const DEBUG_PRINT_CODE: bool = true;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
-    chunk: Chunk,
     previous: Token<'a>,
     current: Token<'a>,
     compiler: Compiler,
 }
 
 struct Compiler {
+    function: LoxFunction,
+    function_kind: FunctionKind,
     locals: Vec<Local>,
     scope_depth: usize,
 }
@@ -29,26 +30,24 @@ impl<'a> Parser<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             lexer: Lexer::new(source),
-            chunk: Chunk::default(),
             previous: Token::NULL,
             current: Token::NULL,
-            compiler: Compiler::new(0),
+            compiler: Compiler::new(0, FunctionKind::Script),
         }
     }
 
     pub fn with_line(source: &'a str, line: usize) -> Self {
         Self {
             lexer: Lexer::with_line(source, line),
-            chunk: Chunk::default(),
             previous: Token::NULL,
             current: Token::NULL,
-            compiler: Compiler::new(0),
+            compiler: Compiler::new(0, FunctionKind::Script),
         }
     }
 
     /// Extract the completed chunk
     pub fn finalise(self) -> Chunk {
-        self.chunk
+        self.into_current_chunk()
     }
 
     /// Dumo the output of the lexer. Used for testing
@@ -98,18 +97,21 @@ impl<'a> Parser<'a> {
         LoxError::SyntaxError { line, msg }
     }
 
+    fn into_current_chunk(self) -> Chunk {
+        self.compiler.function.chunk
+    }
     /// Get a mutable reference to the current chunk.
     ///
     /// Currently trivial, will become Not.
     fn current_chunk_mut(&mut self) -> &mut Chunk {
-        &mut self.chunk
+        &mut self.compiler.function.chunk
     }
 
     /// Get a shared reference to the current chunk.
     ///
     /// Currently trivial, will become Not.
     fn current_chunk(&mut self) -> &Chunk {
-        &self.chunk
+        &self.compiler.function.chunk
     }
 
     /// Emit an opcode to the current chunk
@@ -125,7 +127,18 @@ impl<'a> Parser<'a> {
         self.emit(Opcode::Return);
 
         if DEBUG_PRINT_CODE {
-            self.current_chunk_mut().disassemble("code");
+            // lmao this deadlocks in `cargo test`
+            /*
+             * let interner = INTERNER.lock();
+             * let mut name = interner
+             *     .resolve(self.compiler.function.name)
+             *     .unwrap_or("code");
+             * if name.is_empty() {
+             *     name = "code";
+             * }
+             */
+            let name = "code";
+            self.current_chunk_mut().disassemble(name);
         }
     }
 
@@ -649,10 +662,22 @@ impl<'a> Parser<'a> {
 }
 
 impl Compiler {
-    fn new(scope_depth: usize) -> Self {
+    fn new(scope_depth: usize, kind: FunctionKind) -> Self {
+        let mut locals = Vec::new();
+        let mut interner = INTERNER.lock();
+        let name = interner.get_or_intern("");
+        locals.push(Local {
+            name,
+            depth: Some(0),
+        });
+
+        let function = LoxFunction::new(0, Chunk::default(), name);
+
         Self {
-            locals: Vec::new(),
+            locals,
             scope_depth,
+            function,
+            function_kind: kind,
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{debug::Disassembler, opcode::Opcode};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Chunk {
     code: Vec<Opcode>,
     lines: Vec<usize>,

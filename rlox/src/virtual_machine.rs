@@ -49,8 +49,10 @@ impl VirtualMachine {
     }
 
     pub fn start(&mut self) -> Result<(), LoxError> {
-        // panic!();
-        // FIXME: checking before incr
+        // The compiler reserves stack slot 0 for (i think?) `super` or `this`. That's not
+        // supported yet, so put a `Value::Nil` there.
+        self.stack.push(Value::Nil);
+
         while self.program_counter < self.current_chunk.code().len() {
             let opcode = &self.current_chunk.code()[self.program_counter];
 
