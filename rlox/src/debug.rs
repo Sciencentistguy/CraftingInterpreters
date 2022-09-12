@@ -124,6 +124,9 @@ impl Disassembler {
             Opcode::Jump(distance) => {
                 println!("Jump\t{distance}");
             }
+            Opcode::Loop(distance) => {
+                println!("Loop\t{distance}");
+            }
 
         }
     }

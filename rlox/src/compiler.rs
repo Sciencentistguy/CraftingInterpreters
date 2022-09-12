@@ -105,6 +105,13 @@ impl<'a> Parser<'a> {
         &mut self.chunk
     }
 
+    /// Get a shared reference to the current chunk.
+    ///
+    /// Currently trivial, will become Not.
+    fn current_chunk(&mut self) -> &Chunk {
+        &self.chunk
+    }
+
     /// Emit an opcode to the current chunk
     fn emit(&mut self, opcode: Opcode) {
         let line = self.previous.line;
@@ -256,6 +263,8 @@ impl<'a> Parser<'a> {
             self.print_statement()?;
         } else if self.matches(TokenKind::If)? {
             self.if_statement()?;
+        } else if self.matches(TokenKind::While)? {
+            self.while_statement()?;
         } else if self.matches(TokenKind::LeftBrace)? {
             self.begin_scope();
             self.block()?;
@@ -265,6 +274,35 @@ impl<'a> Parser<'a> {
         }
 
         Ok(())
+    }
+
+    fn while_statement(&mut self) -> Result<(), LoxError> {
+        let loop_start = self.current_chunk().code().len();
+        self.consume(
+            TokenKind::LeftParen,
+            "Expected '(' after `while`".to_owned(),
+        )?;
+        self.expression()?;
+        self.consume(
+            TokenKind::RightParen,
+            "Expected ')' after condition".to_owned(),
+        )?;
+
+        let exit_jump = self.emit_jump(Opcode::JumpIfFalse(usize::MAX));
+        self.emit(Opcode::Pop);
+        self.statement()?;
+
+        self.emit_loop(loop_start);
+
+        self.patch_jump(exit_jump);
+        self.emit(Opcode::Pop);
+
+        Ok(())
+    }
+
+    fn emit_loop(&mut self, ptr: usize) {
+        let offset = self.current_chunk_mut().code().len() - ptr + 1;
+        self.emit(Opcode::Loop(offset));
     }
 
     fn and(&mut self) -> Result<(), LoxError> {
@@ -279,16 +317,6 @@ impl<'a> Parser<'a> {
     }
 
     fn or(&mut self) -> Result<(), LoxError> {
-        /*
-        int elseJump = emitJump(OP_JUMP_IF_FALSE);
-        int endJump = emitJump(OP_JUMP);
-
-        patchJump(elseJump);
-        emitByte(OP_POP);
-
-        parsePrecedence(PREC_OR);
-        patchJump(endJump);
-        */
         let else_jump = self.emit_jump(Opcode::JumpIfFalse(usize::MAX));
         let end_jump = self.emit_jump(Opcode::Jump(usize::MAX));
 
@@ -625,7 +653,7 @@ enum ParseFn {
 }
 
 impl ParseFn {
-    /// Dispatch to the correct compilation method. A trick to avoid storing strust methods as
+    /// Dispatch to the correct compilation method. A trick to avoid storing struct methods as
     /// function pointers, which is a pain in Rust.
     fn call(self, parser: &mut Parser, can_assign: bool) -> Result<(), LoxError> {
         match self {

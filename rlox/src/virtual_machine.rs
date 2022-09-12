@@ -49,6 +49,8 @@ impl VirtualMachine {
     }
 
     pub fn start(&mut self) -> Result<(), LoxError> {
+        // panic!();
+        // FIXME: checking before incr
         while self.program_counter < self.current_chunk.code().len() {
             let opcode = &self.current_chunk.code()[self.program_counter];
 
@@ -196,9 +198,21 @@ impl VirtualMachine {
                 Opcode::Jump(distance) => {
                     self.program_counter += distance;
                 }
+                Opcode::Loop(distance) => {
+                    // The PC can go to "-1" (actually usize::MAX but who's counting) if we loop to
+                    // the first instruction. This is fine, we just need to make sure we don't
+                    // explode if that does happen, hence wrapping_sub
+                    self.program_counter = self.program_counter.wrapping_sub(*distance);
+                    if self.program_counter > self.current_chunk.code().len() {
+                        self.program_counter = usize::MAX;
+                    }
+                }
             }
 
-            self.program_counter += 1;
+            // The PC can go to "-1" (actually usize::MAX but who's counting) if we loop to the
+            // first instruction. This is fine, we just need to make sure we don't explode if that
+            // does happen, hence wrapping_add
+            self.program_counter = self.program_counter.wrapping_add(1);
         }
 
         unreachable!("VM should terminate itself before running out of in")

@@ -61,6 +61,7 @@ fn repl() -> Result<(), LoxError> {
         match readline {
             Ok(source) => {
                 rl.add_history_entry(source.as_str());
+                rl.save_history("history.txt")?;
 
                 line += 1;
 
@@ -86,8 +87,6 @@ fn repl() -> Result<(), LoxError> {
             }
         }
     }
-
-    rl.save_history("history.txt")?;
     Ok(())
 }
 
