@@ -13,6 +13,7 @@ mod operator;
 mod print;
 mod variable;
 mod logical_operators;
+mod r#while;
 
 #[macro_export]
 macro_rules! check_error_msg {
