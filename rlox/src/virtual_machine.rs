@@ -215,9 +215,12 @@ impl VirtualMachine {
                     // the first instruction. This is fine, we just need to make sure we don't
                     // explode if that does happen, hence wrapping_sub
                     *self.program_counter_mut() = self.program_counter().wrapping_sub(distance);
-                    if self.program_counter() > self.current_chunk().code().len() {
-                        *self.program_counter_mut() = usize::MAX;
-                    }
+                    /*
+                     * if self.program_counter() > self.current_chunk().code().len() {
+                     *     *self.program_counter_mut() = usize::MAX;
+                     *     unreachable!("Jumped too far")
+                     * }
+                     */
                 }
             }
 

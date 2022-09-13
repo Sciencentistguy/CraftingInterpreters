@@ -195,11 +195,64 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) -> Result<(), LoxError> {
-        if self.matches(TokenKind::Var)? {
+        if self.matches(TokenKind::Fun)? {
+            self.function_declaration()?;
+        } else if self.matches(TokenKind::Var)? {
             self.variable_declaration()?;
         } else {
             self.statement()?;
         }
+
+        Ok(())
+    }
+
+    fn function_declaration(&mut self) -> Result<(), LoxError> {
+        let location = self.parse_variable("Expected function name".to_owned())?;
+
+        let name = self.previous.span;
+        let name = INTERNER.lock().get_or_intern(name);
+
+        if let VariableLocation::Local(_name) = location {
+            self.compiler.locals.last_mut().unwrap().depth = Some(self.compiler.scope_depth)
+        }
+
+        self.function()?;
+
+        if let VariableLocation::Global = location {
+            self.emit(Opcode::DefineGlobal(name));
+        }
+
+        Ok(())
+    }
+
+    fn function(&mut self) -> Result<(), LoxError> {
+        let new_compiler = Compiler::new(0, FunctionKind::Function);
+        let old_compiler = std::mem::replace(&mut self.compiler, new_compiler);
+
+        self.begin_scope();
+
+        self.consume(
+            TokenKind::RightParen,
+            "Expected '(' after function name".to_owned(),
+        )?;
+        self.consume(
+            TokenKind::LeftParen,
+            "Expected ')' after function parameters".to_owned(),
+        )?;
+        self.consume(
+            TokenKind::LeftBrace,
+            "Expected '{' before function body".to_owned(),
+        )?;
+
+        self.block()?;
+
+        self.end_compiler();
+
+        let finished = std::mem::replace(&mut self.compiler, old_compiler);
+
+        self.emit(Opcode::Constant(Value::Function(Box::new(
+            finished.function,
+        ))));
 
         Ok(())
     }
