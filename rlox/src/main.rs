@@ -1,9 +1,6 @@
 #![allow(dead_code)]
 
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use error::LoxError;
@@ -27,7 +24,7 @@ mod tests;
 
 type Interner = StringInterner<BufferBackend<SymbolUsize>>;
 
-static INTERNER: Lazy<Arc<Mutex<Interner>>> = Lazy::new(|| Arc::new(Mutex::new(Interner::new())));
+static INTERNER: Lazy<Mutex<Interner>> = Lazy::new(|| Mutex::new(Interner::new()));
 
 #[derive(Parser, Debug)]
 struct Opt {

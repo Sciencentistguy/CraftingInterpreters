@@ -46,8 +46,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Extract the completed chunk
-    pub fn finalise(self) -> Chunk {
-        self.into_current_chunk()
+    pub fn finalise(self) -> LoxFunction {
+        self.compiler.function
     }
 
     /// Dumo the output of the lexer. Used for testing
