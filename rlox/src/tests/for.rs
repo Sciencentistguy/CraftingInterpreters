@@ -1,4 +1,4 @@
-use crate::{virtual_machine::VirtualMachine, check_error_msg};
+use crate::{check_error_msg, virtual_machine::VirtualMachine};
 
 use super::Result;
 
@@ -124,7 +124,7 @@ fn closure_in_body() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
+#[ignore = "effort"]
 fn fun_in_body() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"
@@ -167,7 +167,6 @@ fn return_closure() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn return_inside() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"

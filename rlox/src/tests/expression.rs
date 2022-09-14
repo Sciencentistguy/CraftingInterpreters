@@ -2,7 +2,6 @@ use crate::virtual_machine::VirtualMachine;
 
 use super::Result;
 
-
 #[test]
 fn evaluate() -> Result<()> {
     let mut vm = VirtualMachine::new();
@@ -14,4 +13,3 @@ fn evaluate() -> Result<()> {
     assert_eq!(vm.print_log, &["2"]);
     Ok(())
 }
-

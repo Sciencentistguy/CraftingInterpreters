@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Not};
+use std::{collections::HashMap, ops::Not, sync::Arc};
 
 use string_interner::symbol::SymbolUsize;
 
@@ -8,7 +8,7 @@ use crate::{
     debug::Disassembler,
     error::LoxError,
     opcode::Opcode,
-    value::{LoxFunction, Value},
+    value::{Callable, LoxFunction, NativeFn, Value},
     INTERNER,
 };
 
@@ -27,7 +27,7 @@ pub struct VirtualMachine {
 
 #[derive(Debug)]
 struct CallFrame {
-    function: LoxFunction,
+    function: Arc<LoxFunction>,
     program_counter: usize,
     slots_start: usize,
 }
@@ -36,10 +36,25 @@ const DEBUG_TRACE_EXECUTION: bool = true;
 
 impl VirtualMachine {
     pub fn new() -> Self {
+        let mut globals = HashMap::new();
+
+        let clock = |_args: &[Value]| -> Result<Value, LoxError> {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as f64;
+            Ok(Value::Number(now))
+        };
+
+        let clock = NativeFn::new(clock, 0, "clock");
+        let clock = Value::NativeFn(Arc::new(clock));
+
+        globals.insert(INTERNER.lock().get_or_intern_static("clock"), clock);
+
         Self {
             // program_counter: 0,
             stack: Vec::new(),
-            globals: HashMap::new(),
+            globals,
             // current_chunk(): Chunk::default(),
             // Dynamic stacks means no™️ overflows!
             call_stack: Vec::with_capacity(64),
@@ -55,7 +70,7 @@ impl VirtualMachine {
         parser.compile()?;
 
         let frame = CallFrame {
-            function: parser.finalise(),
+            function: Arc::new(parser.finalise()),
             program_counter: 0,
             slots_start: 0,
         };
@@ -72,12 +87,20 @@ impl VirtualMachine {
         self.stack.push(Value::Nil);
 
         while self.program_counter() < self.current_chunk().code().len() {
-            // FIXME: Unncessary clone
+            // FIXME: Unncessary(?) clone
             let opcode = self.current_chunk().code()[self.program_counter()].clone();
 
             if DEBUG_TRACE_EXECUTION {
                 let mut debugger = Disassembler::new();
 
+                println!(
+                    "Stack: [{}]",
+                    self.stack
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
                 print!("Executing: ");
                 debugger.disassemble(
                     &opcode,
@@ -89,8 +112,17 @@ impl VirtualMachine {
 
             match opcode {
                 Opcode::Return => {
-                    // Exit interpreter
-                    return Ok(());
+                    let result = self.stack_pop();
+
+                    let old_frame = self.call_stack.pop().unwrap();
+
+                    if self.call_stack.is_empty() {
+                        return Ok(());
+                    }
+
+                    self.stack.truncate(old_frame.slots_start);
+
+                    self.stack.push(result);
                 }
                 Opcode::Constant(constant) => {
                     self.stack.push(constant.clone());
@@ -197,6 +229,9 @@ impl VirtualMachine {
                 Opcode::GetLocal(slot) => {
                     let slot = self.current_frame().slots_start + slot;
                     self.stack.push(self.stack[slot].clone());
+                    // if DEBUG_TRACE_EXECUTION {
+                    // println!(" ({})", self.stack_top());
+                    // }
                 }
                 Opcode::SetLocal(slot) => {
                     let slot = self.current_frame().slots_start + slot;
@@ -222,6 +257,34 @@ impl VirtualMachine {
                      * }
                      */
                 }
+                Opcode::Call(arity) => {
+                    let callee_slot = self.stack.len() - arity - 1;
+                    let callee = self
+                        .stack
+                        .get(callee_slot)
+                        .expect("Internal error: Not enough arguments on stack");
+
+                    let callee = callee
+                        .as_callable()
+                        .ok_or_else(|| {
+                            LoxError::RuntimeError(format!(
+                                "Can only call functions and classes. Found {:?} instead.",
+                                callee.kind()
+                            ))
+                        })?
+                        .clone();
+
+                    if arity != callee.arity() {
+                        return Err(LoxError::RuntimeError(format!(
+                            "Expected {} arguments but got {}.",
+                            callee.arity(),
+                            arity
+                        )));
+                    }
+
+                    self.call(callee, arity)?;
+                    continue;
+                }
             }
 
             // The PC can go to "-1" (actually usize::MAX but who's counting) if we loop to the
@@ -230,7 +293,7 @@ impl VirtualMachine {
             *self.program_counter_mut() = self.program_counter().wrapping_add(1);
         }
 
-        unreachable!("VM should terminate itself before running out of in")
+        unreachable!("Internal error: VM should terminate itself before running out of input")
     }
 
     fn program_counter(&self) -> usize {
@@ -248,14 +311,41 @@ impl VirtualMachine {
     fn current_frame(&self) -> &CallFrame {
         self.call_stack
             .last()
-            .expect("callstack should not be empty")
+            .expect("Internal error: Empty callstack")
     }
 
     fn stack_top(&self) -> &Value {
-        self.stack.last().expect("stack should not be empty")
+        self.stack.last().expect("Internal error: Empty stack")
     }
 
     fn stack_pop(&mut self) -> Value {
-        self.stack.pop().expect("stack should not be empty")
+        self.stack.pop().expect("Internal error: Empty stack")
+    }
+
+    fn call(&mut self, callable: Callable, arity: usize) -> Result<(), LoxError> {
+        if let Some(nativefn) = callable.as_nativefn() {
+            let args = &self.stack[self.stack.len() - 1 - arity..];
+
+            let result = (nativefn.function)(args)?;
+
+            // Pop args + callee
+            self.stack.truncate(self.stack.len() - arity - 2);
+
+            self.stack.push(result);
+
+            // VM doesn't increment the PC after a call, so we need to do it here
+            *self.program_counter_mut() = self.program_counter().wrapping_add(1);
+
+            return Ok(());
+        }
+
+        let frame = CallFrame {
+            function: callable.into_function(),
+            program_counter: 0,
+            slots_start: self.stack.len() - 1 - arity,
+        };
+
+        self.call_stack.push(frame);
+        Ok(())
     }
 }

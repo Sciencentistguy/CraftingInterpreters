@@ -1,7 +1,10 @@
+use core::fmt;
 use std::{
     cmp,
     fmt::Display,
+    mem,
     ops::{Neg, Not},
+    sync::Arc,
 };
 
 use string_interner::symbol::SymbolUsize;
@@ -14,15 +17,41 @@ pub enum Value {
     Boolean(bool),
     Nil,
     String(SymbolUsize),
-    Function(Box<LoxFunction>),
+    Function(Arc<LoxFunction>),
+    NativeFn(Arc<NativeFn>),
 }
 
-#[derive(Debug, Clone)]
-pub struct LoxFunction {
+#[allow(clippy::type_complexity)]
+pub struct NativeFn {
     arity: usize,
+    pub function: Box<dyn Fn(&[Value]) -> Result<Value, LoxError>>,
+    name: &'static str,
+}
+
+impl NativeFn {
+    pub fn new<F>(function: F, arity: usize, name: &'static str) -> Self
+    where
+        F: Fn(&[Value]) -> Result<Value, LoxError> + 'static,
+    {
+        Self {
+            arity,
+            function: Box::new(function),
+            name,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct LoxFunction {
+    pub arity: usize,
     pub chunk: Chunk,
     pub name: SymbolUsize,
 }
+
+/// A value that can be called
+#[repr(transparent)]
+#[derive(Debug, Clone)]
+pub struct Callable(Value);
 
 impl LoxFunction {
     pub fn new(arity: usize, chunk: Chunk, name: SymbolUsize) -> Self {
@@ -42,6 +71,7 @@ mod kind {
     pub(super) const NIL: &str = "nil";
     pub(super) const STRING: &str = "string";
     pub(super) const FUNCTION: &str = "function";
+    pub(super) const NATIVE_FUNCTION: &str = "native function";
 }
 
 impl Value {
@@ -121,13 +151,48 @@ impl Value {
         }
     }
 
-    const fn kind(&self) -> &'static str {
+    pub const fn kind(&self) -> &'static str {
         match self {
             Value::Number(_) => kind::NUMBER,
             Value::Boolean(_) => kind::BOOLEAN,
             Value::Nil => kind::NIL,
             Value::String(_) => kind::STRING,
             Value::Function(_) => kind::FUNCTION,
+            Value::NativeFn(_) => kind::NATIVE_FUNCTION,
+        }
+    }
+
+    pub fn as_callable(&self) -> Option<&Callable> {
+        if matches!(self, Value::Function(_) | Value::NativeFn(_)) {
+            // Safety: We just checked that it is a function. Repr(transparent) means transmute is
+            // okay
+            Some(unsafe { mem::transmute(self) })
+        } else {
+            None
+        }
+    }
+}
+
+impl Callable {
+    pub fn arity(&self) -> usize {
+        match &self.0 {
+            Value::Function(f) => f.arity,
+            Value::NativeFn(f) => f.arity,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn into_function(self) -> Arc<LoxFunction> {
+        match self.0 {
+            Value::Function(f) => f,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn as_nativefn(&self) -> Option<&NativeFn> {
+        match &self.0 {
+            Value::NativeFn(f) => Some(f),
+            _ => None,
         }
     }
 }
@@ -139,9 +204,8 @@ impl Display for Value {
             Value::Boolean(n) => write!(f, "{n}"),
             Value::Nil => write!(f, "Nil"),
             Value::String(n) => write!(f, "{}", INTERNER.lock().resolve(*n).unwrap()),
-            Value::Function(func) => {
-                write!(f, "<fn {}>", INTERNER.lock().resolve(func.name).unwrap())
-            }
+            Value::Function(n) => write!(f, "{n}"),
+            Value::NativeFn(n) => write!(f, "{n}"),
         }
     }
 }
@@ -163,5 +227,36 @@ impl PartialEq for Value {
         self.partial_cmp(other)
             .map(|x| x == cmp::Ordering::Equal)
             .unwrap_or(false)
+    }
+}
+
+impl fmt::Debug for LoxFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LoxFunction")
+            .field("arity", &self.arity)
+            .field("chunk", &self.chunk)
+            .field("name", &INTERNER.lock().resolve(self.name))
+            .finish()
+    }
+}
+
+impl fmt::Display for LoxFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<fn {}>", INTERNER.lock().resolve(self.name).unwrap())
+    }
+}
+
+impl fmt::Debug for NativeFn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NativeFn")
+            .field("arity", &self.arity)
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
+impl fmt::Display for NativeFn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<native fn {}>", self.name)
     }
 }

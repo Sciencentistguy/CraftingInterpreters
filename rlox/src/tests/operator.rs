@@ -451,7 +451,6 @@ fn not() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn not_fun() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"

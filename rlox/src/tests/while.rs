@@ -1,4 +1,3 @@
-
 use crate::{check_error_msg, virtual_machine::VirtualMachine};
 
 use super::Result;

@@ -291,7 +291,7 @@ fn local_in_initialiser() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
+#[ignore = "effort"]
 fn collide_with_parameter() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"

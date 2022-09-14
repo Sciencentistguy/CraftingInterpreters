@@ -3,7 +3,7 @@ use crate::{check_error_msg, virtual_machine::VirtualMachine};
 use super::Result;
 
 #[test]
-#[ignore = "NYI"]
+#[ignore = "effort"]
 fn body_must_be_block() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = "fun f () 123;";
@@ -19,7 +19,6 @@ fn body_must_be_block() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn empty_body() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"
@@ -30,12 +29,12 @@ fn empty_body() -> Result<()> {
     vm.reset(PROGRAM, 0)?;
     vm.start()?;
 
-    assert_eq!(vm.print_log, &["nil"]);
+    assert_eq!(vm.print_log, &["Nil"]);
     Ok(())
 }
 
 #[test]
-#[ignore = "NYI"]
+#[ignore = "effort"]
 fn extra_arguments() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = "
@@ -58,7 +57,7 @@ fn extra_arguments() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
+#[ignore = "effort"]
 fn local_mutual_recursion() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = "{
@@ -106,7 +105,7 @@ fn local_recursion() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
+#[ignore = "effort"]
 fn missing_arguments() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = "
@@ -125,7 +124,7 @@ fn missing_arguments() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
+#[ignore = "effort"]
 fn missing_comma_in_parameters() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = "
@@ -143,7 +142,6 @@ fn missing_comma_in_parameters() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn mutual_recursion() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = "
@@ -169,7 +167,6 @@ fn mutual_recursion() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn parameters() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = "
@@ -212,7 +209,6 @@ fn parameters() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn print() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = "
@@ -230,7 +226,6 @@ fn print() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn recursion() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"
@@ -250,7 +245,6 @@ fn recursion() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn over_255_arguments() -> Result<()> {
     // Clox  does not accept more than 255 arguments. We do
     let mut vm = VirtualMachine::new();

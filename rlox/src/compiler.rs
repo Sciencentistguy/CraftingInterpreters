@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use string_interner::symbol::SymbolUsize;
 
 use crate::{
@@ -124,6 +126,7 @@ impl<'a> Parser<'a> {
     ///
     /// Called at the end of [`Self::compile`]
     fn end_compiler(&mut self) {
+        self.emit(Opcode::Nil);
         self.emit(Opcode::Return);
 
         if DEBUG_PRINT_CODE {
@@ -212,31 +215,60 @@ impl<'a> Parser<'a> {
         let name = self.previous.span;
         let name = INTERNER.lock().get_or_intern(name);
 
-        if let VariableLocation::Local(_name) = location {
+        if matches!(location, VariableLocation::Local) {
             self.compiler.locals.last_mut().unwrap().depth = Some(self.compiler.scope_depth)
         }
 
-        self.function()?;
+        self.function(name)?;
 
-        if let VariableLocation::Global = location {
+        if let VariableLocation::Global(name) = location {
             self.emit(Opcode::DefineGlobal(name));
         }
 
         Ok(())
     }
 
-    fn function(&mut self) -> Result<(), LoxError> {
+    fn function(&mut self, name: SymbolUsize) -> Result<(), LoxError> {
         let new_compiler = Compiler::new(0, FunctionKind::Function);
         let old_compiler = std::mem::replace(&mut self.compiler, new_compiler);
 
         self.begin_scope();
 
         self.consume(
-            TokenKind::RightParen,
+            TokenKind::LeftParen,
             "Expected '(' after function name".to_owned(),
         )?;
+
+        if !self.check(TokenKind::RightParen) {
+            loop {
+                self.compiler.function.arity += 1;
+                /*
+                 * if self.compiler.function.arity > 255 {
+                 *     return Err(self.error(
+                 *         ErrorLocation::Previous,
+                 *         "Cannot have more than 255 parameters".to_owned(),
+                 *     ));
+                 * }
+                 */
+
+                let location = self.parse_variable("Expected parameter name".to_owned())?;
+
+                match location {
+                    VariableLocation::Local => {
+                        self.compiler.locals.last_mut().unwrap().depth =
+                            Some(self.compiler.scope_depth)
+                    }
+                    _ => unreachable!("Internal error: function parameters must be local"),
+                }
+
+                if !self.matches(TokenKind::Comma)? {
+                    break;
+                }
+            }
+        }
+
         self.consume(
-            TokenKind::LeftParen,
+            TokenKind::RightParen,
             "Expected ')' after function parameters".to_owned(),
         )?;
         self.consume(
@@ -248,9 +280,11 @@ impl<'a> Parser<'a> {
 
         self.end_compiler();
 
-        let finished = std::mem::replace(&mut self.compiler, old_compiler);
+        let mut finished = std::mem::replace(&mut self.compiler, old_compiler);
 
-        self.emit(Opcode::Constant(Value::Function(Box::new(
+        finished.function.name = name;
+
+        self.emit(Opcode::Constant(Value::Function(Arc::new(
             finished.function,
         ))));
 
@@ -271,7 +305,7 @@ impl<'a> Parser<'a> {
             "Expected ';' after variable declaration".to_owned(),
         )?;
 
-        if let VariableLocation::Local(name) = name {
+        if let VariableLocation::Global(name) = name {
             self.emit(Opcode::DefineGlobal(name));
         } else {
             self.compiler.locals.last_mut().unwrap().depth = Some(self.compiler.scope_depth);
@@ -286,12 +320,12 @@ impl<'a> Parser<'a> {
         self.declare_variable()?;
 
         if self.compiler.scope_depth != 0 {
-            return Ok(VariableLocation::Global);
+            return Ok(VariableLocation::Local);
         }
 
         let name = self.previous.span;
         let name = INTERNER.lock().get_or_intern(name);
-        Ok(VariableLocation::Local(name))
+        Ok(VariableLocation::Global(name))
     }
 
     fn declare_variable(&mut self) -> Result<(), LoxError> {
@@ -331,6 +365,8 @@ impl<'a> Parser<'a> {
             self.for_statement()?;
         } else if self.matches(TokenKind::If)? {
             self.if_statement()?;
+        } else if self.matches(TokenKind::Return)? {
+            self.return_statement()?;
         } else if self.matches(TokenKind::While)? {
             self.while_statement()?;
         } else if self.matches(TokenKind::LeftBrace)? {
@@ -339,6 +375,29 @@ impl<'a> Parser<'a> {
             self.end_scope();
         } else {
             self.expression_statement()?;
+        }
+
+        Ok(())
+    }
+
+    fn return_statement(&mut self) -> Result<(), LoxError> {
+        if matches!(self.compiler.function_kind, FunctionKind::Script) {
+            return Err(self.error(
+                ErrorLocation::Previous,
+                "Cannot return from top-level code".to_owned(),
+            ));
+        }
+
+        if self.matches(TokenKind::Semicolon)? {
+            self.emit(Opcode::Nil);
+            self.emit(Opcode::Return);
+        } else {
+            self.expression()?;
+            self.consume(
+                TokenKind::Semicolon,
+                "Expected ';' after return value".to_owned(),
+            )?;
+            self.emit(Opcode::Return);
         }
 
         Ok(())
@@ -533,6 +592,7 @@ impl<'a> Parser<'a> {
         self.emit(Opcode::Print);
         Ok(())
     }
+
     fn expression_statement(&mut self) -> Result<(), LoxError> {
         self.expression()?;
         self.consume(TokenKind::Semicolon, "Expected ';' after value".to_owned())?;
@@ -712,6 +772,45 @@ impl<'a> Parser<'a> {
 
         Ok(None)
     }
+
+    fn call(&mut self) -> Result<(), LoxError> {
+        let arg_count = self.argument_list()?;
+        self.emit(Opcode::Call(arg_count));
+
+        Ok(())
+    }
+
+    fn argument_list(&mut self) -> Result<usize, LoxError> {
+        let mut arg_count = 0;
+
+        if !self.check(TokenKind::RightParen) {
+            loop {
+                self.expression()?;
+
+                /*
+                 * if arg_count == 255 {
+                 *     return Err(self.error(
+                 *         ErrorLocation::Previous,
+                 *         "Cannot have more than 255 arguments".to_owned(),
+                 *     ));
+                 * }
+                 */
+
+                arg_count += 1;
+
+                if !self.matches(TokenKind::Comma)? {
+                    break;
+                }
+            }
+        }
+
+        self.consume(
+            TokenKind::RightParen,
+            "Expected ')' after arguments".to_owned(),
+        )?;
+
+        Ok(arg_count)
+    }
 }
 
 impl Compiler {
@@ -821,7 +920,7 @@ impl ParseFn {
             ParseFn::Variable => parser.variable(can_assign),
             ParseFn::And => parser.and(),
             ParseFn::Or => parser.or(),
-            ParseFn::Call => todo!(),
+            ParseFn::Call => parser.call(),
         }
     }
 }
@@ -855,8 +954,8 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
     match token {
         TokenKind::LeftParen => ParseRule {
             prefix: Some(ParseFn::Grouping),
-            infix: None,
-            precedence: Precedence::None,
+            infix: Some(ParseFn::Call),
+            precedence: Precedence::Call,
         },
         TokenKind::RightParen => ParseRule {
             prefix: None,
@@ -1064,7 +1163,8 @@ impl Local {
     }
 }
 
+#[derive(Debug)]
 enum VariableLocation {
-    Global,
-    Local(SymbolUsize),
+    Local,
+    Global(SymbolUsize),
 }

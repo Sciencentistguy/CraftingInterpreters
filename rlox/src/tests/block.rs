@@ -1,6 +1,6 @@
 use crate::virtual_machine::VirtualMachine;
 
-use  super::Result;
+use super::Result;
 
 #[test]
 fn empty() -> Result<()> {

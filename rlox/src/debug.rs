@@ -121,13 +121,18 @@ impl Disassembler {
             Opcode::JumpIfFalse(distance) => {
                 println!("JumpIfFalse\t{distance}");
             }
+
             Opcode::Jump(distance) => {
                 println!("Jump\t{distance}");
             }
+
             Opcode::Loop(distance) => {
                 println!("Loop\t{distance}");
             }
 
+            Opcode::Call(arity) => {
+                println!("Call\t{arity}");
+            }
         }
     }
 

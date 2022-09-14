@@ -7,12 +7,12 @@ mod expression;
 mod r#for;
 mod function;
 mod r#if;
+mod logical_operators;
 mod nil;
 mod number;
 mod operator;
 mod print;
 mod variable;
-mod logical_operators;
 mod r#while;
 
 #[macro_export]
