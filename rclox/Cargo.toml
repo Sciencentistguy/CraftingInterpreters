@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 color-eyre = "0.6.1"
-text_io = "0.1.10"
+text_io = "0.1.12"
 thiserror = "1.0.30"
 
 [features]
