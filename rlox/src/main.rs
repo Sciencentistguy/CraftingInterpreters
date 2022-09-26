@@ -1,30 +1,8 @@
-#![allow(dead_code)]
-
-use std::path::{Path, PathBuf};
+use rlox::{error::LoxError, virtual_machine::VirtualMachine};
 
 use clap::Parser;
-use error::LoxError;
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
-use rustyline::{error::ReadlineError, Editor};
-use string_interner::{backend::BufferBackend, symbol::SymbolUsize, StringInterner};
-use virtual_machine::VirtualMachine;
-
-mod chunk;
-mod compiler;
-mod debug;
-mod error;
-mod lexer;
-mod opcode;
-mod value;
-mod virtual_machine;
-
-#[cfg(test)]
-mod tests;
-
-type Interner = StringInterner<BufferBackend<SymbolUsize>>;
-
-static INTERNER: Lazy<Mutex<Interner>> = Lazy::new(|| Mutex::new(Interner::new()));
+use rustyline::{Editor, error::ReadlineError};
+use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 struct Opt {

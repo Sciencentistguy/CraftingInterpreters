@@ -29,7 +29,7 @@ struct CallFrame {
     slots_start: usize,
 }
 
-const DEBUG_TRACE_EXECUTION: bool = true;
+const DEBUG_TRACE_EXECUTION: bool = false;
 
 impl VirtualMachine {
     pub fn new() -> Self {

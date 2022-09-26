@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// Disassemble the chunk once it is compiled
-const DEBUG_PRINT_CODE: bool = true;
+const DEBUG_PRINT_CODE: bool = false;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,

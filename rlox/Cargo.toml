@@ -15,4 +15,9 @@ rustyline = "10.0.0"
 string-interner = "0.14.0"
 thiserror = "1.0.36"
 
-[features]
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "fib"
+harness = false
