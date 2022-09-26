@@ -18,7 +18,7 @@ pub struct Parser<'a> {
     lexer: Lexer<'a>,
     previous: Token<'a>,
     current: Token<'a>,
-    compiler: Compiler,
+    compilers: Vec<Compiler>,
 }
 
 struct Compiler {
@@ -26,6 +26,7 @@ struct Compiler {
     function_kind: FunctionKind,
     locals: Vec<Local>,
     scope_depth: usize,
+    upvalues: Vec<CompilerUpvalue>,
 }
 
 impl<'a> Parser<'a> {
@@ -34,7 +35,7 @@ impl<'a> Parser<'a> {
             lexer: Lexer::new(source),
             previous: Token::NULL,
             current: Token::NULL,
-            compiler: Compiler::new(0, FunctionKind::Script),
+            compilers: vec![Compiler::new(0, FunctionKind::Script, None)],
         }
     }
 
@@ -43,13 +44,13 @@ impl<'a> Parser<'a> {
             lexer: Lexer::with_line(source, line),
             previous: Token::NULL,
             current: Token::NULL,
-            compiler: Compiler::new(0, FunctionKind::Script),
+            compilers: vec![Compiler::new(0, FunctionKind::Script, None)],
         }
     }
 
     /// Extract the completed chunk
-    pub fn finalise(self) -> LoxFunction {
-        self.compiler.function
+    pub fn finalise(mut self) -> LoxFunction {
+        self.compilers.pop().unwrap().function
     }
 
     /// Dumo the output of the lexer. Used for testing
@@ -99,21 +100,26 @@ impl<'a> Parser<'a> {
         LoxError::SyntaxError { line, msg }
     }
 
-    fn into_current_chunk(self) -> Chunk {
-        self.compiler.function.chunk
-    }
     /// Get a mutable reference to the current chunk.
     ///
     /// Currently trivial, will become Not.
     fn current_chunk_mut(&mut self) -> &mut Chunk {
-        &mut self.compiler.function.chunk
+        &mut self.current_compiler_mut().function.chunk
     }
 
     /// Get a shared reference to the current chunk.
     ///
     /// Currently trivial, will become Not.
     fn current_chunk(&mut self) -> &Chunk {
-        &self.compiler.function.chunk
+        &self.current_compiler().function.chunk
+    }
+
+    fn current_compiler(&self) -> &Compiler {
+        self.compilers.last().unwrap()
+    }
+
+    fn current_compiler_mut(&mut self) -> &mut Compiler {
+        self.compilers.last_mut().unwrap()
     }
 
     /// Emit an opcode to the current chunk
@@ -130,18 +136,16 @@ impl<'a> Parser<'a> {
         self.emit(Opcode::Return);
 
         if DEBUG_PRINT_CODE {
-            // lmao this deadlocks in `cargo test`
-            /*
-             * let interner = INTERNER.lock();
-             * let mut name = interner
-             *     .resolve(self.compiler.function.name)
-             *     .unwrap_or("code");
-             * if name.is_empty() {
-             *     name = "code";
-             * }
-             */
-            let name = "code";
-            self.current_chunk_mut().disassemble(name);
+            let name = match INTERNER
+                .lock()
+                .resolve(self.current_compiler().function.name)
+            {
+                None | Some("") => "code".to_owned(),
+                Some(name) => name.to_owned(),
+            };
+
+            println!("== {name} ==");
+            self.current_chunk_mut().disassemble();
         }
     }
 
@@ -158,25 +162,29 @@ impl<'a> Parser<'a> {
     }
 
     fn begin_scope(&mut self) {
-        self.compiler.scope_depth += 1;
+        self.current_compiler_mut().scope_depth += 1;
     }
 
     fn end_scope(&mut self) {
-        self.compiler.scope_depth = self
-            .compiler
+        self.current_compiler_mut().scope_depth = self
+            .current_compiler()
             .scope_depth
             .checked_sub(1)
             .expect("Internal error: went into negative scope");
 
         while self
-            .compiler
+            .current_compiler()
             .locals
             .last()
-            .map(|x| x.depth.unwrap() > self.compiler.scope_depth)
+            .map(|x| x.depth.unwrap() > self.current_compiler().scope_depth)
             .unwrap_or(false)
         {
-            self.emit(Opcode::Pop);
-            self.compiler.locals.pop();
+            if self.current_compiler().locals.last().unwrap().is_captured {
+                self.emit(Opcode::CloseUpvalue);
+            } else {
+                self.emit(Opcode::Pop);
+            }
+            self.current_compiler_mut().locals.pop();
         }
     }
 }
@@ -216,7 +224,8 @@ impl<'a> Parser<'a> {
         let name = INTERNER.lock().get_or_intern(name);
 
         if matches!(location, VariableLocation::Local) {
-            self.compiler.locals.last_mut().unwrap().depth = Some(self.compiler.scope_depth)
+            self.current_compiler_mut().locals.last_mut().unwrap().depth =
+                Some(self.current_compiler().scope_depth)
         }
 
         self.function(name)?;
@@ -229,8 +238,8 @@ impl<'a> Parser<'a> {
     }
 
     fn function(&mut self, name: SymbolUsize) -> Result<(), LoxError> {
-        let new_compiler = Compiler::new(0, FunctionKind::Function);
-        let old_compiler = std::mem::replace(&mut self.compiler, new_compiler);
+        let new_compiler = Compiler::new(0, FunctionKind::Function, Some(name));
+        self.compilers.push(new_compiler);
 
         self.begin_scope();
 
@@ -241,22 +250,14 @@ impl<'a> Parser<'a> {
 
         if !self.check(TokenKind::RightParen) {
             loop {
-                self.compiler.function.arity += 1;
-                /*
-                 * if self.compiler.function.arity > 255 {
-                 *     return Err(self.error(
-                 *         ErrorLocation::Previous,
-                 *         "Cannot have more than 255 parameters".to_owned(),
-                 *     ));
-                 * }
-                 */
+                self.current_compiler_mut().function.arity += 1;
 
                 let location = self.parse_variable("Expected parameter name".to_owned())?;
 
                 match location {
                     VariableLocation::Local => {
-                        self.compiler.locals.last_mut().unwrap().depth =
-                            Some(self.compiler.scope_depth)
+                        self.current_compiler_mut().locals.last_mut().unwrap().depth =
+                            Some(self.current_compiler().scope_depth)
                     }
                     _ => unreachable!("Internal error: function parameters must be local"),
                 }
@@ -271,6 +272,7 @@ impl<'a> Parser<'a> {
             TokenKind::RightParen,
             "Expected ')' after function parameters".to_owned(),
         )?;
+
         self.consume(
             TokenKind::LeftBrace,
             "Expected '{' before function body".to_owned(),
@@ -280,13 +282,20 @@ impl<'a> Parser<'a> {
 
         self.end_compiler();
 
-        let mut finished = std::mem::replace(&mut self.compiler, old_compiler);
+        let mut finished = self
+            .compilers
+            .pop()
+            .expect("Internal error: no compiler to pop");
 
         finished.function.name = name;
 
-        self.emit(Opcode::Constant(Value::Function(Arc::new(
-            finished.function,
-        ))));
+        let Compiler {
+            function, upvalues, ..
+        } = finished;
+
+        let function = Arc::new(function);
+
+        self.emit(Opcode::Closure(Value::Function(function), upvalues));
 
         Ok(())
     }
@@ -308,7 +317,8 @@ impl<'a> Parser<'a> {
         if let VariableLocation::Global(name) = name {
             self.emit(Opcode::DefineGlobal(name));
         } else {
-            self.compiler.locals.last_mut().unwrap().depth = Some(self.compiler.scope_depth);
+            self.current_compiler_mut().locals.last_mut().unwrap().depth =
+                Some(self.current_compiler().scope_depth);
         }
 
         Ok(())
@@ -319,7 +329,7 @@ impl<'a> Parser<'a> {
 
         self.declare_variable()?;
 
-        if self.compiler.scope_depth != 0 {
+        if self.current_compiler().scope_depth != 0 {
             return Ok(VariableLocation::Local);
         }
 
@@ -329,15 +339,15 @@ impl<'a> Parser<'a> {
     }
 
     fn declare_variable(&mut self) -> Result<(), LoxError> {
-        if self.compiler.scope_depth == 0 {
+        if self.current_compiler().scope_depth == 0 {
             return Ok(());
         }
 
         let name = self.previous.span;
         let name = INTERNER.lock().get_or_intern(name);
 
-        for local in self.compiler.locals.iter().rev() {
-            if local.is_defined() && local.depth < Some(self.compiler.scope_depth) {
+        for local in self.current_compiler().locals.iter().rev() {
+            if local.is_defined() && local.depth < Some(self.current_compiler().scope_depth) {
                 break;
             }
 
@@ -355,7 +365,11 @@ impl<'a> Parser<'a> {
     }
 
     fn add_local(&mut self, name: SymbolUsize) {
-        self.compiler.locals.push(Local { name, depth: None });
+        self.current_compiler_mut().locals.push(Local {
+            name,
+            depth: None,
+            is_captured: false,
+        });
     }
 
     fn statement(&mut self) -> Result<(), LoxError> {
@@ -381,7 +395,7 @@ impl<'a> Parser<'a> {
     }
 
     fn return_statement(&mut self) -> Result<(), LoxError> {
-        if matches!(self.compiler.function_kind, FunctionKind::Script) {
+        if matches!(self.current_compiler().function_kind, FunctionKind::Script) {
             return Err(self.error(
                 ErrorLocation::Previous,
                 "Cannot return from top-level code".to_owned(),
@@ -736,11 +750,12 @@ impl<'a> Parser<'a> {
         let get_op;
         let set_op;
 
-        let arg = self.resolve_local(name)?;
-
-        if let Some(arg) = arg {
+        if let Some(arg) = self.resolve_local(self.compilers.len() - 1, name)? {
             get_op = Opcode::GetLocal(arg);
             set_op = Opcode::SetLocal(arg);
+        } else if let Some(arg) = self.resolve_upvalue(self.compilers.len() - 1, name)? {
+            get_op = Opcode::GetUpvalue(arg);
+            set_op = Opcode::SetUpvalue(arg);
         } else {
             get_op = Opcode::GetGlobal(name);
             set_op = Opcode::SetGlobal(name);
@@ -756,8 +771,60 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn resolve_local(&mut self, name: SymbolUsize) -> Result<Option<usize>, LoxError> {
-        for (i, local) in self.compiler.locals.iter().enumerate().rev() {
+    fn resolve_upvalue(
+        &mut self,
+        compiler_idx: usize,
+        name: SymbolUsize,
+    ) -> Result<Option<usize>, LoxError> {
+        // First check if we're in the global scope
+        if compiler_idx == 0 {
+            return Ok(None);
+        }
+
+        // Then check in the parent scope
+        if let Some(local) = self.resolve_local(compiler_idx - 1, name)? {
+            self.compilers[compiler_idx - 1].locals[local].is_captured = true;
+            return self.add_upvalue(compiler_idx, local, true);
+        }
+
+        if let Some(upvalue) = self.resolve_upvalue(compiler_idx - 1, name)? {
+            self.compilers[compiler_idx - 1].locals[upvalue].is_captured = true;
+            return self.add_upvalue(compiler_idx, upvalue, false);
+        }
+
+        // Upvalue not found. Lox is late-bound for globals, so this effectively means "hopefully a
+        // global", or it will be a runtime error.
+        Ok(None)
+    }
+
+    fn add_upvalue(
+        &mut self,
+        compiler_idx: usize,
+        local: usize,
+        is_local: bool,
+    ) -> Result<Option<usize>, LoxError> {
+        let upvalue = CompilerUpvalue {
+            index: local,
+            is_local,
+        };
+
+        for (i, uv) in self.compilers[compiler_idx].upvalues.iter().enumerate() {
+            if uv == &upvalue {
+                return Ok(Some(i));
+            }
+        }
+
+        self.compilers[compiler_idx].upvalues.push(upvalue);
+
+        Ok(Some(self.compilers[compiler_idx].upvalues.len() - 1))
+    }
+
+    fn resolve_local(
+        &mut self,
+        compiler_idx: usize,
+        name: SymbolUsize,
+    ) -> Result<Option<usize>, LoxError> {
+        for (i, local) in self.compilers[compiler_idx].locals.iter().enumerate().rev() {
             if local.name == name {
                 if local.depth.is_none() {
                     return Err(self.error(
@@ -814,14 +881,17 @@ impl<'a> Parser<'a> {
 }
 
 impl Compiler {
-    fn new(scope_depth: usize, kind: FunctionKind) -> Self {
+    fn new(scope_depth: usize, kind: FunctionKind, function_name: Option<SymbolUsize>) -> Self {
         let mut locals = Vec::new();
         let mut interner = INTERNER.lock();
         let name = interner.get_or_intern("");
         locals.push(Local {
             name,
             depth: Some(0),
+            is_captured: false,
         });
+
+        let name = function_name.unwrap_or(name);
 
         let function = LoxFunction::new(0, Chunk::default(), name);
 
@@ -830,6 +900,7 @@ impl Compiler {
             scope_depth,
             function,
             function_kind: kind,
+            upvalues: Vec::new(),
         }
     }
 }
@@ -934,6 +1005,13 @@ struct ParseRule {
 struct Local {
     name: SymbolUsize,
     depth: Option<usize>,
+    is_captured: bool,
+}
+
+impl Local {
+    fn is_defined(&self) -> bool {
+        self.depth.is_some()
+    }
 }
 
 impl std::fmt::Debug for Local {
@@ -945,6 +1023,18 @@ impl std::fmt::Debug for Local {
             .field("depth", &self.depth)
             .finish()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompilerUpvalue {
+    pub index: usize,
+    pub is_local: bool,
+}
+
+#[derive(Debug)]
+enum VariableLocation {
+    Local,
+    Global(SymbolUsize),
 }
 
 /// The main Pratt parser lookup table.
@@ -1155,16 +1245,4 @@ const fn parse_rule(token: TokenKind) -> ParseRule {
             precedence: Precedence::None,
         },
     }
-}
-
-impl Local {
-    fn is_defined(&self) -> bool {
-        self.depth.is_some()
-    }
-}
-
-#[derive(Debug)]
-enum VariableLocation {
-    Local,
-    Global(SymbolUsize),
 }

@@ -88,7 +88,7 @@ fn syntax() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
+#[ignore = "Broken"]
 fn closure_in_body() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"
@@ -143,7 +143,6 @@ fn fun_in_body() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn return_closure() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"

@@ -7,9 +7,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn disassemble(&self, name: &str) {
-        println!("== {name} ==");
-
+    pub fn disassemble(&self) {
         let mut disassembler = Disassembler::new();
         for (idx, (instruction, line)) in self.code.iter().zip(&self.lines).enumerate() {
             let next_line = self.lines.get(idx + 1).copied();

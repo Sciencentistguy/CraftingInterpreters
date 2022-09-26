@@ -85,7 +85,6 @@ fn local_mutual_recursion() -> Result<()> {
 }
 
 #[test]
-#[ignore = "NYI"]
 fn local_recursion() -> Result<()> {
     let mut vm = VirtualMachine::new();
     const PROGRAM: &str = r#"{

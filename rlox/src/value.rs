@@ -7,6 +7,7 @@ use std::{
     sync::Arc,
 };
 
+use parking_lot::Mutex;
 use string_interner::symbol::SymbolUsize;
 
 use crate::{chunk::Chunk, error::LoxError, INTERNER};
@@ -19,6 +20,72 @@ pub enum Value {
     String(SymbolUsize),
     Function(Arc<LoxFunction>),
     NativeFn(Arc<NativeFn>),
+    Closure(Arc<LoxClosure>),
+}
+
+#[derive(Debug)]
+pub struct LoxClosure {
+    pub function: Arc<LoxFunction>,
+    pub upvalues: Vec<Arc<RuntimeUpvalue>>,
+}
+
+impl LoxClosure {
+    pub fn new(function: Arc<LoxFunction>) -> Self {
+        Self {
+            function,
+            upvalues: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RuntimeUpvalue {
+    pub slot: usize,
+    closed: Mutex<Option<Value>>,
+}
+
+impl RuntimeUpvalue {
+    pub fn new(slot: usize) -> Self {
+        Self {
+            slot,
+            closed: Mutex::new(None),
+        }
+    }
+
+    pub fn get(&self, stack: &[Value]) -> Value {
+        if let Some(closed) = &mut *self.closed.lock() {
+            closed.clone()
+        } else {
+            stack.get(self.slot).cloned().expect(
+                "Internal error: Upvalue slot out of bounds. Should probably have been closed",
+            )
+        }
+    }
+
+    pub fn set(&self, val: Value, stack: &mut [Value]) {
+        if let Some(closed) = &mut *self.closed.lock() {
+            *closed = val;
+        } else {
+            stack[self.slot] = val;
+        }
+    }
+
+    pub fn close(&self, val: Value) {
+        let mut closed = self.closed.lock();
+        if closed.is_none() {
+            eprintln!(
+                "Closing upvalue for slot {:?} with value '{val}'",
+                self.slot
+            );
+            *closed = Some(val);
+        } else {
+            eprintln!("Attempted to close already-closed value")
+        }
+    }
+
+    pub fn is_open(&self, slot: usize) -> bool {
+        self.slot == slot && self.closed.lock().is_none()
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -46,6 +113,7 @@ pub struct LoxFunction {
     pub arity: usize,
     pub chunk: Chunk,
     pub name: SymbolUsize,
+    upvalue_count: usize,
 }
 
 /// A value that can be called
@@ -55,7 +123,12 @@ pub struct Callable(Value);
 
 impl LoxFunction {
     pub fn new(arity: usize, chunk: Chunk, name: SymbolUsize) -> Self {
-        Self { arity, chunk, name }
+        Self {
+            arity,
+            chunk,
+            name,
+            upvalue_count: 0,
+        }
     }
 }
 
@@ -72,6 +145,7 @@ mod kind {
     pub(super) const STRING: &str = "string";
     pub(super) const FUNCTION: &str = "function";
     pub(super) const NATIVE_FUNCTION: &str = "native function";
+    pub(super) const CLOSURE: &str = "closure";
 }
 
 impl Value {
@@ -159,14 +233,31 @@ impl Value {
             Value::String(_) => kind::STRING,
             Value::Function(_) => kind::FUNCTION,
             Value::NativeFn(_) => kind::NATIVE_FUNCTION,
+            Value::Closure(_) => kind::CLOSURE,
         }
     }
 
     pub fn as_callable(&self) -> Option<&Callable> {
-        if matches!(self, Value::Function(_) | Value::NativeFn(_)) {
+        if matches!(self, Value::Closure(_) | Value::NativeFn(_)) {
             // Safety: We just checked that it is a function. Repr(transparent) means transmute is
             // okay
             Some(unsafe { mem::transmute(self) })
+        } else {
+            None
+        }
+    }
+
+    pub fn as_function(&self) -> Option<&Arc<LoxFunction>> {
+        if let Self::Function(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_closure(&self) -> Option<&Arc<LoxClosure>> {
+        if let Self::Closure(v) = self {
+            Some(v)
         } else {
             None
         }
@@ -176,15 +267,15 @@ impl Value {
 impl Callable {
     pub fn arity(&self) -> usize {
         match &self.0 {
-            Value::Function(f) => f.arity,
+            Value::Closure(f) => f.function.arity,
             Value::NativeFn(f) => f.arity,
             _ => unreachable!(),
         }
     }
 
-    pub fn into_function(self) -> Arc<LoxFunction> {
+    pub fn into_closure(self) -> Arc<LoxClosure> {
         match self.0 {
-            Value::Function(f) => f,
+            Value::Closure(f) => f,
             _ => unreachable!(),
         }
     }
@@ -206,6 +297,7 @@ impl Display for Value {
             Value::String(n) => write!(f, "{}", INTERNER.lock().resolve(*n).unwrap()),
             Value::Function(n) => write!(f, "{n}"),
             Value::NativeFn(n) => write!(f, "{n}"),
+            Value::Closure(n) => write!(f, "{n}"),
         }
     }
 }
@@ -258,5 +350,15 @@ impl fmt::Debug for NativeFn {
 impl fmt::Display for NativeFn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<native fn {}>", self.name)
+    }
+}
+
+impl fmt::Display for LoxClosure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "<fn {}>",
+            INTERNER.lock().resolve(self.function.name).unwrap()
+        )
     }
 }

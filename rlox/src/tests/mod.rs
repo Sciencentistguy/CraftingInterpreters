@@ -1,7 +1,10 @@
+#![allow(unused_imports)]
+
 type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
 
 mod block;
 mod bool;
+mod closure;
 mod comment;
 mod expression;
 mod r#for;

@@ -8,26 +8,23 @@ use crate::{
     debug::Disassembler,
     error::LoxError,
     opcode::Opcode,
-    value::{Callable, LoxFunction, NativeFn, Value},
+    value::{Callable, LoxClosure, NativeFn, RuntimeUpvalue, Value},
     INTERNER,
 };
-
-struct Uninit;
-struct Init;
 
 #[derive(Debug)]
 pub struct VirtualMachine {
     stack: Vec<Value>,
     globals: HashMap<SymbolUsize, Value>,
     call_stack: Vec<CallFrame>,
-
+    open_upvalues: Vec<Arc<RuntimeUpvalue>>,
     #[cfg(test)]
     pub print_log: Vec<String>,
 }
 
 #[derive(Debug)]
 struct CallFrame {
-    function: Arc<LoxFunction>,
+    closure: Arc<LoxClosure>,
     program_counter: usize,
     slots_start: usize,
 }
@@ -58,6 +55,7 @@ impl VirtualMachine {
             // current_chunk(): Chunk::default(),
             // Dynamic stacks means no™️ overflows!
             call_stack: Vec::with_capacity(64),
+            open_upvalues: Vec::new(),
 
             #[cfg(test)]
             print_log: Vec::new(),
@@ -70,7 +68,7 @@ impl VirtualMachine {
         parser.compile()?;
 
         let frame = CallFrame {
-            function: Arc::new(parser.finalise()),
+            closure: Arc::new(LoxClosure::new(Arc::new(parser.finalise()))),
             program_counter: 0,
             slots_start: 0,
         };
@@ -113,6 +111,8 @@ impl VirtualMachine {
             match opcode {
                 Opcode::Return => {
                     let result = self.stack_pop();
+
+                    self.close_upvalues(self.current_frame().slots_start);
 
                     let old_frame = self.call_stack.pop().unwrap();
 
@@ -285,6 +285,42 @@ impl VirtualMachine {
                     self.call(callee, arity)?;
                     continue;
                 }
+                Opcode::Closure(function, upvalues) => {
+                    let function = function.as_function().unwrap().clone();
+                    let mut closure = LoxClosure::new(function);
+
+                    for upvalue in upvalues {
+                        let slot = self.current_frame().slots_start + upvalue.index;
+
+                        let upvalue = if upvalue.is_local {
+                            self.capture_upvalue(slot)
+                        } else {
+                            self.current_frame().closure.upvalues[upvalue.index].clone()
+                        };
+
+                        closure.upvalues.push(upvalue);
+                    }
+
+                    let closure = Arc::new(closure);
+                    self.stack.push(Value::Closure(closure));
+                }
+                Opcode::GetUpvalue(slot) => {
+                    let uv = &self.current_frame().closure.upvalues[slot];
+                    let val = uv.get(&self.stack).clone();
+                    self.stack.push(val);
+                }
+                Opcode::SetUpvalue(slot) => {
+                    let val = self.stack_top().clone();
+                    let uv = &self.call_stack.last_mut().unwrap().closure.upvalues[slot];
+                    uv.set(val, &mut self.stack);
+                }
+                Opcode::CloseUpvalue => {
+                    let slot = self.stack.len() - 1;
+
+                    if let Some(uv) = self.open_upvalues.iter().find(|uv| uv.is_open(slot)) {
+                        uv.close(self.stack_top().clone())
+                    }
+                }
             }
 
             // The PC can go to "-1" (actually usize::MAX but who's counting) if we loop to the
@@ -305,7 +341,7 @@ impl VirtualMachine {
     }
 
     fn current_chunk(&self) -> &Chunk {
-        &self.call_stack.last().unwrap().function.chunk
+        &self.call_stack.last().unwrap().closure.function.chunk
     }
 
     fn current_frame(&self) -> &CallFrame {
@@ -314,8 +350,18 @@ impl VirtualMachine {
             .expect("Internal error: Empty callstack")
     }
 
+    fn current_frame_mut(&mut self) -> &mut CallFrame {
+        self.call_stack
+            .last_mut()
+            .expect("Internal error: Empty callstack")
+    }
+
     fn stack_top(&self) -> &Value {
         self.stack.last().expect("Internal error: Empty stack")
+    }
+
+    fn stack_top_mut(&mut self) -> &mut Value {
+        self.stack.last_mut().expect("Internal error: Empty stack")
     }
 
     fn stack_pop(&mut self) -> Value {
@@ -340,12 +386,40 @@ impl VirtualMachine {
         }
 
         let frame = CallFrame {
-            function: callable.into_function(),
+            closure: callable.into_closure(),
             program_counter: 0,
             slots_start: self.stack.len() - 1 - arity,
         };
 
         self.call_stack.push(frame);
         Ok(())
+    }
+
+    fn capture_upvalue(&mut self, slot: usize) -> Arc<RuntimeUpvalue> {
+        // FIXME: Binary search
+        // TODO: The book can give up earlier because its sorted
+        if let Some(found) = self.open_upvalues.iter().find(|ruv| ruv.slot == slot) {
+            return found.clone();
+        }
+
+        let created = Arc::new(RuntimeUpvalue::new(slot));
+
+        // FIXME: Binary search
+        self.open_upvalues.push(created.clone());
+        self.open_upvalues.sort_by_key(|ruv| ruv.slot);
+
+        created
+    }
+
+    fn close_upvalues(&mut self, start_slot: usize) {
+        for uv in self.open_upvalues.iter().rev() {
+            let slot = uv.slot;
+            if uv.is_open(slot) {
+                uv.close(self.stack[slot].clone());
+            }
+            if slot < start_slot {
+                break;
+            }
+        }
     }
 }

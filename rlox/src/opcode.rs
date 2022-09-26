@@ -1,6 +1,6 @@
 use string_interner::symbol::SymbolUsize;
 
-use crate::value::Value;
+use crate::{compiler::CompilerUpvalue, value::Value};
 
 #[derive(Debug, Clone)]
 pub enum Opcode {
@@ -36,4 +36,9 @@ pub enum Opcode {
     Jump(usize),
     Loop(usize),
     Call(usize),
+
+    Closure(Value, Vec<CompilerUpvalue>),
+    GetUpvalue(usize),
+    SetUpvalue(usize),
+    CloseUpvalue,
 }

@@ -133,6 +133,26 @@ impl Disassembler {
             Opcode::Call(arity) => {
                 println!("Call\t{arity}");
             }
+
+            Opcode::Closure(function, upvalues) => {
+                println!("Closure\t{function}");
+                for uv in upvalues {
+                    println!(
+                        "  |\t\t  {} {}",
+                        if uv.is_local { "local" } else { "upvalue" },
+                        uv.index
+                    );
+                }
+            }
+            Opcode::GetUpvalue(slot) => {
+                println!("GetUpvalue\t{slot}");
+            }
+            Opcode::SetUpvalue(slot) => {
+                println!("SetUpvalue\t{slot}");
+            }
+            Opcode::CloseUpvalue => {
+                println!("CloseUpvalue");
+            }
         }
     }
 
