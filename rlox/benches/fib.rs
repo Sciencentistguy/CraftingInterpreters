@@ -15,9 +15,12 @@ fn fib_35() {
     vm.start().unwrap();
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("fib 35", |b| b.iter(fib_35));
+fn bench(c: &mut Criterion) {
+    let mut group = c.benchmark_group("fib_35");
+    group.sample_size(10);
+    group.bench_function("my-function", |b| b.iter(fib_35));
+    group.finish();
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(benches, bench);
 criterion_main!(benches);
