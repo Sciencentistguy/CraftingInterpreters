@@ -8,7 +8,7 @@ use crate::{
     debug::Disassembler,
     error::LoxError,
     opcode::Opcode,
-    value::{Callable, LoxClass, LoxClosure, LoxInstance, NativeFn, RuntimeUpvalue, Value},
+    value::{LoxClass, LoxClosure, LoxInstance, NativeFn, RuntimeUpvalue, Value},
     INTERNER,
 };
 
@@ -257,33 +257,35 @@ impl VirtualMachine {
                      * }
                      */
                 }
-                Opcode::Call(arity) => {
-                    let callee_slot = self.stack.len() - arity - 1;
+                Opcode::Call(expected_arity) => {
+                    let callee_slot = self.stack.len() - expected_arity - 1;
                     let callee = self
                         .stack
                         .get(callee_slot)
                         .expect("Internal error: Not enough arguments on stack");
 
-                    let callee = callee
-                        .as_callable()
-                        .ok_or_else(|| {
-                            LoxError::RuntimeError(format!(
-                                "Can only call functions and classes. Found {:?} instead.",
+                    match callee {
+                        Value::Class(_) | Value::Closure(_) | Value::NativeFn(_) => {
+                            let arity = callee.arity().unwrap();
+                            if arity != expected_arity {
+                                return Err(LoxError::RuntimeError(format!(
+                                    "Expected {} arguments but got {}.",
+                                    arity, expected_arity
+                                )));
+                            }
+
+                            self.call(callee.clone(), arity)?;
+                            continue;
+                        }
+                        _ => {
+                            //error
+                            // return Err(LoxError::NotCallable(callee.clone()));
+                            return Err(LoxError::RuntimeError(format!(
+                                "Can only call functions and classes. {} is not callable.",
                                 callee.kind()
-                            ))
-                        })?
-                        .clone();
-
-                    if arity != callee.arity() {
-                        return Err(LoxError::RuntimeError(format!(
-                            "Expected {} arguments but got {}.",
-                            callee.arity(),
-                            arity
-                        )));
+                            )));
+                        }
                     }
-
-                    self.call(callee, arity)?;
-                    continue;
                 }
                 Opcode::Closure(function, upvalues) => {
                     let function = function.as_function().unwrap().clone();
@@ -372,8 +374,8 @@ impl VirtualMachine {
         self.stack.pop().expect("Internal error: Empty stack")
     }
 
-    fn call(&mut self, callable: Callable, arity: usize) -> Result<(), LoxError> {
-        if let Some(nativefn) = callable.as_nativefn() {
+    fn call(&mut self, callee: Value, arity: usize) -> Result<(), LoxError> {
+        if let Some(nativefn) = callee.as_nativefn() {
             let args = &self.stack[self.stack.len() - 1 - arity..];
 
             let result = (nativefn.function)(args)?;
@@ -386,27 +388,30 @@ impl VirtualMachine {
             // VM doesn't increment the PC after a call, so we need to do it here
             *self.program_counter_mut() = self.program_counter().wrapping_add(1);
 
-            return Ok(());
-        } else if let Some(class) = callable.into_class() {
+            Ok(())
+        } else if let Some(class) = callee.get_class() {
             let instance = LoxInstance::new(class);
             self.stack.push(Value::Instance(Arc::new(instance)));
 
             // VM doesn't increment the PC after a call, so we need to do it here
             *self.program_counter_mut() = self.program_counter().wrapping_add(1);
 
-            return Ok(());
+            Ok(())
+        } else if let Some(closure) = callee.get_closure() {
+            let frame = CallFrame {
+                closure,
+                program_counter: 0,
+                slots_start: self.stack.len() - 1 - arity,
+            };
+
+            self.call_stack.push(frame);
+            Ok(())
+        } else {
+            unreachable!(
+                "Internal error: Should not be able to call type {:?}",
+                callee.kind()
+            )
         }
-
-        let frame = CallFrame {
-            closure: callable
-                .into_closure()
-                .expect("Internal Error: Should not be able to call non-closure"),
-            program_counter: 0,
-            slots_start: self.stack.len() - 1 - arity,
-        };
-
-        self.call_stack.push(frame);
-        Ok(())
     }
 
     fn capture_upvalue(&mut self, slot: usize) -> Arc<RuntimeUpvalue> {

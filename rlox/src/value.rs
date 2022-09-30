@@ -3,7 +3,6 @@ use std::{
     cmp,
     collections::HashMap,
     fmt::Display,
-    mem,
     ops::{Neg, Not},
     sync::Arc,
 };
@@ -145,11 +144,6 @@ pub struct LoxFunction {
     upvalue_count: usize,
 }
 
-/// A value that can be called
-#[repr(transparent)]
-#[derive(Debug, Clone)]
-pub struct Callable(Value);
-
 impl LoxFunction {
     pub fn new(arity: usize, chunk: Chunk, name: SymbolUsize) -> Self {
         Self {
@@ -270,19 +264,6 @@ impl Value {
         }
     }
 
-    pub fn as_callable(&self) -> Option<&Callable> {
-        if matches!(
-            self,
-            Value::Closure(_) | Value::NativeFn(_) | Value::Class(_)
-        ) {
-            // Safety: We just checked that it is a function. Repr(transparent) means transmute is
-            // okay
-            Some(unsafe { mem::transmute(self) })
-        } else {
-            None
-        }
-    }
-
     pub fn as_function(&self) -> Option<&Arc<LoxFunction>> {
         if let Self::Function(v) = self {
             Some(v)
@@ -300,31 +281,31 @@ impl Value {
     }
 }
 
-impl Callable {
-    pub fn arity(&self) -> usize {
-        match &self.0 {
-            Value::Closure(c) => c.function.arity,
-            Value::NativeFn(f) => f.arity,
-            Value::Class(_) => 0,
-            _ => unreachable!(),
+impl Value {
+    pub fn arity(&self) -> Option<usize> {
+        match self {
+            Value::Closure(c) => Some(c.function.arity),
+            Value::NativeFn(f) => Some(f.arity),
+            Value::Class(_) => Some(0),
+            _ => None,
         }
     }
 
-    pub fn into_closure(self) -> Option<Arc<LoxClosure>> {
-        match self.0 {
-            Value::Closure(f) => Some(f),
+    pub fn get_closure(&self) -> Option<Arc<LoxClosure>> {
+        match self {
+            Value::Closure(f) => Some(f.clone()),
             _ => None,
         }
     }
 
     pub fn as_nativefn(&self) -> Option<&NativeFn> {
-        match &self.0 {
+        match self {
             Value::NativeFn(f) => Some(f),
             _ => None,
         }
     }
-    pub fn into_class(&self) -> Option<Arc<LoxClass>> {
-        match &self.0 {
+    pub fn get_class(&self) -> Option<Arc<LoxClass>> {
+        match self {
             Value::Class(c) => Some(c.clone()),
             _ => None,
         }
