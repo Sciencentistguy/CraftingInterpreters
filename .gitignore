@@ -87,3 +87,5 @@ test.lox
 fib.lox
 
 history.txt
+.vscode/
+result
