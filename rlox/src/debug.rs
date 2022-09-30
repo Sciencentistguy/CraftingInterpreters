@@ -144,14 +144,23 @@ impl Disassembler {
                     );
                 }
             }
+
             Opcode::GetUpvalue(slot) => {
                 println!("GetUpvalue\t{slot}");
             }
+
             Opcode::SetUpvalue(slot) => {
                 println!("SetUpvalue\t{slot}");
             }
+
             Opcode::CloseUpvalue => {
                 println!("CloseUpvalue");
+            }
+
+            Opcode::Class(name) => {
+                let interner = INTERNER.lock();
+                let name = interner.resolve(*name).unwrap();
+                println!("Class\t{name}");
             }
         }
     }

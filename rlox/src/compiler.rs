@@ -206,13 +206,45 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) -> Result<(), LoxError> {
-        if self.matches(TokenKind::Fun)? {
+        if self.matches(TokenKind::Class)? {
+            self.class_declaration()?;
+        } else if self.matches(TokenKind::Fun)? {
             self.function_declaration()?;
         } else if self.matches(TokenKind::Var)? {
             self.variable_declaration()?;
         } else {
             self.statement()?;
         }
+
+        Ok(())
+    }
+
+    fn class_declaration(&mut self) -> Result<(), LoxError> {
+        self.consume(TokenKind::Identifier, "Expected class name".to_owned())?;
+
+        let name = self.previous.span;
+        dbg!(name);
+        let name = INTERNER.lock().get_or_intern(name);
+        self.declare_variable()?;
+
+        self.emit(Opcode::Class(name));
+
+        // define variable
+        if self.current_compiler().scope_depth > 0 {
+            self.current_compiler_mut().locals.last_mut().unwrap().depth =
+                Some(self.current_compiler().scope_depth);
+        } else {
+            self.emit(Opcode::DefineGlobal(name));
+        }
+
+        self.consume(
+            TokenKind::LeftBrace,
+            "Expected '{' before class body".to_owned(),
+        )?;
+        self.consume(
+            TokenKind::RightBrace,
+            "Expected '}' after class body".to_owned(),
+        )?;
 
         Ok(())
     }
@@ -344,6 +376,7 @@ impl<'a> Parser<'a> {
         }
 
         let name = self.previous.span;
+        dbg!(name);
         let name = INTERNER.lock().get_or_intern(name);
 
         for local in self.current_compiler().locals.iter().rev() {

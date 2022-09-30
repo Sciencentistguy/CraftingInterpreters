@@ -8,7 +8,7 @@ use crate::{
     debug::Disassembler,
     error::LoxError,
     opcode::Opcode,
-    value::{Callable, LoxClosure, NativeFn, RuntimeUpvalue, Value},
+    value::{Callable, LoxClass, LoxClosure, LoxInstance, NativeFn, RuntimeUpvalue, Value},
     INTERNER,
 };
 
@@ -321,6 +321,10 @@ impl VirtualMachine {
                         uv.close(self.stack_top().clone())
                     }
                 }
+                Opcode::Class(name) => {
+                    let class = LoxClass::new(name);
+                    self.stack.push(Value::Class(Arc::new(class)));
+                }
             }
 
             // The PC can go to "-1" (actually usize::MAX but who's counting) if we loop to the
@@ -383,10 +387,20 @@ impl VirtualMachine {
             *self.program_counter_mut() = self.program_counter().wrapping_add(1);
 
             return Ok(());
+        } else if let Some(class) = callable.into_class() {
+            let instance = LoxInstance::new(class);
+            self.stack.push(Value::Instance(Arc::new(instance)));
+
+            // VM doesn't increment the PC after a call, so we need to do it here
+            *self.program_counter_mut() = self.program_counter().wrapping_add(1);
+
+            return Ok(());
         }
 
         let frame = CallFrame {
-            closure: callable.into_closure(),
+            closure: callable
+                .into_closure()
+                .expect("Internal Error: Should not be able to call non-closure"),
             program_counter: 0,
             slots_start: self.stack.len() - 1 - arity,
         };

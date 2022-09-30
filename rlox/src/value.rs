@@ -1,6 +1,7 @@
 use core::fmt;
 use std::{
     cmp,
+    collections::HashMap,
     fmt::Display,
     mem,
     ops::{Neg, Not},
@@ -21,6 +22,34 @@ pub enum Value {
     Function(Arc<LoxFunction>),
     NativeFn(Arc<NativeFn>),
     Closure(Arc<LoxClosure>),
+    Class(Arc<LoxClass>),
+    Instance(Arc<LoxInstance>),
+}
+
+#[derive(Debug)]
+pub struct LoxInstance {
+    pub class: Arc<LoxClass>,
+    pub fields: Mutex<HashMap<SymbolUsize, Value>>,
+}
+
+impl LoxInstance {
+    pub fn new(class: Arc<LoxClass>) -> Self {
+        Self {
+            class,
+            fields: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LoxClass {
+    name: SymbolUsize,
+}
+
+impl LoxClass {
+    pub fn new(name: SymbolUsize) -> Self {
+        Self { name }
+    }
 }
 
 #[derive(Debug)]
@@ -146,6 +175,8 @@ mod kind {
     pub(super) const FUNCTION: &str = "function";
     pub(super) const NATIVE_FUNCTION: &str = "native function";
     pub(super) const CLOSURE: &str = "closure";
+    pub(super) const CLASS: &str = "class";
+    pub(super) const INSTANCE: &str = "instance";
 }
 
 impl Value {
@@ -234,11 +265,16 @@ impl Value {
             Value::Function(_) => kind::FUNCTION,
             Value::NativeFn(_) => kind::NATIVE_FUNCTION,
             Value::Closure(_) => kind::CLOSURE,
+            Value::Class(_) => kind::CLASS,
+            Value::Instance(_) => kind::INSTANCE,
         }
     }
 
     pub fn as_callable(&self) -> Option<&Callable> {
-        if matches!(self, Value::Closure(_) | Value::NativeFn(_)) {
+        if matches!(
+            self,
+            Value::Closure(_) | Value::NativeFn(_) | Value::Class(_)
+        ) {
             // Safety: We just checked that it is a function. Repr(transparent) means transmute is
             // okay
             Some(unsafe { mem::transmute(self) })
@@ -267,22 +303,29 @@ impl Value {
 impl Callable {
     pub fn arity(&self) -> usize {
         match &self.0 {
-            Value::Closure(f) => f.function.arity,
+            Value::Closure(c) => c.function.arity,
             Value::NativeFn(f) => f.arity,
+            Value::Class(_) => 0,
             _ => unreachable!(),
         }
     }
 
-    pub fn into_closure(self) -> Arc<LoxClosure> {
+    pub fn into_closure(self) -> Option<Arc<LoxClosure>> {
         match self.0 {
-            Value::Closure(f) => f,
-            _ => unreachable!(),
+            Value::Closure(f) => Some(f),
+            _ => None,
         }
     }
 
     pub fn as_nativefn(&self) -> Option<&NativeFn> {
         match &self.0 {
             Value::NativeFn(f) => Some(f),
+            _ => None,
+        }
+    }
+    pub fn into_class(&self) -> Option<Arc<LoxClass>> {
+        match &self.0 {
+            Value::Class(c) => Some(c.clone()),
             _ => None,
         }
     }
@@ -298,6 +341,8 @@ impl Display for Value {
             Value::Function(n) => write!(f, "{n}"),
             Value::NativeFn(n) => write!(f, "{n}"),
             Value::Closure(n) => write!(f, "{n}"),
+            Value::Class(n) => write!(f, "{n}"),
+            Value::Instance(n) => write!(f, "{n}"),
         }
     }
 }
@@ -360,5 +405,17 @@ impl fmt::Display for LoxClosure {
             "<fn {}>",
             INTERNER.lock().resolve(self.function.name).unwrap()
         )
+    }
+}
+
+impl fmt::Display for LoxClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<class {}>", INTERNER.lock().resolve(self.name).unwrap())
+    }
+}
+
+impl fmt::Display for LoxInstance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<instance of {}>", self.class)
     }
 }

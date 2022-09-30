@@ -41,4 +41,6 @@ pub enum Opcode {
     GetUpvalue(usize),
     SetUpvalue(usize),
     CloseUpvalue,
+
+    Class(SymbolUsize),
 }
